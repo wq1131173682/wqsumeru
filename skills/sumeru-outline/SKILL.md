@@ -1,6 +1,6 @@
 ---
 name: sumeru-outline
-description: 小说大纲/世界观/人设设计，适用于用户说"帮我写个小说大纲"、"设计主角人设"、"做世界观设定"、"搭小说剧情框架"、"写分卷细纲"、"给我设计小说人物"、"做个玄幻世界观"、"帮我梳理小说剧情"、"小说人物设定"、"写小说分章大纲"、"爽点排布规划"、"做小说人设卡"、"构建小说世界"等需求，生成完整的世界观、人物卡、剧情大纲、爽点规划，自动合规检查避免侵权风险，**大批量章节细纲生成时使用子Agent并行处理，每个Agent最多负责3个章节的细纲**
+description: 小说大纲、世界观、人设设计与创意架构。用户要写小说大纲、设计主角/配角/反派、做世界观设定、搭剧情框架、分卷大纲、章节细纲、人物卡、爽点排布、反套路设计、惊喜反转、情绪曲线或梳理小说剧情时必须使用本技能。它按小说项目结构输出 docs/requirements.md、docs/architecture.md、docs/world.md、docs/characters.md、docs/plot.md、docs/creative-strategy.md 与 outlines/chapters.json 章节任务卡，并兼容生成 .sumeru/outline/chapter-outlines.json。大批量章节细纲生成时每个子Agent最多负责3章。
 type: skill
 ---
 
@@ -16,6 +16,47 @@ type: skill
 4. 分卷大纲：按卷划分剧情阶段，明确每卷核心冲突与目标
 5. 爽点排布：规划关键爽点、转折点、悬念点的位置
 6. 强制合规检查：基于AI推理检测所有名称，识别可能的真实人名/地名，避免侵权风险
+
+### 独立调用自举
+如果用户直接调用 `sumeru-outline`，先执行 AGENTS.md 的“断点恢复与独立调用自举”：
+- 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
+- 若已有 `docs/requirements.md` 或 `.sumeru/topic/options.json`，复用既有选题和需求。
+- 若缺少 `ideas/` 或 `docs/creative-strategy.md`，先生成最小创意策略和创意库存。
+- 大纲完成后生成或刷新 `outlines/chapters.json`；长篇项目同步拆分为 `outlines/chapters.index.json` 与 `outlines/chapters/*.json`。
+- 更新 `.sumeru/status.json`、`.sumeru/cache/project-brief.md`、`world-brief.md`、`character-brief.md`、`creative-brief.md`。
+
+### 按模式输出
+- `short/light`：输出 `outline.md`，包含高概念、人物、三幕/五段式结构、核心反转、情绪曲线、结尾余味；不强制生成章节 JSON。
+- `medium/standard`：输出 `docs/outline.md`、`docs/characters.md`、`docs/creative-strategy.md`、`outlines/chapters.md`；章节简纲可用 Markdown 表格承载。
+- `long/full`：输出完整 `docs/architecture.md`、`docs/world.md`、`docs/characters.md`、`docs/plot.md`、`docs/creative-strategy.md`、`outlines/chapters.json`，必要时拆分 `outlines/chapters.index.json` 与 `outlines/chapters/*.json`。
+
+### 输入优先级
+1. 用户明确给出的题材、篇幅、风格、禁忌内容和目标平台优先级最高。
+2. `.sumeru/project.json` 和 `docs/requirements.md` 中已有的稳定配置优先复用，不重复询问。
+3. 若存在 `.sumeru/topic/options.json` 且用户要求复用选题，优先继承推荐选题的核心概念、金手指、卖点和受众定位。
+4. 若用户提供参考作品，只抽象学习节奏、类型结构和情绪价值，不复用具体角色、设定、组织、地名、桥段和专有名词。
+5. 对缺失信息采用合理默认值，但必须在 `docs/requirements.md` 的“待确认问题”和大纲的“大纲假设”部分列出，便于用户后续调整。
+
+### 项目化输出要求
+- `docs/requirements.md`：创作需求、目标平台、受众、篇幅、禁忌内容、参考风格和待确认问题。
+- `docs/architecture.md`：故事架构，包含主线目标、终局冲突、成长系统、冲突系统、爽点密度、信息揭示节奏。
+- `docs/world.md`：世界观、力量体系、社会结构、地理与组织。
+- `docs/characters.md`：人物设定卡、人物关系、成长弧线和语言风格。
+- `docs/plot.md`：主线、支线、分卷规划、关键高潮、伏笔规划。
+- `docs/creative-strategy.md`：高概念、类型混血、反套路策略、惊喜反转、情绪差异化、读者记忆点。
+- `docs/style-guide.md`：若不存在则创建，包含叙述视角、句式、对话、爽点写法、禁用表达和平台偏好。
+- `docs/glossary.md`：若不存在则创建，记录术语、人物、地点、组织、功法、道具和禁止变体。
+- `outlines/chapters.json`：章节任务卡主文件。每章必须包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
+- `.sumeru/outline/chapter-outlines.json`：兼容旧流程的副本，内容应与 `outlines/chapters.json` 保持一致或可映射。
+
+### 创意架构要求
+- **高概念锁定**：从 `ideas/concept-pitches.md` 或本次生成的 pitch 中选择主 pitch，写入 `docs/creative-strategy.md`。
+- **类型混血控制**：说明主类型承诺和嫁接类型的边界，避免混搭失焦。
+- **反套路策略**：列出本书最容易俗套的 5 个桥段，并给出替代写法。
+- **卷级惊喜**：每卷至少设计 1-3 个“意外但合理”的反转，必须包含公平线索和回收章节。
+- **情绪曲线**：规划每卷主导情绪和相邻章节情绪差异，避免连续同质爽点。
+- **角色主动性压力测试**：主角、反派、重要配角都必须有独立欲望、私心和会改变局势的主动选择。
+- **读者记忆点**：每卷至少设计 2 个可截图传播的名场面、台词或局势反转。
 
 ### 输出结构
 
@@ -117,7 +158,7 @@ type: skill
 #### 六、完整章节细纲
 
 **细纲生成规则：**
-- 根据总篇幅规划生成对应数量的章节细纲（短篇20-50章，中篇50-100章，长篇100-200章，超长篇200章以上）
+- 根据 `projectMode` 规划细纲复杂度：`short/light` 通常 1-10 章或单篇结构；`medium/standard` 通常 10-50 章；`long/full` 通常 50 章以上，可继续扩展到 100-200 章或更多
 - 每章细纲包含足够细节，支持独立生成完整章节内容
 - 细纲按分卷组织，每卷有明确的卷目标和核心冲突
 
@@ -134,14 +175,24 @@ type: skill
 - **场景地点**：本章主要发生的场景
 - **POV视角**：本章采用谁的视角（默认主角视角）
 - **情绪基调**：本章的整体情绪氛围（紧张/轻松/热血/温情等）
+- **章节目的**：本章作为 feature 必须完成的叙事功能
+- **创意目标**：本章要达成的新鲜感、反差、名场面或反转效果
+- **规避套路**：本章最容易落入的套路及替代方案
+- **情绪节拍**：本章的情绪曲线，如“压抑→困惑→恍然→暗爽”
+- **读者记忆点**：本章最希望读者记住或传播的画面/台词/局势
+- **惊喜反转**：如有，写明反转、铺垫线索和回收方式
+- **输入状态**：承接上一章的人物、道具、伏笔、冲突状态
+- **输出状态**：本章结束后人物、道具、伏笔、冲突的变化
+- **验收标准**：写作和审查必须满足的 3-6 条可检查标准
 
 **细纲输出格式：**
 - 用户可见：`小说大纲_章节细纲.md`（Markdown格式，易读）
-- 机器可读：`.sumeru/outline/chapter-outlines.json`（完整JSON结构，供后续skill使用）
+- 机器可读：`outlines/chapters.json`（章节任务卡主文件，供后续skill使用）
+- 兼容副本：`.sumeru/outline/chapter-outlines.json`
 
 ### 子Agent并行细纲生成机制
 
-当需要生成的章节细纲数量大于3章时（中篇及以上篇幅），支持使用子Agent并行生成细纲：
+当需要生成的章节细纲数量大于3章，且项目模式为 `medium/standard` 或 `long/full` 时，支持使用子Agent并行生成细纲；`short/light` 默认不启用子Agent：
 
 **⚠️ 遵循全局约束：每个子Agent最多负责3个章节的细纲生成**（详见 AGENTS.md "子Agent并行处理规则"）
 - 所需Agent数 = ceil(总章节数 / 3)

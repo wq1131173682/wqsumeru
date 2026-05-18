@@ -30,6 +30,74 @@ skills/
 └── sumeru-finalize/      # 完稿校验Skill，合规检查+多平台格式导出
 ```
 
+## 📁 小说项目工程化结构
+
+须弥写作推荐把一本小说当作一个长期开发项目维护：有需求文档、故事架构、章节任务卡、状态机、Issue、测试报告和发布构建产物。但不是所有篇幅都使用同等复杂度，系统会按篇幅自动选择模式。
+
+### 篇幅模式
+
+| 模式 | 复杂度 | 适用范围 | 特点 |
+|---|---|---|---|
+| `short/light` | 轻量 | 1-10章，3万字以内 | 快速完成，少文件，不强制 context pack/tests/issues |
+| `medium/standard` | 标准 | 10-50章，3万-20万字 | 有 docs/chapters/cache，问题和审查可合并为单文件 |
+| `long/full` | 完整 | 50章以上，20万字以上 | 启用完整工程化、context-packs、tests、issues、continuity |
+
+短篇优先灵感和完成度，中篇优先结构，长篇优先工程化稳定。
+
+```text
+novel-project/
+├── README.md                  # 项目说明
+├── NOVEL.md                   # 小说总控：一句话卖点、核心爽点、主线目标
+├── docs/                      # requirements、architecture、world、characters、plot、style-guide、glossary
+├── outlines/                  # chapters.json 章节任务卡
+├── ideas/                     # AI创意引擎：高概念、钩子、反转、爽点、场景碎片
+├── chapters/                  # 正文，按 001-标题.md 命名
+├── reviews/                   # 剧情审查报告
+├── tests/                     # 连贯性、章节验收、伏笔、字数、release 检查
+├── drafts/                    # 试写、废稿、A/B 版本、重写草稿
+├── publish/                   # 多平台导出产物
+└── .sumeru/                   # project/status/cache/context-packs/issues/continuity/snapshots 与阶段数据
+```
+
+短篇项目可简化为：
+
+```text
+short-story/
+├── README.md
+├── story.md
+├── outline.md
+├── review.md
+├── publish.md
+└── .sumeru/
+    ├── project.json
+    ├── status.json
+    └── cache/story-brief.md
+```
+
+关键机制：
+- `.sumeru/project.json`：项目配置，所有 Skill 优先读取。
+- `.sumeru/status.json`：阶段状态和章节状态，支持断点恢复。
+- `.sumeru/cache/`：稳定摘要缓存，减少重复读取大文件。
+- `.sumeru/context-packs/`：子Agent任务上下文包，批量写作/审查/润色/导出时优先读取。
+- `outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
+- `ideas/`：创意库存，保存高概念 pitch、反套路替代、惊喜反转、爽点和名场面。
+- `.sumeru/issues/`：类似 GitHub Issues 的问题单。
+- `tests/`：类似 CI 的小说项目测试结果。
+- `publish/`：类似 build/release 的发布产物。
+
+### 断点恢复与单独调用
+
+所有 Skill 都支持单独调用，不要求必须先运行 `sumeru-worldbuilder`。当你直接调用 `/sumeru-write`、`/sumeru-review`、`/sumeru-polish` 或 `/sumeru-finalize` 时，Skill 会先执行自举流程：
+
+- 自动定位项目根目录。
+- 读取或生成 `.sumeru/project.json` 和 `.sumeru/status.json`。
+- 从已有 `chapters/`、`outlines/`、`publish/` 推断当前阶段和章节状态。
+- 缺少 `.sumeru/cache/` 或 `.sumeru/context-packs/` 时自动生成最小版本。
+- 兼容旧版 `.sumeru/outline/chapter-outlines.json`。
+- 完成后回写状态、缓存、changelog 和必要的 issue/test/build 文件。
+
+因此中断后可以直接说“继续写第23章”“审查已有章节”“润色第10-12章”“导出番茄格式”，不需要从全流程重新开始。
+
 ## 🚀 安装方式
 
 在Claude Code / OpenCode项目中执行：
@@ -316,10 +384,19 @@ npx skills add xindoo/sumeru
 #### 中间数据目录（.sumeru/）
 ```
 .sumeru/
-├── session/          # 会话全局配置与状态
+├── project.json      # 项目配置
+├── status.json       # 阶段与章节状态
+├── backlog.md        # 待办、待补设定、剧情坑
+├── decisions.md      # 重要创作决策
+├── changelog.md      # 改动记录
+├── continuity/       # 时间线、人物、物品、伏笔、世界状态
+├── issues/           # 结构化问题单
+├── cache/            # 项目/世界观/人物/风格/创意/连续性/issue摘要缓存
+├── context-packs/    # write/review/polish/finalize 子Agent上下文包
+├── snapshots/        # 关键阶段快照
 ├── topic/            # 选题阶段中间数据
 ├── outline/          # 大纲阶段中间数据
-│   └── chapter-outlines.json  # 完整章节细纲（供 write 阶段并行生成使用）
+│   └── chapter-outlines.json  # 兼容旧流程的章节细纲副本
 ├── write/            # 创作阶段中间数据
 │   └── original/     # 原始章节备份（review/polish修改前自动备份）
 ├── review/           # 审查阶段中间数据
@@ -331,10 +408,15 @@ npx skills add xindoo/sumeru
 #### 用户可见输出（当前工作目录）
 ```
 ./
+├── README.md          # 项目说明
+├── NOVEL.md           # 小说总控
+├── docs/              # 需求、架构、世界观、人设、剧情、文风、术语表
+├── outlines/          # chapters.json 章节任务卡
+├── ideas/             # 高概念、钩子、反转、爽点、名场面创意库存
 ├── 选题策划报告.md    # 选题策划阶段最终成果
-├── 小说大纲_*.md      # 大纲设计阶段最终成果
 ├── chapters/         # 章节内容文件
-├── 剧情审查报告.md    # 逻辑审查阶段最终成果
+├── reviews/          # 逻辑审查报告
+├── tests/            # 连贯性、章节验收、伏笔、字数、release 检查
 ├── publish/          # 完稿导出的各平台格式文件
 └── output/           # 全流程创作的最终输出目录
 ```

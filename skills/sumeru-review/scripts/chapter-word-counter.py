@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 配置参数
-DEFAULT_CHAPTER_PATTERN = r"chapter-\d+\.md|第\d+章.*\.md|\d+\.md"
+DEFAULT_CHAPTER_PATTERN = r"chapter-\d+\.md|第\d+章.*\.md|\d+\.md|\d{3}-.+\.md"
 DEFAULT_WORD_RANGE = (2000, 3000)  # 默认理想章节字数范围：2000-3000字
 WARNING_RANGE = (1500, 3500)        # 警告范围：小于1500或大于3500字触发警告
 

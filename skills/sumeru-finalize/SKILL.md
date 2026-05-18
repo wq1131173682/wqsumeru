@@ -1,6 +1,6 @@
 ---
 name: sumeru-finalize
-description: 小说完稿校验与导出，适用于用户说"小说写完了帮我检查下"、"导出适合起点/番茄的格式"、"查有没有错别字"、"检测敏感词"、"整理成发布版本"、"帮我导出小说发布格式"、"检查小说错别字"、"敏感词检测"、"小说完稿检查"、"适配起点格式导出"、"番茄小说格式导出"、"小说排版整理"、"多平台格式导出"等需求，负责全技术性文字校验（错别字、标点、语法错误）与合规检查，导出适配各平台的发布格式，**批量处理时使用子Agent并行校验，每个Agent最多负责3个章节**
+description: 小说完稿校验与导出，也负责小说项目 build/release。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、构建发布包、导出起点/番茄/晋江/纵横等平台格式、多平台导出时必须使用本技能。它优先读取 .sumeru/context-packs/finalize-*.md、.sumeru/status.json、.sumeru/cache/latest-test-summary.md、issue-brief.md 和目标章节正文，必要时读取 tests/、issues/ 和 chapters/，负责技术性文字校验、合规风险提示、格式标准化、字数统计、publish/ 导出和 build-manifest；不承担剧情重写。技术校验和导出可按10-20章分片。
 type: skill
 ---
 
@@ -19,6 +19,43 @@ type: skill
 7. 自动分段功能
 
 > **Skill 边界说明**：技术性文字校验（错别字/标点/语法）由本 Skill 负责，`sumeru-polish` Skill 专注于文笔和内容层面的优化，两者互补不重叠。用户在润色后仍应通过 finalize 进行最终技术校验。
+
+### 处理边界
+- 可以修正错别字、标点、段落格式、章节标题格式和明显语病。
+- 可以给出敏感内容替换建议，必要时生成合规化改写版本。
+- 不改变剧情事实、人物关系、伏笔状态和章节结尾钩子。
+- 发现剧情硬伤时记录到 `.sumeru/finalize/logic-notes.json`，建议回到 `sumeru-review` 或 `sumeru-write` 处理。
+
+### 独立调用自举
+如果用户直接调用 `sumeru-finalize`，不要假设 worldbuilder 已运行。先执行 AGENTS.md 的“断点恢复与独立调用自举”：
+- 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
+- 根据 `chapters/` 推断可导出章节；若状态缺失，将已有章节标记为至少 `drafted`，并在 release 报告中提示未完整走 review/polish。
+- 若缺少 tests 或 issue summary，不阻塞技术校验；生成 `tests/release-check-report.md` 并标注“缺少审查测试历史”。
+- 若缺少当前范围的 `finalize-<range>.md` context pack，先生成临时 context pack 再校验/导出。
+- build 完成后更新 `.sumeru/finalize/build-manifest.json`、`.sumeru/status.json`、`.sumeru/cache/latest-test-summary.md`。
+
+### 按模式导出
+- `short/light`：默认导出 `publish.md` 或单篇发布稿，做错别字、标点、敏感词和基础排版检查。
+- `medium/standard`：导出全文和分章版本，生成 `publish/` 和一份 release 检查报告。
+- `long/full`：执行完整 build/release，生成 `publish/`、`tests/release-check-report.md`、`.sumeru/finalize/build-manifest.json`。
+
+### Build 前检查
+- 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节；用户明确要求时可导出 `polished` 章节，但必须在 release 报告中标注风险。
+- 检查 `chapters/` 是否缺章、重章、命名不规范。
+- 检查正文是否包含 `TODO`、`FIXME`、未替换占位符或明显元数据残留。
+- 检查 `.sumeru/issues/index.json` 是否存在未关闭的 `critical` 或 `major` issue。
+- 检查 `tests/foreshadowing-report.md` 是否存在关键伏笔未回收。
+- 检查 `tests/creativity-report.md` 是否存在严重套路重复、情绪疲劳或创意目标未落地问题。
+- 检查 `docs/glossary.md` 中的术语是否出现禁止变体。
+
+### 低 Token Build 规则
+- build 前先读取 `.sumeru/cache/latest-test-summary.md`、`.sumeru/cache/issue-brief.md`、`.sumeru/status.json`，不要全文读取所有测试报告。
+- `short/light` 不需要 build manifest，除非用户要求正式构建记录。
+- `medium/standard` 可生成简化 release 报告，不强制完整 manifest。
+- 技术校验可按 10-20 章分片，每个子Agent读取 `finalize-<range>.md` context pack 和目标章节正文。
+- 只有检测到风险时才读取对应 `tests/*.md` 或 issue 详情。
+- 导出阶段不需要读取 `ideas/`、完整大纲或完整人物设定。
+- build 完成后生成或刷新 `.sumeru/finalize/build-manifest.json` 和 `.sumeru/cache/latest-test-summary.md`。
 
 ### 子Agent并行校验机制
 
@@ -57,6 +94,8 @@ flowchart LR
 - 校验后的纯净版全文
 - 完稿报告：总字数、章节数、核心内容摘要
 - 多平台发布格式版本（起点、番茄、晋江等）
+- `tests/release-check-report.md`：build 前检查和风险清单
+- `.sumeru/finalize/build-manifest.json`：构建清单，包含输入章节、平台、产物路径、总字数、未解决风险
 
 ### 各平台导出格式规则
 
@@ -199,9 +238,11 @@ flowchart LR
 - `error-report.json`：错误列表，含错别字、标点、敏感词等所有问题
 - `stats.json`：完稿统计报告，总字数、章节数、平均章节长度等
 - `export-config.json`：各平台导出配置参数
+- `build-manifest.json`：发布构建清单
 
 **用户可见输出（当前工作目录）**：
 - `publish/`：各平台导出版本，按平台名分类存放
+- `tests/release-check-report.md`：发布前检查报告
 
 #### 与其他 Skill 配合
 - **前置 Skill**：读取最终章节内容

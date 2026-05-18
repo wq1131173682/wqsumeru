@@ -1,6 +1,6 @@
 ---
 name: sumeru-write
-description: 小说章节内容创作，适用于用户说"帮我写一章小说"、"续写接下来的内容"、"生成XX情节"、"批量写网文章节"、"扩写/重写这段内容"、"帮我写个XX情节"、"续写小说"、"把这段内容扩写"、"重写这一章"、"批量生成小说章节"、"写个开篇章节"、"写个高潮情节"、"小说内容生成"、"帮我写小说内容"等需求，支持单章/多章批量生成、续写、重写、扩写等多种模式，自动适配网文节奏，保持人物和剧情一致性，**批量生成时自动使用子Agent并行处理，每个Agent最多负责3个章节**
+description: 小说章节内容创作与创意落地。用户要写一章小说、续写、扩写、重写、生成某个情节、按细纲写章节、批量生成章节、写开篇/高潮/过渡章，或要求“帮我写小说内容”时必须使用本技能。它优先读取 .sumeru/context-packs/write-*.md 与 .sumeru/cache/*.md，必要时读取拆分后的 outlines/chapters/*.json、docs/creative-strategy.md、docs/style-guide.md、docs/glossary.md、docs/characters.md 和 docs/world.md，按 acceptanceCriteria 生成 chapters/ 下的正文文件，同时落实 creativeGoal、freshnessHook、emotionalBeat、readerMemoryPoint，并更新章节状态。批量生成时每个子Agent最多负责3章。
 type: skill
 ---
 
@@ -17,6 +17,61 @@ type: skill
 5. 保持人物性格、剧情逻辑的一致性
 6. 支持自定义章节长度（默认4000-5000字/章）
 7. 支持续写、修改、调整已有章节内容
+
+### 独立调用自举
+如果用户直接调用 `sumeru-write`，不要假设 worldbuilder 已运行。先执行 AGENTS.md 的“断点恢复与独立调用自举”：
+- 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
+- 若缺少 `outlines/chapters.json`，尝试读取 `.sumeru/outline/chapter-outlines.json`；仍缺失时根据用户本次描述生成当前章节的临时任务卡。
+- 若缺少 `.sumeru/cache/`，生成最小 `project-brief.md`、`style-brief.md`、`creative-brief.md`、`continuity-brief.md`。
+- 若缺少当前范围的 `write-<range>.md` context pack，先生成临时 context pack 再写作。
+- 根据 `chapters/` 已有文件推断续写位置，默认不覆盖已有章节。
+- 写作完成后更新 `.sumeru/status.json`、continuity cache 和 `.sumeru/changelog.md`。
+
+### 按模式写作
+- `short/light`：优先写入或续写 `story.md`；如用户指定章节，可写入 `chapters/`。不强制生成 context pack，除非内容很长或用户要求分章处理。
+- `medium/standard`：按 `outlines/chapters.md` 或简化任务卡写入 `chapters/`；批量超过 3 章时可生成临时 context pack。
+- `long/full`：必须使用拆分任务卡、cache 和 context pack；批量写作每个子Agent 1-3 章。
+
+### 输入优先级
+1. 用户本次明确要求（章节号、字数、风格、视角、必须出现/禁止出现的情节）优先级最高。
+2. `.sumeru/context-packs/write-<range>.md` 是批量写作的首选输入。
+3. `.sumeru/cache/project-brief.md`、`style-brief.md`、`creative-brief.md`、`continuity-brief.md` 是首选摘要输入。
+4. `.sumeru/review/fix-plan.json` 中标记的重写要求优先于原细纲，用于返工章节。
+5. `outlines/chapters/<id>.json` 或 `outlines/chapters.json` 中的目标章节任务卡是剧情依据；长篇项目不要全文读取全本任务卡。
+6. `docs/creative-strategy.md`、`ideas/active.md` 和相关 ideas 条目用于保持创意策略；不要读取 `ideas/discarded.md` 或 archive。
+7. `docs/style-guide.md`、`docs/glossary.md`、`docs/characters.md`、`docs/world.md` 仅在摘要不足时读取。
+8. `.sumeru/project.json` 提供目标平台、章节字数范围和整体风格。
+9. 已存在的 `chapters/` 内容用于续写和风格衔接；不要覆盖用户已写章节，除非用户明确要求重写。
+
+### 低 Token 写作规则
+- 如果存在 context pack，只读取 context pack、目标章节正文、必要的前一章结尾，不再读取全量 docs/outlines/ideas。
+- `short/light` 不强制 context pack，优先读取 `outline.md`、`story.md` 和 `story-brief.md`。
+- `medium/standard` 只在批量或上下文复杂时生成 context pack。
+- 单章写作读取目标章节任务卡；三章批量读取三章任务卡和相邻章节摘要。
+- 需要人物设定时优先读取 `character-brief.md`，不足时只读取相关人物文件或片段。
+- 需要世界观时优先读取 `world-brief.md`，不足时只读取相关地点/组织/规则片段。
+- 写完后只刷新相关 continuity 摘要，不全量重写缓存。
+
+### 章节任务卡执行规则
+- 每章先读取对应 `chapterId` 或 `chapterNumber` 的任务卡。
+- 正文必须完成任务卡中的 `purpose`。
+- 正文必须落实任务卡中的 `creativeGoal`、`freshnessHook`、`emotionalBeat`、`readerMemoryPoint`；如果任务卡缺少这些字段，写作前先为本章补充简短创意方案。
+- 遇到 `tropeToAvoid` 时必须避开直给套路，选择替代写法。
+- 若存在 `surpriseTwist`，必须提前埋下公平线索，不能硬转折。
+- 正文必须覆盖 `events` 中的关键事件，但可以调整呈现顺序以提升阅读体验。
+- 正文必须落实 `outputs` 中的人物状态、道具状态、伏笔和下一章钩子。
+- 正文必须满足全部 `acceptanceCriteria`；如无法满足，生成章节前先说明阻塞原因并写入 `.sumeru/backlog.md`。
+- 章节生成后更新 `.sumeru/status.json` 中对应章节状态为 `drafted`。
+- 章节生成后更新 `.sumeru/continuity/character-state.json`、`item-state.json`、`foreshadowing.json`、`timeline.json` 中与本章相关的变化。
+- 章节生成后把实际完成的名场面、反转、情绪节拍追加到 `ideas/scene-fragments.md` 或 `ideas/emotional-beats.md`，供后续复用和避重。
+
+### 创意落地检查
+生成章节前先做 5 项自检：
+1. 本章是否有读者能记住的一幕、一个选择或一句话。
+2. 本章爽点是否和前 3 章重复；如重复，切换情绪类型或解决方式。
+3. 主角是否通过选择推动局势，而不是被剧情推着走。
+4. 反派或阻力是否足够聪明，是否让胜利付出代价。
+5. 结尾钩子是否既承接本章输出，又诱导下一章点击。
 
 ### 续写规则
 
@@ -75,6 +130,8 @@ type: skill
 - 验证人物名称是否在characters.json中定义
 - 检查场景地点是否在world.json中定义
 - 提供缺失信息的补充建议
+- 检查每章是否包含 `purpose`、`outputs`、`acceptanceCriteria`
+- 检查每章是否包含 `creativeGoal`、`emotionalBeat`、`readerMemoryPoint`，缺失时自动补齐写作假设
 
 #### 子agent并行批量写作（大量章节推荐）
 当需要一次性生成大量章节（>3章）或使用细纲驱动模式时，自动启用子agent模式：

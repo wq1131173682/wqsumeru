@@ -22,7 +22,7 @@ skills/
 ```
 
 每个Skill目录采用统一结构：
-- `[skill-name].md`：Skill元数据定义与使用说明
+- `SKILL.md`：Skill元数据定义与使用说明
 - `scripts/`：存放Skill执行所需的脚本文件
 - `references/`：存放参考资料、模板、知识库等资源
 
@@ -147,10 +147,68 @@ skills/
 - **中间数据**：仅系统内部使用的临时数据、元数据、进度信息、结构化配置等，统一存储在 `.sumeru/` 目录下，支持断点恢复与跨阶段数据复用，用户无需关心
 - **用户可见输出**：最终交付给用户的可读文档、章节内容、导出文件等，直接保存在当前工作目录下，用户可直接查看和使用
 
+### 小说项目工程化结构
+须弥写作把一本小说当成一个可维护项目管理。新项目优先由 `sumeru-worldbuilder` 根据篇幅选择项目复杂度，而不是一律创建完整长篇结构。
+
+模式分层：
+- `short/light`：1-10章或3万字以内，使用 `story.md`、`outline.md`、最小 `.sumeru/cache/story-brief.md`。
+- `medium/standard`：10-50章或3万-20万字，使用 `docs/`、`outlines/chapters.md`、`chapters/`、轻量 issues/cache。
+- `long/full`：50章以上或20万字以上，使用完整工程化结构、context-packs、tests、issues、continuity。
+
+长篇结构：
+
+```
+./
+├── README.md
+├── NOVEL.md
+├── docs/                 # requirements、architecture、creative-strategy、world、characters、plot、style-guide、glossary
+├── outlines/             # chapters.json 章节任务卡
+├── ideas/                # AI创意引擎：高概念、钩子、反转、爽点、场景碎片
+├── chapters/             # 正文
+├── reviews/              # 审查报告
+├── tests/                # 连贯性、验收、伏笔、字数、release 检查
+├── drafts/               # 试写和重写草稿
+├── publish/              # build/release 产物
+└── .sumeru/              # project/status/cache/context-packs/issues/continuity/snapshots 与各阶段中间数据
+```
+
+关键文件：
+- `.sumeru/project.json`：项目配置，记录题材、平台、篇幅、章节字数范围、风格和当前阶段。
+- `.sumeru/status.json`：阶段状态和章节状态。
+- `.sumeru/cache/`：稳定摘要缓存，减少重复读取大文件，提高缓存命中。
+- `.sumeru/context-packs/`：子Agent任务上下文包，批量任务优先读取。
+- `outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
+- `docs/creative-strategy.md` 与 `ideas/`：创意策略和灵感库存，记录高概念、类型混血、反套路、惊喜反转、情绪节拍、读者记忆点。
+- `.sumeru/issues/index.json`：结构化问题单索引。
+- `.sumeru/finalize/build-manifest.json`：发布构建清单。
+
+### 断点恢复与独立调用
+所有 Skill 必须支持独立调用。即使用户没有先运行 `sumeru-worldbuilder`，单独调用 `sumeru-topic`、`sumeru-outline`、`sumeru-write`、`sumeru-review`、`sumeru-polish`、`sumeru-finalize` 时，也要先执行自举流程：
+
+1. 定位项目根目录。
+2. 读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
+3. 兼容旧版 `.sumeru/outline/chapter-outlines.json`。
+4. 按需补齐 `.sumeru/cache/`、`.sumeru/context-packs/`、`.sumeru/issues/`、`.sumeru/continuity/`。
+5. 根据 `chapters/`、`outlines/`、`reviews/`、`publish/` 推断当前阶段和章节状态。
+6. 生成当前任务的最小 context pack，再执行任务。
+7. 完成后回写状态、缓存、changelog、issue/test/build 文件。
+
+能推断的信息不要重复询问用户；缺少但不阻塞的信息写入 `docs/requirements.md` 的待确认问题。
+
 ### 中间数据目录结构（.sumeru/）
 ```
 .sumeru/
-├── session/          # 会话全局配置与状态
+├── project.json      # 项目配置
+├── status.json       # 阶段与章节状态
+├── backlog.md        # 待办、待补设定、剧情坑
+├── decisions.md      # 重要创作决策
+├── changelog.md      # 改动记录
+├── continuity/       # 时间线、人物、物品、伏笔、世界状态
+├── issues/           # 结构化问题单
+├── cache/            # 稳定摘要缓存
+├── context-packs/    # 子Agent任务上下文包
+├── snapshots/        # 关键阶段快照
+├── session/          # 会话全局配置与状态（兼容旧流程）
 ├── topic/            # 选题阶段中间数据
 ├── outline/          # 大纲阶段中间数据
 │   └── chapter-outlines.json  # **完整章节细纲（write阶段的输入）**
@@ -165,10 +223,16 @@ skills/
 ### 用户可见输出（当前工作目录）
 ```
 ./
+├── README.md          # 项目说明
+├── NOVEL.md           # 小说总控
+├── docs/              # 需求、架构、世界观、人设、剧情、文风、术语表
+├── outlines/          # chapters.json 章节任务卡
+├── ideas/             # 创意库存
 ├── 选题策划报告.md    # topic阶段输出
 ├── 小说大纲_*.md      # outline阶段输出
 ├── chapters/         # write阶段输出的章节文件
-├── 剧情审查报告.md    # review阶段输出
+├── reviews/          # review阶段输出的审查报告
+├── tests/            # review/finalize 阶段输出的项目测试报告
 ├── publish/          # finalize阶段导出的发布格式文件
 └── output/           # worldbuilder全流程输出目录
 ```
@@ -177,7 +241,7 @@ skills/
 新增Skill需遵循现有架构规范：
 1. 在`skills/`下创建独立目录，目录名与Skill名一致（英文小写，短横线分隔）
 2. 目录内必须包含：
-   - 与目录同名的`.md` Skill定义文件，包含完整元数据（name、description、type: skill）
+   - `SKILL.md` Skill定义文件，包含完整元数据（name、description、type: skill 或 user-invocable）
    - 空的`scripts/`目录，存放执行逻辑
    - 空的`references/`目录，存放领域知识与模板
 3. Skill描述中必须包含触发关键词与排除规则，确保被正确识别调用
@@ -207,7 +271,7 @@ skills/
 2. **上下文轻量化**：所有 bulky 参考资料（题材规范、剧情模板等）存放在各Skill的`references/`目录，不要在AGENTS.md中冗余存储
 3. **输出确定性**：所有Skill对相同输入应产生一致、可复现的输出
 4. **错误友好**：所有脚本需返回清晰、可操作的错误信息，说明解决方法
-5. **子Agent并行处理规则（全局强制约束）**：所有涉及章节级批量操作的Skill（sumeru-write、sumeru-review、sumeru-polish、sumeru-finalize、sumeru-outline的细纲生成），在处理大量章节时必须使用子Agent并行处理，且**每个子Agent最多负责3个章节**。这是硬性约束，不可违反。各Skill定义文件中不再重复完整描述此规则，统一引用本条。
+5. **子Agent并行处理规则（全局强制约束）**：所有涉及章节级批量操作的Skill（sumeru-write、sumeru-review、sumeru-polish、sumeru-finalize、sumeru-outline的细纲生成），在处理大量章节时必须使用子Agent并行处理，且**每个子Agent最多负责3个章节**。这是硬性约束，不可违反。各Skill定义文件中引用本条，具体执行细则以 AGENTS.md 为准。
    - **设计原因**：防止单个Agent处理过多章节导致上下文溢出和质量下降，3章是兼顾效率（保持章节间上下文连贯性）与质量（避免任务过重降低产出）的平衡点
    - **适用场景**：写作、审查、润色、校验、细纲生成等所有无前后依赖的章节级批量操作
    - **调度计算**：所需Agent数 = ceil(总章节数 / 3)，分配策略为按章节顺序连续分配
@@ -216,7 +280,8 @@ skills/
 7. **Skill间解耦规则**：禁止下游Skill直接调用上游Skill。review不得直接调用sumeru-write进行重写修复，而是生成修复计划（fix-plan.json），由worldbuilder编排或用户手动调用sumeru-write处理。
 
 ## 核心文件索引
-- `AGENTS.md` - 本文件，全局规则与命令说明
-- `skills/*/[skill-name].md` - 各Skill的详细使用文档与参数说明
+- `AGENTS.md` - 面向所有 Agent 的全局规则与执行边界
+- `CLAUDE.md` - Claude Code / OpenCode 项目说明与命令速查
+- `skills/*/SKILL.md` - 各Skill的详细使用文档与参数说明
 - `scripts/` - 跨Skill共享的工具脚本
 - `references/` - 全局公共参考资料（平台规范、通用模板等）

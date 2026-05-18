@@ -1,6 +1,6 @@
 ---
 name: sumeru-polish
-description: 小说内容润色优化，适用于用户说"帮我润色这段小说"、"改下文笔"、"优化章节节奏"、"强化这个爽点"、"让对话更自然"、"把这段写得更爽"、"优化小说文笔"、"调整章节节奏"、"让对话更真实"、"帮我改下这段内容"、"润色小说"、"优化爽点"、"提升文笔"、"让这段更有代入感"等需求，提供3级润色等级，专注文笔与内容层面优化，支持风格适配、节奏收紧、爽点强化、对话优化等专项优化，**润色结果直接修改 chapters/ 目录，修改前自动备份到 .sumeru/write/original/**，**批量润色时使用子Agent并行处理，每个Agent最多负责3个章节**
+description: 小说内容润色优化与创意强化。用户要润色小说、改文笔、优化章节节奏、强化爽点、强化名场面、让对话自然、提升代入感、调整风格、把一章写得更爽或更细腻时必须使用本技能。它优先读取 .sumeru/context-packs/polish-*.md、.sumeru/cache/style-brief.md、creative-brief.md、issue-brief.md、目标章节正文和相关任务卡，必要时才读取 docs/creative-strategy.md、docs/style-guide.md、docs/glossary.md、outlines/chapters.json、ideas/ 和 review issues；润色前备份，结果直接修改 chapters/。批量润色时每个子Agent最多负责3章。
 type: skill
 ---
 
@@ -10,6 +10,40 @@ type: skill
 帮我润色这段小说、改下文笔、优化章节节奏、强化这个爽点、让对话更自然、把这段写得更爽、优化小说文笔、调整章节节奏、让对话更真实、帮我改下这段内容、润色小说、优化爽点、提升文笔、让这段更有代入感、小说内容优化、文笔润色
 
 ### 核心功能
+
+### 独立调用自举
+如果用户直接调用 `sumeru-polish`，不要假设 worldbuilder 已运行。先执行 AGENTS.md 的“断点恢复与独立调用自举”：
+- 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
+- 根据用户指定范围或 `chapters/` 推断要润色的章节。
+- 若缺少 review 输出，不阻塞润色；只基于正文、style cache 和用户要求润色，并在 `.sumeru/backlog.md` 记录“未经过 review”。
+- 若缺少 `docs/style-guide.md` 或 `.sumeru/cache/style-brief.md`，根据项目配置和现有章节生成临时风格摘要。
+- 若缺少当前范围的 `polish-<range>.md` context pack，先生成临时 context pack 再润色。
+- 润色完成后备份原文，更新 `.sumeru/status.json`、`.sumeru/polish/summary.json`、`.sumeru/cache/continuity-brief.md`。
+
+### 按模式润色
+- `short/light`：优先润色 `story.md` 全文或用户指定片段，输出可直接发布的短篇稿；不强制章节化。
+- `medium/standard`：按章节或小范围润色，保留 `.sumeru/issues.md` 中的问题处理记录。
+- `long/full`：按 context pack 分片润色，每个子Agent 1-3 章，生成 diff/summary 和状态更新。
+
+### 低 Token 润色规则
+- 如果存在 `.sumeru/context-packs/polish-<range>.md`，优先只读取 context pack 和目标章节正文。
+- `short/light` 不强制 context pack，优先读取 `story.md`、`outline.md` 和 `story-brief.md`。
+- `medium/standard` 只在批量或跨章节一致性复杂时生成 context pack。
+- 风格依据优先读取 `.sumeru/cache/style-brief.md`，创意依据优先读取 `.sumeru/cache/creative-brief.md`。
+- 审查问题优先读取 `.sumeru/cache/issue-brief.md` 和相关 issue，不全文读取所有 tests。
+- 批量润色每个子Agent 1-3 章；不要让单个子Agent读取全本章节。
+- 润色后只更新对应章节状态、diff/summary 和相关缓存摘要。
+
+#### 润色边界
+- 保留既有主线事实、人物关系、战力体系、伏笔状态和章节结尾钩子，除非用户明确要求重写剧情。
+- 保留 `outlines/chapters.json` 中每章 `acceptanceCriteria` 已满足的内容，不为了文笔牺牲验收标准。
+- 强化但不篡改 `creativeGoal`、`emotionalBeat`、`readerMemoryPoint` 和 `freshnessHook`。
+- 术语、人物名、地名、组织名、功法名必须遵守 `docs/glossary.md`，不得产生新变体。
+- 文风、句式、禁用表达、平台偏好必须遵守 `docs/style-guide.md`。
+- 轻度润色以表达优化为主，不改变段落顺序和剧情信息。
+- 中度润色可以调整段落组织、补充细节和强化情绪递进，但不新增会影响后文的重大设定。
+- 深度润色可以重构场景呈现方式，但必须保持章节核心事件、人物动机和结尾指向一致。
+- 发现剧情逻辑硬伤时不要在润色中擅自改主线，应记录到 `.sumeru/polish/logic-notes.json`，建议转交 `sumeru-review` 或 `sumeru-write`。
 
 #### 润色等级
 1. **轻度润色**：优化句式表达，去除冗余表述，精炼用词，提升文字流畅度，保留80%以上原文风格和表达方式
@@ -86,6 +120,15 @@ flowchart LR
 3. 世界观设定（精简版，保持术语一致）
 4. 人物设定（仅相关人物，保持性格一致）
 5. 审查问题清单（如有，作为重点优化方向）
+6. `docs/creative-strategy.md`、`docs/style-guide.md` 与 `docs/glossary.md`
+7. 对应章节任务卡的 `acceptanceCriteria`、`emotionalBeat`、`readerMemoryPoint`
+
+### 创意强化方式
+- **名场面放大**：用动作、反应、环境和短句节奏强化读者记忆点。
+- **情绪递进**：确保情绪不是平铺直叙，而是有压抑、转折、释放或余韵。
+- **台词打磨**：关键台词追求短、准、有角色辨识度，可截图传播。
+- **结尾钩子**：强化章节最后 100-200 字，让读者明确想看下一章。
+- **反套路保护**：如果原文已经避开套路，不要润色回模板化写法。
 
 **章节分配规则**
 - 按章节顺序连续分配（如Agent1负责第1-3章，Agent2负责第4-6章）
@@ -95,6 +138,7 @@ flowchart LR
 - 每个Agent完成润色后立即将结果直接保存到 `chapters/`（修改前自动备份到 `.sumeru/write/original/`）
 - 实时显示已完成/进行中/待润色章节状态
 - 所有Agent完成后，润色结果已直接应用到 `chapters/` 目录
+- 润色完成后更新 `.sumeru/status.json` 中对应章节状态为 `polished`
 
 ### 数据持久化
 润色过程数据自动保存到 `.sumeru/polish/` 目录：
@@ -105,7 +149,7 @@ flowchart LR
 #### 与其他 Skill 配合
 - **前置 Skill**：读取 `sumeru-write` 和 `sumeru-review` 的输出
   - 从 `chapters/` 读取原始章节内容
-  - 从 `.sumeru/review/issues.json` 读取审查问题作为优化重点
+  - 从 `.sumeru/issues/index.json`、`.sumeru/review/fix-plan.json` 和 `tests/*.md` 读取审查问题作为优化重点
 - **后续 Skill**：润色后的内容供 `sumeru-finalize` 使用
   - 润色结果直接保存在 `chapters/` 目录，无需额外应用步骤
   - worldbuilder 编排 polish 时，润色结果自动生效

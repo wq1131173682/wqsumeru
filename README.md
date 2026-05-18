@@ -1,8 +1,10 @@
-# 须弥写作 (Sumeru Writing)
+# 须弥写作 (Sumeru Writing) - 二次开发版
 
-专门用于网文创作的AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
+基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
 > 🎯 **定位**: 网文作者的AI创作副驾驶，覆盖选题→大纲→写作→审稿→润色→导出全流程，让创作更高效。
+
+> 📌 **说明**: 本项目基于开源项目 [sumeru](https://github.com/xindoo/sumeru) 进行二次开发，保留了原有核心功能，可根据个人需求进行定制和扩展。
 
 ## ✨ 核心特性
 
@@ -102,8 +104,10 @@ short-story/
 
 在Claude Code / OpenCode项目中执行：
 ```bash
-npx skills add xindoo/sumeru
+npx skills add wq1131173682/wqsumeru
 ```
+
+> 也可参考原版 [xindoo/sumeru](https://github.com/xindoo/sumeru) 的安装和使用文档。
 
 ## 📖 快速开始
 
@@ -442,10 +446,11 @@ npx skills add xindoo/sumeru
 
 ## 🤝 参与贡献
 
-欢迎提交Issue和PR来完善须弥写作！
+本项目基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发，欢迎提交Issue和PR来完善！
 - 新增Skill需遵循现有架构规范
 - 所有新增功能需包含对应的测试用例
 - 提交前请确保通过所有现有测试
+- 如有问题可参考原版项目或在此提交Issue
 
 ## 📄 许可证
 

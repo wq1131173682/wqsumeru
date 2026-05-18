@@ -132,7 +132,7 @@ novel-project/
     ├── backlog.md             # 待办事项、待补设定、剧情坑
     ├── decisions.md           # 重要创作决策记录，类似 ADR
     ├── changelog.md           # 每轮改动记录
-    ├── continuity/            # 连贯性状态库
+    ├── continuity/            # 连贯性状态库（含 consistency-rules.json）
     ├── issues/                # 结构化问题单
     ├── cache/                 # 稳定摘要缓存，降低重复读取成本
     ├── context-packs/         # 子Agent任务上下文包
@@ -551,6 +551,44 @@ ideas/
 
 Issue 状态只能使用：`open`、`fixed`、`wontfix`、`needs-rewrite`、`needs-user-decision`。
 
+## 连贯性规则库（consistency-rules.json）
+
+**问题**：review 全局一致性审查太昂贵，需要读全部正文才能发现道具/人物/伏笔的矛盾。
+
+**解决方案**：建立持续维护的 `consistency-rules.json`，将全局一致性从"事后大海捞针"变成"实时规则检查"。
+
+**文件位置**：`.sumeru/continuity/consistency-rules.json`
+
+**数据结构**：
+```json
+{
+  "weapons": [
+    {"item": "示例武器名", "status": "已毁", "chapter_destroyed": 12, "destroyed_detail": "被反派一掌震碎"}
+  ],
+  "character_locations": [
+    {"name": "示例人物名", "current_location": "示例地点", "since_chapter": 35}
+  ],
+  "active_buffs": [
+    {"character": "示例人物", "buff": "示例增益状态", "remaining_duration": "3天", "since_chapter": 78}
+  ],
+  "foreshadowing": [
+    {"id": "v3", "description": "示例伏笔描述", "status": "active", "first_appeared": 15, "last_mentioned": 42}
+  ],
+  "key_items": [
+    {"item": "示例道具名", "status": "示例人物持有", "current_chapter": 45, "origin": "示例来源"}
+  ]
+}
+```
+
+**维护时机**：
+- **write 子Agent每次输出正文时**，必须附带 `state_diff`（通过状态标记），父Agent自动更新此文件
+- **review 子Agent审查时**，不需要读全部正文，只需用此文件交叉验证当前章节
+
+**review 使用方式**：
+- review 第一阶段全局审查时，直接读取 `consistency-rules.json` 检查规则冲突
+- review 第二阶段章节审查时，将当前章节内容与规则库交叉验证（如"本章主角使用龙牙剑" vs 规则库"龙牙剑已毁"）
+- 发现冲突时，直接标记为 issue，不需要子Agent理解全部上下文
+
 ## Build 与 Release
 
 完稿导出视为 build/release 流程。
@@ -573,6 +611,26 @@ Issue 状态只能使用：`open`、`fixed`、`wontfix`、`needs-rewrite`、`nee
 - 分配策略按章节顺序连续分组，例如 1-3、4-6、7-9。
 - 每个子Agent只接收完成任务所需的精简上下文，避免把全书正文塞入单个上下文。
 - 汇总阶段必须检查章节数量、命名、顺序、上下文衔接和输出完整性。
+
+### 批次间串行摘要（长篇连贯性保障）
+
+**问题**：并行产出的批次之间缺乏实际信息共享，第7-9章的子Agent不知道第4-6章实际写了什么。
+
+**解决方案**：每批完成后，父Agent生成"实际摘要"（500字以内），作为下一批 context pack 的输入。
+
+```
+第 1 批（并行）: 子Agent A 写 1-3章 + 子Agent B 写 4-6章
+                  ↓ 父Agent不急于发第2批
+第 1.5 步（串行）: 父Agent合并1-6章，生成"1-6章实际摘要"（≤500字）
+                  ↓ 摘要追加到 .sumeru/continuity/batch-summaries/
+                  ↓ 进入第2批的 context pack
+第 2 批（并行）: 子Agent C 写 7-9章 + 子Agent D 写 10-12章
+                  （context pack 中包含"1-6章实际摘要"）
+```
+
+**摘要内容**：本批章节的核心事件、人物状态变化、新伏笔、关键道具变化、情绪曲线。
+**存储位置**：`.sumeru/continuity/batch-summaries/batch-001.md`、`batch-002.md`...
+**后续批次继承**：context pack 中包含"前N批实际摘要"，子Agent可从中获取动态信息。
 
 此约束用于避免上下文溢出、章节质量下降和跨章状态混乱。
 
@@ -605,15 +663,52 @@ Issue 状态只能使用：`open`、`fixed`、`wontfix`、`needs-rewrite`、`nee
 | 执行核心任务 | 根据 context pack 中的任务卡/审查标准/润色要求，完成单一核心任务 |
 | 输出纯结果 | 输出纯文本结果（正文、审查结论、润色后文本、细纲），不包含状态更新指令 |
 | 不碰状态 | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
+| **输出状态标记** | **正文/细纲首行必须包含 `<!-- SUMERU_STATUS: ... -->` 注释，格式见下方** |
+
+### 子Agent输出状态标记（去中心化状态维护）
+
+**问题**：父Agent集中维护状态存在单点故障风险，父Agent崩溃时状态文件可能损坏。
+
+**解决方案**：每个子Agent的输出首行固定包含状态标记注释，父Agent只需提取标记并追加写入。即使父Agent崩溃，重新启动后扫描所有章节的 `<!-- SUMERU_STATUS -->` 注释即可重建状态。
+
+**格式规范**（所有子Agent输出统一）：
+
+```markdown
+<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff="示例人物:进入示例地点|示例道具已毁", char_update="示例人物:轻伤|示例人物:增益状态剩余3天", plot_update="v3伏笔推进:示例暗示", batch=002, timestamp=2026-05-18T10:30:00Z -->
+```
+
+**字段说明**：
+| 字段 | 含义 | 示例 |
+|------|------|------|
+| `chapter` | 章节号 | `037` |
+| `status` | 章节状态 | `drafted` / `polished` / `finalized` |
+| `state_diff` | 人物/道具/伏笔的状态变化，用 `|` 分隔 | `主角进入北域|女配苏瑾受伤` |
+| `char_update` | 人物当前状态摘要 | `苏瑾:轻伤|主角:龙血狂暴剩余3天` |
+| `plot_update` | 伏笔线推进情况 | `v3伏笔推进:黑衣人身份暗示` |
+| `batch` | 所属批次号 | `002` |
+| `timestamp` | 生成时间 | `2026-05-18T10:30:00Z` |
+
+**父Agent处理流程**：
+1. 汇总子Agent输出时，提取每章的 `<!-- SUMERU_STATUS -->` 标记
+2. 解析 `state_diff` 字段，更新 `.sumeru/continuity/consistency-rules.json`
+3. 解析 `char_update` 字段，更新 `.sumeru/continuity/character-state.json`
+4. 将标记中的 `status` 写入 `.sumeru/status.json` 对应章节
+5. 即使父Agent中断，重启后扫描 `chapters/*.md` 的标记即可重建所有状态文件
+
+**关键约束**：
+- 状态标记必须放在输出内容的**第一行**，不能有任何前置文字
+- `state_diff` 字段必须用 `|` 分隔，每个变化项格式为 `实体名:变化描述`
+- 如果子Agent不确定某个状态变化，可以留空该字段但不能省略整个标记
 
 ### 各 Skill 子Agent职责明细
 
 | Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
 |-------|----------------|------------|------------|----------------|
-| **sumeru-write** | 按任务卡写正文（**单章续写也走子agent**） | context pack（含任务卡、**前一章结尾**、人物/世界观摘要） | 纯正文文本 | 写入 chapters/、备份、更新 status、刷新 continuity cache、追加 ideas/scene-fragments |
-| **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准） | 审查结论（问题列表、严重程度、证据、建议） | 合并所有子Agent问题、写入 issues/、生成 tests/、制定 fix-plan |
-| **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题） | 润色后正文 + diff 说明 | 写入 chapters/（覆盖原文）、备份、更新 status→polished、刷新 continuity cache |
-| **sumeru-outline** | 生成章节细纲 | context pack（含世界观、人物、分卷大纲、上下文关联） | 章节细纲 JSON/Markdown | 合并所有子Agent细纲、校验一致性、写入 outlines/chapters.json、刷新 cache |
+| **sumeru-write** | 按任务卡写正文（**单章续写也走子agent**） | context pack（含任务卡、**前一章结尾**、人物/世界观摘要） | 纯正文文本 + `<!-- SUMERU_STATUS -->` 标记 | 写入 chapters/、备份、更新 status、刷新 continuity cache、追加 ideas/scene-fragments |
+| **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准、consistency-rules.json） | 审查结论（问题列表、严重程度、证据、建议） | 合并所有子Agent问题、写入 issues/、生成 tests/、制定 fix-plan |
+| **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题、**具象标杆**） | 润色后正文 + diff 说明 + `<!-- SUMERU_STATUS -->` 标记 | 写入 chapters/（覆盖原文）、备份、更新 status→polished、刷新 continuity cache |
+| **sumeru-outline** | 生成章节细纲 | context pack（含世界观、人物、分卷大纲、上下文关联） | 章节细纲 JSON/Markdown + `<!-- SUMERU_STATUS -->` 标记 | 合并所有子Agent细纲、校验一致性、写入 outlines/chapters.json、刷新 cache |
+| **sumeru-finalize** | 脚本预处理 + 待定项判断 | 脚本扫描结果（待定项列表，最多20个） | 待定项处理建议 | 汇总建议、执行最终校验、写入 publish/、生成 build-manifest |
 
 ### Context Pack 精简规则
 
@@ -643,9 +738,56 @@ context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超�
 ## Chapter Cards (仅本组章节)
 目标章节任务卡，包含 purpose、events、outputs、acceptanceCriteria、creativeGoal。
 
+## Batch Summary (仅非第一批)
+前N批实际摘要（≤500字），来自 .sumeru/continuity/batch-summaries/。
+
 ## Output Requirements (仅本组章节)
 文件命名、状态更新需求（由父agent执行，子agent无需关心）。
 ```
+
+### 分层摘要缓存 + 按需检索
+
+context pack 中不得包含全本正文、全本任务卡、全本 issues。但子Agent在写作过程中可能发现信息不足，此时采用**渐进式按需加载**：
+
+父Agent在 context pack 中嵌入**可用缓存的键列表**，而非全量数据：
+
+```
+【可用缓存的键】（子Agent可在输出中标记需要以下缓存内容，父Agent下一轮补充）：
+- char:主角        （人物当前状态摘要，约200字）
+- char:反派        （人物当前状态摘要，约200字）
+- plotline:v1      （伏笔线1摘要，约150字）
+- plotline:v2      （伏笔线2摘要，约150字）
+- world:current    （当前世界观状态，约100字）
+- prev:actual      （上一章实际结尾，约200字）
+- arc:001-003      （第1-3章实际摘要，约300字）
+```
+
+**子Agent使用方式**：
+- 默认只读 context pack 中已包含的内容
+- 如果写作过程中发现信息不足，在输出中标记 `[需要缓存:char:反派]`
+- 父Agent收到后，在下一轮 context pack 中补充该缓存内容
+
+**效果**：context pack 保持精简，但子Agent有按需获取更多信息的通道。
+
+### 具象标杆（polish 专属）
+
+polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必须嵌入**具象标杆段落**：
+
+```
+【风格标杆】（以下是本项目已写过的"好段落"示例，请以此为标准润色）：
+---打斗场景标杆（摘自第003章）---
+原文：...
+润色后：...
+---对话场景标杆（摘自第005章）---
+原文：...
+润色后：...
+---情绪高潮标杆（摘自第008章）---
+原文：...
+润色后：...
+```
+
+**父Agent在每个批次开始时**，从已完成的章节中自动提取 3 段"标杆段落"（选择字数适中、效果好的），塞入 context pack。
+**效果**：polish 子Agent看到具体例子，知道"什么叫好的打斗""什么叫自然的对话"，润色质量提升，且标杆随项目进化——越往后越精准。
 
 **关键约束**：
 - context pack 中不得包含全本正文、全本任务卡、全本 issues。
@@ -659,6 +801,26 @@ context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超�
 - `sumeru-polish` 可以直接修改 `chapters/` 做文笔、节奏、对话、爽点优化，但不得改变主线事实、关键设定和角色关系，除非用户明确要求。
 - `sumeru-finalize` 专注技术性校验和发布格式，不承担剧情重构和文风再创作。
 - 下游 Skill 不直接调用上游 Skill；需要返工时输出结构化计划，由 `sumeru-worldbuilder` 或用户决定下一步。
+
+### finalize 脚本化预处理
+
+**问题**：finalize 的核心任务（错别字/标点/敏感词/格式导出）大部分可以用规则+词典覆盖，不需要子Agent创作。
+
+**解决方案**：将 finalize 拆为两层：
+
+1. **父Agent直接调用脚本**做：
+   - 错别字词典扫描
+   - 正则敏感词初筛（一级/二级/三级分类）
+   - 格式规范统一（章节标题、段落格式、标点）
+   - 多平台格式转换（起点/番茄/晋江/纵横/17K）
+   - Build前检查清单（缺章/重章/命名/TODO/FIXME/占位符）
+
+2. **子Agent只处理脚本标记出的"待定项"**：
+   - 敏感词上下文判断（如"他杀了一个人"vs特定语境触发）
+   - 每次最多传 20 个待定项给子Agent
+   - 子Agent输出待定项的处理建议
+
+**效果**：finalize 的子Agent调用次数从"每3章一次"降到"整本书 1-2 次"，token 大幅节省。
 
 ## 质量检查
 

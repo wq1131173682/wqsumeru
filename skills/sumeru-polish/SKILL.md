@@ -119,15 +119,20 @@ type: skill
 flowchart LR
     A[批量润色任务] --> B[父Agent: 自举 & 读取章节列表]
     B --> C[父Agent: 读取 style-brief & issue-brief]
-    C --> D[父Agent: 生成 context pack & 分配任务]
-    D --> E[父Agent: 启动N个并行子agent]
-    E --> F[子Agent: 读取 context pack → 润色章节 → 输出润色后文本+diff说明]
-    F --> G{所有子Agent完成?}
-    G -->|否| E
-    G -->|是| H[父Agent: 汇总润色结果]
-    H --> I[父Agent: 备份原文 & 写入 chapters/]
-    I --> J[父Agent: 生成 diff/summary & 更新 status → polished]
-    J --> K[父Agent: 刷新 continuity cache]
+    D[父Agent: 计算Agent数 = min(ceil/总章/3/, 5)]
+    C --> D
+    D --> E[父Agent: 生成 context pack + 批次摘要 + 具象标杆]
+    E --> F[父Agent: 启动N个并行子agent N≤5]
+    F --> G[子Agent: 读取 context pack → 润色章节 → 输出润色后文本+diff说明+状态标记]
+    G --> H{所有子Agent完成?}
+    H -->|否| F
+    H -->|是| I[父Agent: 提取状态标记 & 汇总润色结果]
+    I --> J[父Agent: 备份原文 & 写入 chapters/]
+    J --> K[父Agent: 生成 diff/summary & 更新 status → polished]
+    K --> L[父Agent: 刷新 continuity cache]
+    L --> M{还有剩余章节?}
+    M -->|是| D
+    M -->|否| N[完成]
 ```
 
 **子Agent输入上下文（context pack）**：
@@ -137,11 +142,21 @@ flowchart LR
 - 创意摘要（仅本组章节相关的 creative-brief 内容）
 - 审查问题摘要（仅本组章节相关的 issue-brief 内容，作为重点优化方向）
 - 对应章节任务卡的 `acceptanceCriteria`、`emotionalBeat`、`readerMemoryPoint`
+- **Batch Summary（非第一批必填）**：前N批实际摘要（≤500字）
+- **【可用缓存的键】**（子Agent可在输出中标记需要以下缓存内容，父Agent下一轮补充）：
+  - `char:主角`（人物当前状态摘要，约200字）
+  - `char:配角`（人物当前状态摘要，约200字）
+  - `prev:actual`（上一章实际结尾，约200字）
+- **【风格标杆】**（父Agent从已完成章节中自动提取3段标杆段落塞入）：
+  - 场景描写标杆（摘自已完成章节）：原文 → 润色后
+  - 对话场景标杆（摘自已完成章节）：原文 → 润色后
+  - 情绪高潮标杆（摘自已完成章节）：原文 → 润色后
 
 **子Agent输出**：
 - 润色后的完整章节内容（纯文本）
 - 润色修改说明：调整的地方与原因（按优化类型分类）
 - 优化建议：后续内容写作提升方向
+- **状态标记**：`<!-- SUMERU_STATUS: chapter=037, status=polished, ... -->`
 - **不写入任何文件、不更新任何状态**
 
 **章节分配规则**

@@ -107,16 +107,16 @@ worldbuilder 调用任何批量子技能前，必须先准备最小上下文，�
 ### 分片策略
 
 - **outline 章节任务卡生成**：每个子Agent最多 3 章，输出可合并的任务卡片段。
-- **write 创作**：每个子Agent 1-3 章，必须使用 `write-<range>.md` context pack。
-- **review 深度审查**：每个子Agent最多 3 章，必须使用 `review-<range>.md` context pack。
+- **write 创作**：每个子Agent 1-3 章，必须使用 `write-<range>.md` context pack，输出带状态标记的正文。
+- **review 深度审查**：每个子Agent最多 3 章，必须使用 `review-<range>.md` context pack，输出审查结论+状态标记。
 - **review 全本轻扫**：可使用索引/摘要按 10-20 章分片，只生成候选问题，不直接修改正文。
-- **polish 润色**：每个子Agent 1-3 章，必须使用 `polish-<range>.md` context pack。
-- **finalize 技术校验/导出**：可按 10-20 章分片，使用 `finalize-<range>.md` context pack；不需要创作型深上下文。
+- **polish 润色**：每个子Agent 1-3 章，必须使用 `polish-<range>.md` context pack，输出润色后文本+diff+状态标记。
+- **finalize 技术校验/导出**：脚本预处理 + 子Agent只处理待定项（最多20个/批），子Agent输出处理建议+状态标记。
 - **fix/rewrite**：按问题严重度单独分片，重写型任务每个子Agent最多 1-2 章。
 
 ### Context Pack 生成职责
 
-每个 context pack 必须包含：项目摘要、当前卷目标、相关人物、相关术语、连续性状态、创意策略、目标章节任务卡、验收标准、输出要求。不得把全本大纲、全量人物表、全量创意库或无关章节正文塞入任务包。
+每个 context pack 必须包含：项目摘要、当前卷目标、相关人物、相关术语、连续性状态、创意策略、目标章节任务卡、验收标准、输出要求、批次摘要（非第一批）、可用缓存键列表。不得把全本大纲、全量人物表、全量创意库或无关章节正文塞入任务包。
 
 ### ⚠️ 全局约束：子Agent并行处理规则
 
@@ -137,6 +137,7 @@ worldbuilder 在协调所有涉及章节级操作的子技能时，强制执行 
 - worldbuilder在调用各子技能时，必须确保子技能遵循3章/Agent的约束
 - 如果子技能未自动遵守此约束，worldbuilder需要通过参数或指令强制执行
 - 监控子技能的执行过程，确认Agent分配符合约束
+- **批次间串行摘要**：每批子Agent完成后，worldbuilder生成"实际摘要"（≤500字），作为下一批 context pack 的输入，保证长篇连贯性
 
 ### Skill 协调流程
 
@@ -159,18 +160,19 @@ worldbuilder 负责以下数据流转和协调工作：
     → ✅ 章节任务卡建议包含 creativeGoal、emotionalBeat、readerMemoryPoint
     ↓
 [sumeru-write] 章节撰写（**细纲驱动，并行批量生成，每个Agent最多3章**）
-    → 输入: .sumeru/context-packs/write-*.md（优先），必要时读取拆分章节任务卡
-    → 输出: chapters/*.md, .sumeru/write/*.json
+    → 输入: .sumeru/context-packs/write-*.md（优先，含批次摘要+缓存键），必要时读取拆分章节任务卡
+    → 输出: chapters/*.md（带状态标记）, .sumeru/write/*.json
     → ✅ **必须完成所有章节**（检查章节数与细纲一致）
-    → ⚠️ **遵循全局3章/Agent约束**
+    → ⚠️ **遵循全局3章/Agent约束，最多5子agent并行**
+    → 📝 **每批完成后父Agent生成批次摘要（≤500字）→ 下一批context pack**
     ↓
 [阶段检查点 2] 验证所有章节已完成，记录写入进度
     ↓
 [sumeru-review] 逻辑审查（**审查所有章节，每个Agent最多3章**）
-    → 输入: .sumeru/context-packs/review-*.md（优先），必要时读取目标章节正文
+    → 输入: .sumeru/context-packs/review-*.md（优先，含consistency-rules.json+批次摘要），必要时读取目标章节正文
     → 输出: reviews/*.md, tests/*.md, .sumeru/issues/index.json, .sumeru/review/fix-plan.json
     → ✅ **必须完成全本审查**
-    → ⚠️ **遵循全局3章/Agent约束**
+    → ⚠️ **遵循全局3章/Agent约束，最多5子agent并行**
     ↓
 [阶段检查点 3] 验证审查完成，检查 fix-plan.json 是否有重写修复项
     ↓
@@ -181,16 +183,19 @@ worldbuilder 负责以下数据流转和协调工作：
 [review 轻量修复已直接修改 chapters/，无需额外应用步骤]
     ↓
 [sumeru-polish] 内容润色（**润色所有章节，每个Agent最多3章**）
-    → 输入: .sumeru/context-packs/polish-*.md（优先），目标章节正文，相关 issue
+    → 输入: .sumeru/context-packs/polish-*.md（优先，含具象标杆+批次摘要），目标章节正文，相关 issue
     → 输出: chapters/*.md（润色后直接修改，自动备份到 .sumeru/write/original/）, .sumeru/polish/*.json
     → ✅ **必须完成全本润色**
     → 📝 **润色结果直接修改 chapters/，修改前自动备份到 .sumeru/write/original/**
-    → ⚠️ **遵循全局3章/Agent约束**
+    → ⚠️ **遵循全局3章/Agent约束，最多5子agent并行**
     ↓
 [阶段检查点 4] 验证润色完成
     ↓
-[sumeru-finalize] 完稿校验（**处理所有章节，每个Agent最多3章**）
-    → 输入: .sumeru/context-packs/finalize-*.md（优先），目标章节正文
+[sumeru-finalize] 完稿校验（**脚本预处理 + 子Agent处理待定项**）
+    → 输入: 脚本扫描结果（待定项列表，最多20个/批）
+→ 输出: publish/*, tests/release-check-report.md, .sumeru/finalize/build-manifest.json
+    → ⚠️ **子Agent只处理待定项，最多20个/批，最多5子agent并行**
+    ↓
     → 输出: publish/*, tests/release-check-report.md, .sumeru/finalize/build-manifest.json
     → ⚠️ **遵循全局3章/Agent约束**
 ```
@@ -268,7 +273,7 @@ flowchart LR
     - 润色完成后，直接修改 `chapters/` 中的文件（修改前自动备份到 `.sumeru/write/original/`）
     - 润色过程和结果记录到 `.sumeru/polish/` 目录
     - 完成后更新 `.sumeru/status.json`
-8. **完稿阶段**：调用 `sumeru-finalize` 对所有润色后的章节进行完稿校验（遵循全局3章/Agent约束），从 `chapters/` 目录读取最终内容，输出 `tests/release-check-report.md` 和多种格式到 `publish/`，生成 `.sumeru/finalize/build-manifest.json`，完成后更新 `.sumeru/status.json`
+8. **完稿阶段**：调用 `sumeru-finalize` 执行脚本化预处理（错别字扫描、敏感词初筛、格式检查），子Agent只处理脚本标记出的待定项（最多20个/批），输出 `tests/release-check-report.md` 和多种格式到 `publish/`，生成 `.sumeru/finalize/build-manifest.json`，完成后更新 `.sumeru/status.json`
 
 ### 交互式需求引导
 当用户提供的信息过于简略时（仅输入题材和少量关键词），系统会自动触发交互式提问，一步步引导用户明确创作需求，确保生成内容完全符合预期。

@@ -63,7 +63,8 @@ type: skill
 - 正文必须落实 `outputs` 中的人物状态、道具状态、伏笔和下一章钩子。
 - 正文必须满足全部 `acceptanceCriteria`；如无法满足，生成章节前先说明阻塞原因并写入 `.sumeru/backlog.md`。
 - 章节生成后更新 `.sumeru/status.json` 中对应章节状态为 `drafted`。
-- 章节生成后更新 `.sumeru/continuity/character-state.json`、`item-state.json`、`foreshadowing.json`、`timeline.json` 中与本章相关的变化。
+- 章节生成后更新 `.sumeru/continuity/character-state.json`、`.sumeru/continuity/item-state.json`、`.sumeru/continuity/foreshadowing.json`、`.sumeru/continuity/timeline.json` 中与本章相关的变化。
+- 章节生成后更新 `.sumeru/continuity/consistency-rules.json`（从子Agent输出的 `state_diff` 标记中提取）。
 - 章节生成后把实际完成的名场面、反转、情绪节拍追加到 `ideas/scene-fragments.md` 或 `ideas/emotional-beats.md`，供后续复用和避重。
 
 ### 创意落地检查
@@ -165,17 +166,19 @@ flowchart LR
     B --> C[父Agent: 验证细纲完整性]
     D[父Agent: 计算Agent数 = min(ceil/总章/3/, 5)]
     C --> D
-    D --> E[父Agent: 生成 context pack & 分配任务]
+    D --> E[父Agent: 生成 context pack + 批次摘要 + 缓存键列表]
     E --> F[父Agent: 启动N个并行子agent N≤5]
-    F --> G[子Agent: 读取 context pack → 生成正文 → 输出纯文本]
+    F --> G[子Agent: 读取 context pack → 生成正文 → 输出带状态标记的文本]
     G --> H{所有子Agent完成?}
     H -->|否| F
-    H -->|是| I[父Agent: 汇总正文 & 写入 chapters/]
-    I --> J[父Agent: 备份 & 更新 status & 刷新 cache]
-    J --> K[父Agent: 追加 ideas/scene-fragments & 生成进度报告]
-    K --> L{还有剩余章节?}
-    L -->|是| D
-    L -->|否| M[完成]
+    H -->|是| I[父Agent: 提取状态标记 & 汇总正文]
+    I --> J[父Agent: 写入 chapters/ & 备份 & 更新 status]
+    J --> K[父Agent: 更新 consistency-rules.json & character-state.json]
+    K --> L[父Agent: 生成批次摘要 ≤500字 → .sumeru/continuity/batch-summaries/]
+    L --> M[父Agent: 追加 ideas/scene-fragments & 生成进度报告]
+    M --> N{还有剩余章节?}
+    N -->|是| D
+    N -->|否| O[完成]
 ```
 
 **章节分配规则**
@@ -193,14 +196,45 @@ flowchart LR
 - 人物摘要（仅本组章节相关）：当前状态、目标、关系、语言风格
 - 世界观摘要（仅本组章节会用到的）：地点、组织、功法、道具、禁用变体
 - 目标章节任务卡：purpose、events、outputs、acceptanceCriteria、creativeGoal、emotionalBeat
+- **Batch Summary（非第一批必填）**：前N批实际摘要（≤500字），来自 `.sumeru/continuity/batch-summaries/`
+- **【可用缓存的键】**（子Agent可在输出中标记需要以下缓存内容，父Agent下一轮补充）：
+  - `char:主角`（人物当前状态摘要，约200字）
+  - `char:反派`（人物当前状态摘要，约200字）
+  - `plotline:v1`（伏笔线1摘要，约150字）
+  - `prev:actual`（上一章实际结尾，约200字）
+  - `arc:001-003`（第1-3章实际摘要，约300字）
 
 **子agent输出**
-- 仅输出纯正文文本，不包含任何状态更新指令、文件写入指令或缓存刷新指令
+- 输出首行必须包含状态标记注释（格式见下方），不能有任何前置文字
+- 正文内容紧跟状态标记之后
 - 正文必须满足 context pack 中任务卡的 acceptanceCriteria
 - 正文必须落实 creativeGoal、freshnessHook、emotionalBeat、readerMemoryPoint
 - 遇到 tropeToAvoid 时必须避开直给套路
 - 若存在 surpriseTwist，必须提前埋下公平线索
 - **续写场景**：正文开头必须自然衔接 context pack 中的上一章结尾
+
+#### 状态标记格式（所有子Agent输出统一）
+
+```markdown
+<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff="主角进入北域|女配苏瑾受伤|龙牙剑已毁", char_update="苏瑾:轻伤|主角:龙血狂暴剩余3天", plot_update="v3伏笔推进:黑衣人身份暗示", batch=002, timestamp=2026-05-18T10:30:00Z -->
+```
+
+**字段说明**：
+| 字段 | 含义 | 示例 |
+|------|------|------|
+| `chapter` | 章节号 | `037` |
+| `status` | 章节状态 | `drafted` |
+| `state_diff` | 人物/道具/伏笔的状态变化，用 `|` 分隔 | `主角进入北域|女配苏瑾受伤` |
+| `char_update` | 人物当前状态摘要 | `苏瑾:轻伤|主角:龙血狂暴剩余3天` |
+| `plot_update` | 伏笔线推进情况 | `v3伏笔推进:黑衣人身份暗示` |
+| `batch` | 所属批次号 | `002` |
+| `timestamp` | 生成时间 | `2026-05-18T10:30:00Z` |
+
+**约束**：
+- 状态标记必须放在输出内容的**第一行**，不能有任何前置文字
+- `state_diff` 字段必须用 `|` 分隔，每个变化项格式为 `实体名:变化描述`
+- 如果子Agent不确定某个状态变化，可以留空该字段但不能省略整个标记
+- 父Agent汇总时提取标记，解析 `state_diff` 更新 `.sumeru/continuity/consistency-rules.json`，解析 `char_update` 更新 `.sumeru/continuity/character-state.json`
 
 ### 章节文件命名规范
 

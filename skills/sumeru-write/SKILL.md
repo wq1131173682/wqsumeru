@@ -19,12 +19,13 @@ type: skill
 7. 支持续写、修改、调整已有章节内容
 
 ### 独立调用自举
-如果用户直接调用 `sumeru-write`，不要假设 worldbuilder 已运行。先执行 AGENTS.md 的“断点恢复与独立调用自举”：
+如果用户直接调用 `sumeru-write`，不要假设 worldbuilder 已运行。先执行 AGENTS.md 的"断点恢复与独立调用自举"：
 - 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`。
 - 若缺少 `outlines/chapters.json`，尝试读取 `.sumeru/outline/chapter-outlines.json`；仍缺失时根据用户本次描述生成当前章节的临时任务卡。
 - 若缺少 `.sumeru/cache/`，生成最小 `project-brief.md`、`style-brief.md`、`creative-brief.md`、`continuity-brief.md`。
 - 若缺少当前范围的 `write-<range>.md` context pack，先生成临时 context pack 再写作。
 - 根据 `chapters/` 已有文件推断续写位置，默认不覆盖已有章节。
+- **写正文必须走子agent（即使是单章续写），父agent绝不写正文。**
 - 写作完成后更新 `.sumeru/status.json`、continuity cache 和 `.sumeru/changelog.md`。
 
 ### 按模式写作
@@ -134,47 +135,72 @@ type: skill
 - 检查每章是否包含 `creativeGoal`、`emotionalBeat`、`readerMemoryPoint`，缺失时自动补齐写作假设
 
 #### 子agent并行批量写作（大量章节推荐）
-当需要一次性生成大量章节（>3章）或使用细纲驱动模式时，自动启用子agent模式：
+当需要一次性生成大量章节（>3章）或使用细纲驱动模式时，自动启用子agent模式。
 
-**⚠️ 遵循全局约束：每个子Agent最多负责3个章节**（详见 AGENTS.md "子Agent并行处理规则"）
-- 所需Agent数 = ceil(总章节数 / 3)，调度器自动计算
-- 相邻章节分配给同一Agent，保持上下文连贯性
+**⚠️ 核心约束**
+- **写正文必须走子agent，单章续写也必须走子agent，父agent绝不写正文。**
+- 子agent并行数上限：**最多 5 个子agent同时运行**。
+- 每个子Agent最多负责 3 个连续章节。
+- 所需Agent数 = `min(ceil(总章节数 / 3), 5)`。超过5章时，先启动5个Agent，完成后根据剩余章节再启动下一批。
 
-**核心优势**
-- ✅ **细纲隔离**：每个子agent只获取自己负责章节的细纲，避免上下文溢出
-- ✅ **3章上限保障**：每个Agent最多3章，确保生成质量和一致性
-- ✅ 上下文隔离：每个子agent不携带历史章节内容，彻底解决长上下文压缩/溢出问题
-- ✅ 速度提升：多并行写作，速度是串行的N倍
-- ✅ 错误隔离：单章生成失败不影响其他章节，自动重试失败章节
-- ✅ 内存优化：子agent完成后自动销毁，释放内存资源
-- ✅ 增量写入：每写完一章立即保存到`.sumeru/write/draft/`，无需等待全部完成
-- ✅ **进度可视化**：实时显示已完成/进行中/待写章节状态
+**⚠️ 职责边界（关键）**
+| 任务 | 父Agent（调度器） | 子Agent（执行器） |
+|------|------------------|-------------------|
+| 自举 & 环境准备 | ✅ 定位项目、读/生成 project.json、status.json | ❌ |
+| Context pack 生成 | ✅ 集中生成，分发给各子agent | ❌ |
+| Cache 摘要读取 | ✅ 集中读取，塞入 context pack | ❌ |
+| 任务卡读取 | ✅ 集中读取目标章节任务卡 | ❌ |
+| **正文生成** | ❌ | **✅ 唯一任务** |
+| 文件写入 chapters/ | ✅ 汇总后统一写，避免并发冲突 | ❌ |
+| 备份到 original/ | ✅ 写前备份 | ❌ |
+| 更新 status.json | ✅ 汇总后统一更新 | ❌ |
+| 更新 continuity/ | ✅ 汇总后统一更新 | ❌ |
+| 更新 changelog.md | ✅ 汇总后统一追加 | ❌ |
+| 追加 ideas/ | ✅ 汇总后统一追加 | ❌ |
 
 **调度逻辑（细纲驱动）**
 ```mermaid
 flowchart LR
-    A[批量写作任务] --> B[读取chapter-outlines.json]
-    B --> C[验证细纲完整性]
-    C --> D[创建任务队列，按每Agent最多3章分配]
-    D --> E[计算所需Agent数 = ceil/总章数/3/]
-    E --> F[启动N个并行子agent]
-    F --> G[子Agent拉取任务 → 获取对应章节细纲 → 生成章节 → 保存文件]
-    G --> H{队列是否为空?}
-    H -->|否| G
-    H -->|是| I[汇总进度，生成完成报告]
+    A[批量写作任务] --> B[父Agent: 自举 & 读取细纲]
+    B --> C[父Agent: 验证细纲完整性]
+    D[父Agent: 计算Agent数 = min(ceil/总章/3/, 5)]
+    C --> D
+    D --> E[父Agent: 生成 context pack & 分配任务]
+    E --> F[父Agent: 启动N个并行子agent N≤5]
+    F --> G[子Agent: 读取 context pack → 生成正文 → 输出纯文本]
+    G --> H{所有子Agent完成?}
+    H -->|否| F
+    H -->|是| I[父Agent: 汇总正文 & 写入 chapters/]
+    I --> J[父Agent: 备份 & 更新 status & 刷新 cache]
+    J --> K[父Agent: 追加 ideas/scene-fragments & 生成进度报告]
+    K --> L{还有剩余章节?}
+    L -->|是| D
+    L -->|否| M[完成]
 ```
 
 **章节分配规则**
 - 按章节顺序连续分配，如Agent1负责第1-3章，Agent2负责第4-6章，以此类推
 - 尾部不足3章的Agent按实际剩余章节数分配
 - 相邻章节分配给同一Agent，以保持上下文连贯性
+- **单章续写**：也启动1个子agent，context pack 中必须包含前一章结尾，确保衔接自然
 
-**子agent输入上下文**
-- 完整章节内容，符合指定风格与节奏
-- 下一章内容预告/思路建议
-- 本章剧情关键点梳理
-- 本章埋设的伏笔提示（可选）
-- 人物成长/变化摘要（可选）
+**子agent输入上下文（context pack）**
+仅包含以下精简内容，总计 1500-3000 中文字：
+- 项目 brief（1-2行）：题材、平台、字数范围、整体风格
+- 风格 brief（1-2行）：叙述视角、句式、禁用表达
+- 创意 brief（1-2行）：本卷创意目标、要避开的套路
+- 连续性 brief（1-2行）：**上一章结尾（续写场景必填）**、关键道具状态、未回收伏笔
+- 人物摘要（仅本组章节相关）：当前状态、目标、关系、语言风格
+- 世界观摘要（仅本组章节会用到的）：地点、组织、功法、道具、禁用变体
+- 目标章节任务卡：purpose、events、outputs、acceptanceCriteria、creativeGoal、emotionalBeat
+
+**子agent输出**
+- 仅输出纯正文文本，不包含任何状态更新指令、文件写入指令或缓存刷新指令
+- 正文必须满足 context pack 中任务卡的 acceptanceCriteria
+- 正文必须落实 creativeGoal、freshnessHook、emotionalBeat、readerMemoryPoint
+- 遇到 tropeToAvoid 时必须避开直给套路
+- 若存在 surpriseTwist，必须提前埋下公平线索
+- **续写场景**：正文开头必须自然衔接 context pack 中的上一章结尾
 
 ### 章节文件命名规范
 

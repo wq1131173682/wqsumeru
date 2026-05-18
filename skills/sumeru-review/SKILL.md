@@ -38,7 +38,7 @@ user-invocable: true
 
 为确保审查全面性和修复质量，本 skill 采用三阶段审查修复流程：
 
-**第一阶段：全局信息审查**
+**第一阶段：全局信息审查（父Agent执行）**
 - 加载完整大纲和章节细纲，建立全局审查基准
 - 优先加载 `outlines/chapters.json` 章节任务卡、`docs/architecture.md`、`docs/style-guide.md`、`docs/glossary.md`
 - 分析整体剧情脉络和时间线结构
@@ -48,31 +48,55 @@ user-invocable: true
 - 记录**全局问题清单**到 `.sumeru/review/global-issues.json`
 - 同步生成或更新 `.sumeru/issues/index.json`
 
-**第二阶段：章节细节审查（Agent Team 并行）**
-- 使用多 Agent 并行处理，每个 Agent 负责一定数量的章节
-- **⚠️ 遵循全局约束：每个子Agent最多负责3个章节**（详见 AGENTS.md "子Agent并行处理规则"）
-- 所需Agent数 = ceil(总章节数 / 3)，分配策略为按章节顺序连续分配
-- 为每章生成核心剧情概要（去掉细节，仅保留关键事件）
-- 对每章进行详细审查：
-  - 章节任务卡 `acceptanceCriteria` 验收
-  - 创意目标 `creativeGoal` 是否落地
-  - 情绪节拍 `emotionalBeat` 是否和前后章重复
-  - 读者记忆点 `readerMemoryPoint` 是否足够清晰
-  - `tropeToAvoid` 是否被避开
-  - 字数统计与填充需求识别
-  - 时间线与事件时序验证
-  - 人物行为与性格一致性（OOC检测）
-  - 物品状态与信息边界检查
-  - 场景描写与对话质量评估
-  - 伏笔设置与回收状态
+**第二阶段：章节细节审查（子Agent并行）**
+
+**⚠️ 职责边界**
+| 任务 | 父Agent（调度器） | 子Agent（执行器） |
+|------|------------------|-------------------|
+| 生成 context pack | ✅ 集中生成，含审查标准和正文 | ❌ |
+| 启动子Agent | ✅ 计算所需Agent数，分配章节 | ❌ |
+| **章节审查** | ❌ | **✅ 唯一任务** |
+| 合并审查结论 | ✅ 汇总所有子Agent输出 | ❌ |
+| 写入 issues/ | ✅ 统一写入结构化问题单 | ❌ |
+| 生成 tests/ | ✅ 统一生成各类测试报告 | ❌ |
+| 生成 fix-plan.json | ✅ 统一制定修复计划 | ❌ |
+
+**子Agent输入（context pack）**：
+- 目标章节任务卡（含 acceptanceCriteria、creativeGoal、emotionalBeat、readerMemoryPoint）
+- 目标章节正文
+- 审查标准（acceptanceCriteria 验收、OOC 检测、时间线检查、伏笔检查等）
+- 相关人物/世界观摘要（仅本组章节需要）
+- 前一章审查结论摘要（用于跨章连贯性检查）
+
+**子Agent输出**：
+- 仅输出纯审查结论，包含：
+  - 章节验收结果（pass/fail + evidence）
+  - 问题列表（类型、严重程度、证据、影响、建议）
+  - 创意质量评估（套路重复、情绪疲劳、记忆点强度）
+  - 字数统计
+- **不写入任何文件、不更新任何状态**
+
+**子Agent审查维度**（每章）：
+- 章节任务卡 `acceptanceCriteria` 验收
+- 创意目标 `creativeGoal` 是否落地
+- 情绪节拍 `emotionalBeat` 是否和前后章重复
+- 读者记忆点 `readerMemoryPoint` 是否足够清晰
+- `tropeToAvoid` 是否被避开
+- 字数统计与填充需求识别
+- 时间线与事件时序验证
+- 人物行为与性格一致性（OOC检测）
+- 物品状态与信息边界检查
+- 场景描写与对话质量评估
+- 伏笔设置与回收状态
+
+**父Agent汇总后处理**：
+- 合并全局问题和章节问题，按严重程度排序（致命 > 严重 > 中等 > 轻微）
 - 生成**章节概要**到 `.sumeru/review/summaries/` 目录
-- 记录**章节问题清单**到 `.sumeru/review/chapter-issues/` 目录
 - 生成测试报告到 `tests/chapter-acceptance-report.md`、`tests/continuity-report.md`、`tests/foreshadowing-report.md`、`tests/word-count-report.md`
 - 生成创意质量报告到 `tests/creativity-report.md`
-- 支持断点续传，已审查章节可跳过
+- 更新 `.sumeru/cache/latest-test-summary.md` 和 `.sumeru/cache/issue-brief.md`
 
-**第三阶段：统一修复执行**
-- 合并全局问题和章节问题，按严重程度排序（致命 > 严重 > 中等 > 轻微）
+**第三阶段：统一修复执行（父Agent执行）**
 - 制定并执行**修复计划**，分为两种修复类型：
    - **轻量修复**（review 直接执行）：错别字、标点、少量段落调整、局部语句优化、字数不足补充等不改变主线事实的修改，**直接修改 `chapters/` 文件**（修改前自动备份到 `.sumeru/write/original/`）
   - **重写修复**（标记待处理）：剧情逻辑严重矛盾、大面积OOC、设定崩坏等需要重写的章节，记录到修复计划

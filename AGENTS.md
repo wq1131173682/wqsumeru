@@ -565,14 +565,92 @@ Issue 状态只能使用：`open`、`fixed`、`wontfix`、`needs-rewrite`、`nee
 所有涉及章节级批量操作的 Skill 必须遵守以下规则：
 
 - 适用范围：章节写作、章节重写、剧情审查、轻量修复、内容润色、完稿校验、平台导出、章节细纲生成。
+- **写正文必须走子agent，单章续写也必须走子agent，父agent绝不写正文。**
+- 子agent并行数上限：**最多 5 个子agent同时运行**。
 - 当处理章节数大于 3 章时，优先使用子Agent并行处理。
 - 每个子Agent最多负责 3 个连续章节，不得把大批量章节交给单个子Agent。
-- 所需Agent数 = `ceil(章节总数 / 3)`。
+- 所需Agent数 = `min(ceil(章节总数 / 3), 5)`。超过5章时，先启动5个Agent，完成后根据剩余章节再启动下一批。
 - 分配策略按章节顺序连续分组，例如 1-3、4-6、7-9。
 - 每个子Agent只接收完成任务所需的精简上下文，避免把全书正文塞入单个上下文。
 - 汇总阶段必须检查章节数量、命名、顺序、上下文衔接和输出完整性。
 
 此约束用于避免上下文溢出、章节质量下降和跨章状态混乱。
+
+## 子Agent职责边界规则
+
+**核心原则：子Agent只做"单一核心任务"，所有状态维护、文件写入、缓存刷新、汇总合并均由父Agent（调度器）统一处理。**
+
+### 父Agent（调度器）职责
+
+| 职责 | 说明 |
+|------|------|
+| 自举 & 环境准备 | 定位项目、读/生成 project.json、status.json、补齐目录 |
+| Context pack 生成 | 集中生成 context pack，控制 1500-3000 中文字，分发给各子Agent |
+| Cache 摘要读取 | 集中读取 L1 cache 摘要（project-brief、style-brief、creative-brief、continuity-brief 等），塞入 context pack |
+| 任务卡读取 | 集中读取目标章节任务卡（outlines/chapters/*.json），仅提取本组章节所需字段 |
+| 任务分发 | 启动 N 个子Agent，每个传入精简 context pack |
+| 结果汇总 | 收集所有子Agent输出，检查完整性、顺序、命名 |
+| 文件写入 | 统一写入输出文件（chapters/、outlines/、reviews/ 等），避免并发冲突 |
+| 备份 | 修改前将原文件备份到 `.sumeru/write/original/` |
+| 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
+| 缓存刷新 | 统一刷新相关 cache 摘要（continuity-brief、issue-brief、style-brief 等） |
+| 日志记录 | 统一追加 `.sumeru/changelog.md`、`.sumeru/decisions.md` |
+| Issue/测试汇总 | 合并各子Agent发现的问题，写入 `.sumeru/issues/` 和 `tests/` |
+
+### 子Agent（执行器）职责
+
+| 职责 | 说明 |
+|------|------|
+| 只读 context pack | 不读取任何额外文件，context pack 外的一切文件访问均视为违规 |
+| 执行核心任务 | 根据 context pack 中的任务卡/审查标准/润色要求，完成单一核心任务 |
+| 输出纯结果 | 输出纯文本结果（正文、审查结论、润色后文本、细纲），不包含状态更新指令 |
+| 不碰状态 | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
+
+### 各 Skill 子Agent职责明细
+
+| Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
+|-------|----------------|------------|------------|----------------|
+| **sumeru-write** | 按任务卡写正文（**单章续写也走子agent**） | context pack（含任务卡、**前一章结尾**、人物/世界观摘要） | 纯正文文本 | 写入 chapters/、备份、更新 status、刷新 continuity cache、追加 ideas/scene-fragments |
+| **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准） | 审查结论（问题列表、严重程度、证据、建议） | 合并所有子Agent问题、写入 issues/、生成 tests/、制定 fix-plan |
+| **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题） | 润色后正文 + diff 说明 | 写入 chapters/（覆盖原文）、备份、更新 status→polished、刷新 continuity cache |
+| **sumeru-outline** | 生成章节细纲 | context pack（含世界观、人物、分卷大纲、上下文关联） | 章节细纲 JSON/Markdown | 合并所有子Agent细纲、校验一致性、写入 outlines/chapters.json、刷新 cache |
+
+### Context Pack 精简规则
+
+context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超过 5000 中文字。结构如下：
+
+```markdown
+# Context Pack: <task>-<range>
+
+## Project Brief (1-2行)
+题材、平台、字数范围、整体风格。
+
+## Current Volume (1-2行)
+本卷目标、当前冲突、卷级反转、阶段情绪。
+
+## Relevant Characters (仅本组章节相关)
+相关人物的当前状态、目标、关系、语言风格。
+
+## Relevant World & Glossary (仅本组章节会用到的)
+地点、组织、功法、道具、禁用变体。
+
+## Continuity State (仅本组章节需要的)
+上一章结尾、关键道具状态、未回收伏笔、时间线位置。
+
+## Creative Strategy (仅本组章节需要的)
+创意目标、要避开的套路、情绪节拍变化、读者记忆点。
+
+## Chapter Cards (仅本组章节)
+目标章节任务卡，包含 purpose、events、outputs、acceptanceCriteria、creativeGoal。
+
+## Output Requirements (仅本组章节)
+文件命名、状态更新需求（由父agent执行，子agent无需关心）。
+```
+
+**关键约束**：
+- context pack 中不得包含全本正文、全本任务卡、全本 issues。
+- 子Agent收到 context pack 后，**不得以任何理由读取 context pack 之外的文件**。
+- 如果 context pack 信息不足导致任务无法完成，子Agent应明确说明缺失信息，由父Agent补充后重试。
 
 ## 修改边界
 

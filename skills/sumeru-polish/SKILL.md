@@ -94,51 +94,70 @@ type: skill
 
 ### 子Agent并行润色机制
 
-当需要润色的章节数量大于3章时，自动启用子Agent并行润色模式：
+当需要润色的章节数量大于3章时，自动启用子Agent并行润色模式。
 
 **⚠️ 遵循全局约束：每个子Agent最多负责3个章节**（详见 AGENTS.md "子Agent并行处理规则"）
 - 所需Agent数 = ceil(总章节数 / 3)
 - 相邻章节分配给同一Agent，保持风格连贯性
 
+**⚠️ 职责边界**
+| 任务 | 父Agent（调度器） | 子Agent（执行器） |
+|------|------------------|-------------------|
+| 自举 & 环境准备 | ✅ 定位项目、读/生成 project.json、status.json | ❌ |
+| Context pack 生成 | ✅ 集中生成，含正文+style-brief+issue-brief | ❌ |
+| Cache 摘要读取 | ✅ 集中读取 style-brief、creative-brief、issue-brief | ❌ |
+| 启动子Agent | ✅ 计算所需Agent数，分配章节 | ❌ |
+| **章节润色** | ❌ | **✅ 唯一任务** |
+| 写入 chapters/ | ✅ 汇总后统一写（修改前备份） | ❌ |
+| 备份到 original/ | ✅ 写前备份 | ❌ |
+| 生成 diff/summary | ✅ 汇总后统一生成 | ❌ |
+| 更新 status.json | ✅ 汇总后统一更新 → polished | ❌ |
+| 刷新 continuity cache | ✅ 汇总后统一刷新 | ❌ |
+
 **调度逻辑**
 ```mermaid
 flowchart LR
-    A[批量润色任务] --> B[读取章节列表与润色配置]
-    B --> C[创建任务队列，按每Agent最多3章分配]
-    C --> D[计算所需Agent数 = ceil/总章数/3/]
-    D --> E[启动N个并行子agent]
-    E --> F[子Agent拉取任务 → 润色章节 → 保存结果]
-    F --> G{队列是否为空?}
-    G -->|否| F
-    G -->|是| H[汇总润色结果，生成统计报告]
+    A[批量润色任务] --> B[父Agent: 自举 & 读取章节列表]
+    B --> C[父Agent: 读取 style-brief & issue-brief]
+    C --> D[父Agent: 生成 context pack & 分配任务]
+    D --> E[父Agent: 启动N个并行子agent]
+    E --> F[子Agent: 读取 context pack → 润色章节 → 输出润色后文本+diff说明]
+    F --> G{所有子Agent完成?}
+    G -->|否| E
+    G -->|是| H[父Agent: 汇总润色结果]
+    H --> I[父Agent: 备份原文 & 写入 chapters/]
+    I --> J[父Agent: 生成 diff/summary & 更新 status → polished]
+    J --> K[父Agent: 刷新 continuity cache]
 ```
 
-**子Agent输入上下文**
-每个子agent接收：
-1. 润色等级与风格参数
-2. 负责章节的原始内容
-3. 世界观设定（精简版，保持术语一致）
-4. 人物设定（仅相关人物，保持性格一致）
-5. 审查问题清单（如有，作为重点优化方向）
-6. `docs/creative-strategy.md`、`docs/style-guide.md` 与 `docs/glossary.md`
-7. 对应章节任务卡的 `acceptanceCriteria`、`emotionalBeat`、`readerMemoryPoint`
+**子Agent输入上下文（context pack）**：
+- 润色等级与风格参数
+- 负责章节的原始内容
+- 风格摘要（仅本组章节相关的 style-brief 内容）
+- 创意摘要（仅本组章节相关的 creative-brief 内容）
+- 审查问题摘要（仅本组章节相关的 issue-brief 内容，作为重点优化方向）
+- 对应章节任务卡的 `acceptanceCriteria`、`emotionalBeat`、`readerMemoryPoint`
 
-### 创意强化方式
-- **名场面放大**：用动作、反应、环境和短句节奏强化读者记忆点。
-- **情绪递进**：确保情绪不是平铺直叙，而是有压抑、转折、释放或余韵。
-- **台词打磨**：关键台词追求短、准、有角色辨识度，可截图传播。
-- **结尾钩子**：强化章节最后 100-200 字，让读者明确想看下一章。
-- **反套路保护**：如果原文已经避开套路，不要润色回模板化写法。
+**子Agent输出**：
+- 润色后的完整章节内容（纯文本）
+- 润色修改说明：调整的地方与原因（按优化类型分类）
+- 优化建议：后续内容写作提升方向
+- **不写入任何文件、不更新任何状态**
 
 **章节分配规则**
 - 按章节顺序连续分配（如Agent1负责第1-3章，Agent2负责第4-6章）
 - 尾部不足3章的Agent按实际剩余章节数分配
 
-**进度追踪**
-- 每个Agent完成润色后立即将结果直接保存到 `chapters/`（修改前自动备份到 `.sumeru/write/original/`）
-- 实时显示已完成/进行中/待润色章节状态
-- 所有Agent完成后，润色结果已直接应用到 `chapters/` 目录
-- 润色完成后更新 `.sumeru/status.json` 中对应章节状态为 `polished`
+**润色边界**
+- 保留既有主线事实、人物关系、战力体系、伏笔状态和章节结尾钩子，除非用户明确要求重写剧情。
+- 保留 `outlines/chapters.json` 中每章 `acceptanceCriteria` 已满足的内容，不为了文笔牺牲验收标准。
+- 强化但不篡改 `creativeGoal`、`emotionalBeat`、`readerMemoryPoint` 和 `freshnessHook`。
+- 术语、人物名、地名、组织名、功法名必须遵守 `docs/glossary.md`，不得产生新变体。
+- 文风、句式、禁用表达、平台偏好必须遵守 `docs/style-guide.md`。
+- 轻度润色以表达优化为主，不改变段落顺序和剧情信息。
+- 中度润色可以调整段落组织、补充细节和强化情绪递进，但不新增会影响后文的重大设定。
+- 深度润色可以重构场景呈现方式，但必须保持章节核心事件、人物动机和结尾指向一致。
+- 发现剧情逻辑硬伤时不要在润色中擅自改主线，应记录到 `.sumeru/polish/logic-notes.json`，建议转交 `sumeru-review` 或 `sumeru-write`。
 
 ### 数据持久化
 润色过程数据自动保存到 `.sumeru/polish/` 目录：

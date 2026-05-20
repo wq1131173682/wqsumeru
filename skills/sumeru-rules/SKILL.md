@@ -69,7 +69,7 @@ type: skill
 | 任务分发 | 启动 N 个子Agent，每个传入精简 context pack |
 | 结果汇总 | 收集所有子Agent输出，检查完整性、顺序、命名 |
 | 文件写入 | 统一写入输出文件（chapters/、outlines/、reviews/ 等），避免并发冲突 |
-| 备份 | 修改前将原文件备份到 `.sumeru/write/original/` |
+| 备份 | 修改前将原文件备份到 `.sumeru/write/original/`，默认每章仅保留最近 1 份 |
 | 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
 | 缓存刷新 | 统一刷新相关 cache 摘要 |
 | 日志记录 | 统一追加 `.sumeru/changelog.md`、`.sumeru/decisions.md` |
@@ -284,7 +284,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ### 自举流程（9步）
 
-1. **定位项目根目录**：从当前目录向上查找 `.sumeru/project.json`、`.sumeru/status.json`、`NOVEL.md`、`chapters/`、`outlines/`。找到任一组合即可视为候选项目根。
+1. **定位项目根目录**：从当前目录向上查找 `.sumeru/project.json`、`.sumeru/status.json`、`plan.md`、`outline.md`、`chapters/`、`outlines/`。找到任一组合即可视为候选项目根。
 2. **识别项目版本**：若存在 `.sumeru/project.json`，按新协议执行；若只存在旧版 `.sumeru/outline/chapter-outlines.json` 或 `chapters/`，进入兼容模式。
 3. **最小初始化**：缺少 `.sumeru/project.json` 时，根据已有文件生成最小配置；缺少 `.sumeru/status.json` 时，根据 `chapters/`、`outlines/`、`publish/` 推断阶段和章节状态。
 4. **补齐目录/文件**：按需创建 `.sumeru/cache/`、`.sumeru/context-packs/`、`.sumeru/continuity/`、`.sumeru/issues.md`。`reviews/`、`tests/` 仅在用户要求报告或完稿检查时创建。不要覆盖用户已有内容。
@@ -397,6 +397,12 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 正文修改默认产出最后版本。修改前只保留最小备份和状态记录，不要求用户阅读原文、diff 或中间建议。
 
+### 最小备份策略
+
+- 默认每章覆盖前只保留最近 1 份备份。
+- 批量任务保留最近 1 次批次快照。
+- 用户明确要求保留历史版本时，才增加长期备份。
+
 ---
 
 ## 十、质量检查
@@ -409,6 +415,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 4. 修改型 Skill 是否已生成备份和变更记录
 5. 报告中是否区分已修复问题、待用户确认问题和需要重写的问题
 6. 写作、重写、润色后是否通过剧情统一校验，且 `SUMERU_STATUS` 与 continuity cache 一致
+7. 发布导出是否剥离 `SUMERU_STATUS` 注释
 
 ---
 

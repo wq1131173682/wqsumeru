@@ -46,6 +46,7 @@ type: skill
 - 检查 `chapters/` 是否缺章、重章、命名不规范
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
 - 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
+- 导出到 `publish/` 时必须剥离章节首行的 `SUMERU_STATUS` 注释
 
 ### 子Agent并行校验机制
 

@@ -68,8 +68,9 @@ novella-project/
 
 ```
 novel-project/
-├── NOVEL.md                   # 小说总控
 ├── plan.md                    # 合并：需求+设定+创意
+├── outline.md                 # 故事结构、主线、伏笔、章节规划摘要
+├── outlines/                  # chapters.json 章节任务卡
 ├── chapters/                  # 正文，按 001-标题.md 命名
 ├── publish/                   # 发布构建产物
 └── .sumeru/
@@ -123,6 +124,8 @@ chapters/*.md
 - 单章/三章写作只读取目标章节任务卡、前 1 章摘要、后 1 章任务卡摘要
 - 批量子Agent只读取 `.sumeru/context-packs/<task>-<range>.md`
 - 章节正文默认只读目标章节、前 1 章和必要的后续任务卡
+- 单段润色只读用户片段、风格要求和必要术语，不生成 context pack
+- 完稿校验只在用户明确完稿/导出时触发
 
 ---
 
@@ -214,6 +217,12 @@ python scripts/continuity-check.py .sumeru/continuity --quiet
 7. **生成 context pack**：缺少时生成临时 context pack
 8. **执行任务并回写状态**：更新 `.sumeru/status.json`、相关 cache
 9. **记录变更**：追加到 `.sumeru/changelog.md`
+
+### Canonical 路径协议
+
+新写入只使用：`plan.md`、`outline.md`、`outlines/chapters.json`、`chapters/`、`.sumeru/issues.md`、`publish/`。
+
+旧路径 `docs/*`、`ideas/*`、`.sumeru/issues/index.json`、`.sumeru/outline/chapter-outlines.json` 只读兼容，不再作为新写入目标。
 
 ### 独立调用原则
 
@@ -377,6 +386,7 @@ python scripts/continuity-check.py .sumeru/continuity --quiet
 
 - build 前必须检查章节状态，默认只导出 `finalized` 的章节
 - build 前必须检查是否存在 `TODO`、`FIXME`、未关闭的 `critical`/`major` issue
+- build 时必须剥离章节首行的 `SUMERU_STATUS` 注释
 - build 输出写入 `publish/`，并生成 `.sumeru/finalize/build-manifest.json`
 
 ---

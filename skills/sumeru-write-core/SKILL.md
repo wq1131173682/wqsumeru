@@ -1,12 +1,12 @@
 ---
 name: sumeru-write-core
-description: 网文章节撰写核心规则层。所有写作模式共享的基础规则，包含任务卡执行规则、创意五问、毛边核心原则。
+description: 网文章节撰写通用规则。供 sumeru-write 使用，包含任务卡执行、剧情统一门禁、创意五问、毛边核心原则。
 type: skill
 ---
 
 ## 网文章节撰写核心规则
 
-> ⚠️ **这是核心层**：所有写作模式（light/medium/full）都共享此规则。增量层在此基础上扩展。
+> ⚠️ **这是通用写作规则**：`sumeru-write` 只使用这一种写作模式，不再区分 `light`/`medium`/`full`。
 
 > 📌 **输出级别**：遵循 `sumeru-rules` 的输出级别规范。默认 `quiet`。
 
@@ -31,6 +31,8 @@ type: skill
 | `low` | 严格按任务卡，禁止偏离 protectedElements | 高潮章、关键剧情节点 |
 | `medium` | 可以添加毛边，但 purpose 不可偏离 | 过渡章、日常章、人物互动章 |
 | `high` | 鼓励意外创意，只要不违背 protectedElements | 人物塑造章、情感章、伏笔回收章 |
+
+创意自由度不是写作模式，只是任务卡字段。父Agent不得因为 `creativeFreedom` 切换到另一套写作规则。
 
 **优先级规则：**
 ```
@@ -78,7 +80,39 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 三、毛边核心原则
+### 三、剧情统一门禁
+
+章节写作必须先保剧情统一，再追求文笔和爽点。任何出彩表达都不能覆盖既定剧情事实。
+
+#### 写前必须确认
+
+- 上一章实际结尾是否进入 context pack。
+- 当前时间线、地点、人物位置是否明确。
+- 关键人物的伤势、战力、关系、情绪状态是否明确。
+- 关键道具、能力限制、伏笔状态是否明确。
+- 本章禁止改写的事实是否列入 `protectedElements`。
+
+#### 写中禁止事项
+
+- 不得让同一人物无解释跨地点出现。
+- 不得让已毁、已消耗、已转移的道具再次无因出现。
+- 不得让伤势、战力、关系状态无因回退。
+- 不得把已回收伏笔重新当作未解悬念使用。
+- 不得为了爽点改写前文已经发生的事实。
+
+#### 写后必须输出
+
+`SUMERU_STATUS` 必须准确记录本章造成的状态变化；如果没有变化，也要输出空对象。
+
+```markdown
+<!-- SUMERU_STATUS: chapter=003, status=drafted, state_diff={}, char_update={}, plot_update={}, batch=001, timestamp=2026-05-18T10:30:00Z -->
+```
+
+父Agent只有在状态标记可解析、剧情统一校验通过后，才允许写入正式章节文件。
+
+---
+
+### 四、毛边核心原则
 
 **记住三句话：**
 
@@ -94,7 +128,7 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 四、毛边场景触发机制
+### 五、毛边场景触发机制
 
 **用场景触发条件替代频率规则**（AI 容易判断是/否）：
 
@@ -121,7 +155,7 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 五、避免的毛边类型
+### 六、避免的毛边类型
 
 | 类型 | 示例 | 问题 |
 |------|------|------|
@@ -134,7 +168,7 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 六、自检清单（写作完成后检查）
+### 七、自检清单（写作完成后检查）
 
 ```markdown
 ## 人性化自检
@@ -163,18 +197,11 @@ for each protectedElement in context_pack.protectedElements:
 - [ ] 毛边有没有偏离主线 purpose
 - [ ] 毛边是不是套路化（如每次紧张都摸鼻子）
 - [ ] 读者会不会觉得"这人物是活的"
+
+### 剧情统一
+- [ ] 本章是否承接上一章实际结尾
+- [ ] 人物位置、伤势、战力、关系是否与 continuity 一致
+- [ ] 道具归属、消耗、损坏状态是否一致
+- [ ] 伏笔是否只推进，不无因重置
+- [ ] `state_diff` 是否完整记录本章变化
 ```
-
----
-
-## 模式说明
-
-此核心层是所有模式的基准。增量层在此基础上扩展：
-
-| 模式 | 核心层 | 增量 | 总消耗 |
-|------|--------|------|--------|
-| `light` | ✅ | 无 | ~2000 字 |
-| `medium` | ✅ | medium 增量 | ~4000 字 |
-| `full` | ✅ | medium 增量 + full 增量 | ~8000 字 |
-
-**核心层更新时，所有模式自动同步。**

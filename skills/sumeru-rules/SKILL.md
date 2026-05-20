@@ -354,7 +354,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 | Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
 |-------|----------------|------------|------------|----------------|
-| **sumeru-write** | 按任务卡写正文（单章续写也走子agent） | context pack（含任务卡、前一章结尾、人物/世界观摘要） | 纯正文文本 + 状态标记 | 写入 chapters/、备份、更新 status、刷新 continuity cache、追加 ideas/scene-fragments |
+| **sumeru-write** | 按任务卡写正文（单章续写也走子agent） | context pack（含任务卡、上一章实际结尾、剧情事实基准、人物/道具/伏笔状态） | 纯正文文本 + 状态标记 | 先做剧情统一校验，通过后写入 chapters/、备份、更新 status、刷新 continuity cache |
 | **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准、consistency-rules.json） | 审查结论（问题列表、严重程度、证据、建议） | 合并所有子Agent问题、写入 issues/、生成 tests/、制定 fix-plan |
 | **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题、具象标杆） | 润色后正文 + diff 说明 + 状态标记 | 写入 chapters/（覆盖原文）、备份、更新 status→polished、刷新 continuity cache |
 | **sumeru-outline** | 生成章节细纲 | context pack（含世界观、人物、分卷大纲、上下文关联） | 章节细纲 JSON/Markdown + 状态标记 | 合并所有子Agent细纲、校验一致性、写入 outlines/chapters.json、刷新 cache |
@@ -381,14 +381,31 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 3. 章节文件是否按三位编号排序且没有缺章、重章
 4. 修改型 Skill 是否已生成备份和变更记录
 5. 报告中是否区分已修复问题、待用户确认问题和需要重写的问题
+6. 写作、重写、润色后是否通过剧情统一校验，且 `SUMERU_STATUS` 与 continuity cache 一致
 
 ---
 
-## 十一、剧情一致性冲突检测
+## 十一、剧情统一与一致性冲突检测
 
 **问题**：多个子Agent并行写作时，可能报告矛盾的 `state_diff`（如一个说"主角在北域"，另一个说"主角在南海"）。
 
-**解决方案**：建立冲突检测规则库，父Agent汇总时自动检测冲突。
+**解决方案**：建立剧情统一门禁和冲突检测规则库。所有写作、重写、润色都必须先校验剧情事实，再写入正式章节。
+
+### 剧情统一门禁
+
+父Agent在写入 `chapters/` 前必须完成以下检查：
+
+1. **承接检查**：本章开头和事件推进必须承接上一章实际结尾，不得跳过关键状态变化。
+2. **人物检查**：人物位置、伤势、战力、关系、情绪状态必须与 `.sumeru/continuity/consistency-rules.json` 一致。
+3. **道具检查**：关键道具归属、消耗、损坏、转移状态必须一致。
+4. **时间线检查**：章节事件顺序不得倒置；回忆、梦境、插叙必须显式标记。
+5. **伏笔检查**：已回收伏笔不得重新 active；新伏笔必须有 ID、首次出现章节和预期回收方向。
+6. **任务卡检查**：正文不得违反 `protectedElements` 和 `acceptanceCriteria`。
+
+处理规则：
+- `critical` 或 `high` 冲突：暂停写入正式章节，写入 issue 或 fix-plan，等待用户确认或重写。
+- `medium` 冲突：允许写入草稿，但必须在 review 报告中标记并进入待修复列表。
+- `low` 冲突：可自动修复或记录到 changelog。
 
 ### 冲突检测规则
 
@@ -400,6 +417,16 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 | `character_state_regression` | 人物状态不能无原因回退 | high | 检查治疗情节 |
 | `power_level_consistency` | 战力等级不能无原因跳跃 | medium | 提醒检查 |
 | `timeline_order` | 事件时间线必须有序 | high | 检查时间线 |
+
+### 状态标记校验
+
+父Agent解析 `SUMERU_STATUS` 时必须执行 schema 校验：
+
+- `chapter` 必须属于当前任务范围。
+- `status` 只能使用章节状态枚举。
+- `state_diff` 只能包含 `location_change`、`state_change`、`power_change`、`item_change`、`foreshadow_change`、`buff_change`。
+- `char_update` 和 `plot_update` 必须是合法 JSON 对象。
+- 标记缺失、JSON 不合法、章节号不匹配时，不得更新 `.sumeru/status.json` 和 continuity cache。
 
 ### 状态回退检测规则
 

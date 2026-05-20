@@ -8,6 +8,8 @@ user-invocable: true
 
 > 📌 **核心功能增强**：本 Skill 包含剧情一致性自动检查脚本（`scripts/continuity-check.py`）和伏笔追踪脚本（`scripts/foreshadowing-tracker.py`）。
 
+> 📌 **输出级别**：默认 `quiet` 模式，只输出问题和进度。详细规范见 `sumeru-rules` "输出级别规范"。
+
 ## 网文逻辑审查
 
 ### 触发关键词

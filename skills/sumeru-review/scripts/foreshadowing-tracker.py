@@ -145,33 +145,38 @@ def scan_foreshadowing(continuity_dir: str, current_chapter: int = 0) -> Dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python foreshadowing-tracker.py <.sumeru/continuity目录> [当前章节号] [--output <输出文件>]")
+        print("用法: python foreshadowing-tracker.py <.sumeru/continuity目录> [当前章节号] [--output <输出文件>] [--quiet]")
         print("\n示例:")
         print("  python foreshadowing-tracker.py .sumeru/continuity 50")
-        print("  python foreshadowing-tracker.py .sumeru/continuity --output foreshadowing-report.json")
+        print("  python foreshadowing-tracker.py .sumeru/continuity 50 --quiet")
         sys.exit(1)
     
     continuity_dir = sys.argv[1]
     current_chapter = 0
     output_file = None
+    quiet = "--quiet" in sys.argv
     
     # 解析参数
     for i, arg in enumerate(sys.argv):
         if arg == "--output" and i + 1 < len(sys.argv):
             output_file = sys.argv[i + 1]
+        elif arg == "--quiet":
+            quiet = True
         elif arg.isdigit() and current_chapter == 0:
             current_chapter = int(arg)
     
     # 扫描
-    print(f"正在追踪伏笔状态: {continuity_dir} (当前章节: {current_chapter})")
+    if not quiet:
+        print(f"正在追踪伏笔状态: {continuity_dir} (当前章节: {current_chapter})")
     result = scan_foreshadowing(continuity_dir, current_chapter)
     
     # 输出
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"伏笔报告已保存到: {output_file}")
-    else:
+        if not quiet:
+            print(f"伏笔报告已保存到: {output_file}")
+    elif not quiet:
         print("\n" + "="*60)
         print("伏笔追踪报告")
         print("="*60)
@@ -194,6 +199,10 @@ def main():
         print("\n管理建议:")
         for rec in result.get('recommendations', []):
             print(f"  {rec}")
+    
+    # 静默模式：只输出过期提醒
+    elif quiet and result.get('overdue_count', 0) > 0:
+        print(f"⚠️ 有 {result['overdue_count']} 个伏笔已过期，建议尽快回收")
     
     return result
 

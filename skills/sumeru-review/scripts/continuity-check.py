@@ -358,14 +358,16 @@ def scan_continuity(continuity_dir: str) -> Dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python continuity-check.py <.sumeru/continuity目录> [--output <输出文件>]")
+        print("用法: python continuity-check.py <.sumeru/continuity目录> [--output <输出文件>] [--quiet]")
         print("\n示例:")
         print("  python continuity-check.py .sumeru/continuity")
+        print("  python continuity-check.py .sumeru/continuity --quiet")
         print("  python continuity-check.py .sumeru/continuity --output continuity-report.json")
         sys.exit(1)
     
     continuity_dir = sys.argv[1]
     output_file = None
+    quiet = "--quiet" in sys.argv
     
     # 解析参数
     if "--output" in sys.argv:
@@ -374,15 +376,17 @@ def main():
             output_file = sys.argv[idx + 1]
     
     # 扫描
-    print(f"正在检查剧情一致性: {continuity_dir}")
+    if not quiet:
+        print(f"正在检查剧情一致性: {continuity_dir}")
     result = scan_continuity(continuity_dir)
     
     # 输出
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"一致性报告已保存到: {output_file}")
-    else:
+        if not quiet:
+            print(f"一致性报告已保存到: {output_file}")
+    elif not quiet:
         print("\n" + "="*60)
         print("剧情一致性检查结果")
         print("="*60)
@@ -406,6 +410,16 @@ def main():
             for i, conflict in enumerate(result['conflicts'][:10]):
                 print(f"\n  [{i+1}] [{conflict.get('severity', 'unknown').upper()}] {conflict.get('rule_id')}")
                 print(f"      {conflict.get('message', '')}")
+    
+    # 静默模式：只返回有问题的摘要
+    elif quiet and result.get('total_conflicts', 0) > 0:
+        counts = result.get('severity_counts', {})
+        critical = counts.get('critical', 0)
+        high = counts.get('high', 0)
+        if critical > 0:
+            print(f"🚨 发现 {critical} 个严重冲突，需立即处理")
+        if high > 0:
+            print(f"⚠️ 发现 {high} 个高优先级问题")
     
     return result
 

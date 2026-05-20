@@ -1,6 +1,6 @@
 ---
 name: sumeru-rules
-description: 须弥写作全局约束规则。包含子Agent并行处理规则、职责边界、状态标记格式、Context Pack格式、独立调用自举、剧情一致性冲突检测、伏笔管理等所有Skill共享的全局约束。
+description: 须弥写作全局约束规则。包含子Agent并行处理规则、职责边界、状态标记格式、Context Pack格式、独立调用自举、剧情一致性冲突检测、伏笔管理、输出级别等所有Skill共享的全局约束。
 type: skill
 ---
 
@@ -376,7 +376,105 @@ python scripts/foreshadowing-tracker.py .sumeru/continuity 50 --output foreshado
 - **数量控制**：活跃伏笔超过10个时，建议回收低优先级
 - **新伏笔规划**：近期设置多个新伏笔时，规划回收时间
 
-## 十二、写作安全与原创性
+## 十二、输出级别规范
+
+**问题**：创作过程中输出过多技术细节，用户只需要知道进度和结果。
+
+**解决方案**：定义三级输出级别，默认使用静默模式。
+
+### 输出级别
+
+| 级别 | 说明 | 适用场景 |
+|------|------|----------|
+| `quiet` | 只输出进度和关键节点，静默处理中间过程 | **默认**，日常创作 |
+| `normal` | 输出进度 + 阶段总结 + 问题提醒 | 用户明确要求 |
+| `verbose` | 完整输出所有中间报告和脚本结果 | 调试/审查 |
+
+### Quiet 模式输出规范
+
+**只输出：**
+- ✅ 阶段开始/完成通知
+- ✅ 进度条（章节号/总数）
+- ✅ 错误和警告（只有关键问题）
+- ✅ 阶段完成总结（1-2 行）
+
+**不输出：**
+- ❌ 脚本详细输出（字数统计、敏感词列表等）
+- ❌ 中间报告内容
+- ❌ 技术细节（Agent 数量、context pack 内容等）
+- ❌ 重复的状态更新
+
+### 输出示例对比
+
+**Verbose（当前）：**
+```
+🔍 找到 50 个章节文件，正在统计...
+📊 统计结果：总章节数: 50, 总字数: 150,000
+⚠️ 发现 3 章过短
+✅ 字数统计报告已生成：.sumeru/review/word-count-report.json
+...
+```
+
+**Quiet（推荐）：**
+```
+📝 写作中... 第 37/50 章 (74%)
+```
+
+**有问题时：**
+```
+⚠️ 第 25 章字数不足（1200 字，建议 2000+）
+```
+
+### 阶段完成总结格式
+
+```
+✅ 第 N 阶段完成：[阶段名]
+   [关键结果，1-2 行]
+   → 进入下一阶段：[下一阶段名]
+```
+
+示例：
+```
+✅ 第 3 阶段完成：章节撰写
+   已生成 50 章，共 125,000 字
+   → 进入下一阶段：逻辑审查
+```
+
+### 项目配置
+
+在 `.sumeru/project.json` 中设置：
+
+```json
+{
+  "outputLevel": "quiet",
+  "quiet": {
+    "show_progress": true,
+    "show_stage_change": true,
+    "show_errors_only": true,
+    "hide_script_output": true,
+    "hide_intermediate_reports": true
+  }
+}
+```
+
+### 脚本 Quiet 模式
+
+所有脚本支持 `--quiet` 参数：
+
+```bash
+# Quiet 模式：只输出 JSON，不打印中间信息
+python scripts/continuity-check.py .sumeru/continuity --quiet
+
+# Normal 模式：输出进度和摘要
+python scripts/continuity-check.py .sumeru/continuity
+
+# Verbose 模式：完整输出
+python scripts/continuity-check.py .sumeru/continuity --verbose
+```
+
+---
+
+## 十三、写作安全与原创性
 
 - 避免直接复刻现实公众人物、真实组织、真实地名、知名 IP 角色和受版权保护的具体设定
 - 用户要求参考某作品时，只学习节奏、类型结构和读者情绪价值，不复用具体人物、世界观、桥段或专有名词

@@ -238,23 +238,43 @@ def main():
                         help=f'警告最大字数 (默认: {WARNING_RANGE[1]})')
     parser.add_argument('--output', '-o', default='.sumeru/review/',
                         help='报告输出目录 (默认: .sumeru/review/)')
+    parser.add_argument('--quiet', '-q', action='store_true',
+                        help='静默模式：只输出有问题的章节')
 
     args = parser.parse_args()
 
     try:
         chapter_files = scan_chapters(args.dir, args.pattern)
         if not chapter_files:
-            print(f"❌ 在目录 {args.dir} 中未找到匹配的章节文件")
+            if not args.quiet:
+                print(f"❌ 在目录 {args.dir} 中未找到匹配的章节文件")
             return
 
-        print(f"🔍 找到 {len(chapter_files)} 个章节文件，正在统计...")
+        if not args.quiet:
+            print(f"🔍 找到 {len(chapter_files)} 个章节文件，正在统计...")
+        
         analysis_result = analyze_chapters(
             chapter_files,
             ideal_range=(args.min, args.max),
             warning_range=(args.warn_min, args.warn_max)
         )
 
-        generate_report(analysis_result, args.output)
+        if not args.quiet:
+            generate_report(analysis_result, args.output)
+
+        # 静默模式：只输出有问题的章节
+        if args.quiet:
+            summary = analysis_result["summary"]
+            if summary['too_short_count'] > 0:
+                print(f"⚠️ 发现 {summary['too_short_count']} 章过短")
+                for item in analysis_result["too_short_chapters"]:
+                    print(f"   - {item['chapter']}: {item['words']}字 (少 {item['gap']}字)")
+            if summary['too_long_count'] > 0:
+                print(f"⚠️ 发现 {summary['too_long_count']} 章过长")
+                for item in analysis_result["too_long_chapters"]:
+                    print(f"   - {item['chapter']}: {item['words']}字 (多 {item['gap']}字)")
+            if summary['too_short_count'] == 0 and summary['too_long_count'] == 0:
+                print(f"✅ 所有章节字数正常 (平均 {summary['average_words']:.0f}字)")
 
     except Exception as e:
         print(f"❌ 执行出错: {str(e)}")

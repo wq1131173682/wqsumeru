@@ -276,14 +276,15 @@ def scan_chapters(chapters_dir: str) -> Dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python spell-check.py <章节目录> [--output <输出文件>]")
+        print("用法: python spell-check.py <章节目录> [--output <输出文件>] [--quiet]")
         print("\n示例:")
         print("  python spell-check.py chapters/")
-        print("  python spell-check.py chapters/ --output error-report.json")
+        print("  python spell-check.py chapters/ --quiet")
         sys.exit(1)
     
     chapters_dir = sys.argv[1]
     output_file = None
+    quiet = "--quiet" in sys.argv
     
     # 解析参数
     if "--output" in sys.argv:
@@ -292,15 +293,17 @@ def main():
             output_file = sys.argv[idx + 1]
     
     # 扫描
-    print(f"正在扫描章节目录: {chapters_dir}")
+    if not quiet:
+        print(f"正在扫描章节目录: {chapters_dir}")
     result = scan_chapters(chapters_dir)
     
     # 输出
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"错误报告已保存到: {output_file}")
-    else:
+        if not quiet:
+            print(f"错误报告已保存到: {output_file}")
+    elif not quiet:
         print("\n" + "="*60)
         print("错别字检查结果")
         print("="*60)
@@ -322,7 +325,13 @@ def main():
                 if 'context' in error:
                     print(f"      上下文: ...{error['context']}...")
     
-    # 返回结果供父Agent使用
+    # 静默模式：只输出有错误时的提醒
+    elif quiet and result.get('total_errors', 0) > 0:
+        stats = result.get('error_stats', {})
+        spelling = stats.get('spelling', 0)
+        if spelling > 0:
+            print(f"⚠️ 发现 {spelling} 个错别字")
+    
     return result
 
 

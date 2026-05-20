@@ -255,14 +255,16 @@ def scan_chapters(chapters_dir: str) -> Dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python format-validator.py <章节目录> [--output <输出文件>]")
+        print("用法: python format-validator.py <章节目录> [--output <输出文件>] [--quiet]")
         print("\n示例:")
         print("  python format-validator.py chapters/")
+        print("  python format-validator.py chapters/ --quiet")
         print("  python format-validator.py chapters/ --output format-report.json")
         sys.exit(1)
     
     chapters_dir = sys.argv[1]
     output_file = None
+    quiet = "--quiet" in sys.argv
     
     # 解析参数
     if "--output" in sys.argv:
@@ -271,15 +273,17 @@ def main():
             output_file = sys.argv[idx + 1]
     
     # 扫描
-    print(f"正在扫描章节目录: {chapters_dir}")
+    if not quiet:
+        print(f"正在扫描章节目录: {chapters_dir}")
     result = scan_chapters(chapters_dir)
     
     # 输出
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"格式报告已保存到: {output_file}")
-    else:
+        if not quiet:
+            print(f"格式报告已保存到: {output_file}")
+    elif not quiet:
         print("\n" + "="*60)
         print("格式检查结果")
         print("="*60)
@@ -300,6 +304,16 @@ def main():
                 print(f"\n  [{i+1}] {issue.get('chapter')} - {issue.get('type')}")
                 print(f"      {issue.get('issue', '')}")
                 print(f"      {issue.get('suggestion', '')}")
+    
+    # 静默模式：只输出有问题的提醒
+    elif quiet and result.get('total_issues', 0) > 0:
+        stats = result.get('stats', {})
+        punctuation = stats.get('punctuation', 0)
+        chapter_title = stats.get('chapter_title', 0)
+        if punctuation > 0:
+            print(f"⚠️ 发现 {punctuation} 个标点符号问题")
+        if chapter_title > 0:
+            print(f"⚠️ 发现 {chapter_title} 个章节标题格式问题")
     
     return result
 

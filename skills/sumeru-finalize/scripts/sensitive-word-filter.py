@@ -172,16 +172,17 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>]")
+        print("用法: python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>] [--quiet]")
         print("\n示例:")
         print("  python sensitive-word-filter.py chapters/")
         print("  python sensitive-word-filter.py chapters/ --level 2")
-        print("  python sensitive-word-filter.py chapters/ --output sensitive-report.json")
+        print("  python sensitive-word-filter.py chapters/ --quiet")
         sys.exit(1)
     
     chapters_dir = sys.argv[1]
     output_file = None
     level = 3
+    quiet = "--quiet" in sys.argv
     
     # 解析参数
     if "--output" in sys.argv:
@@ -194,20 +195,22 @@ def main():
         if idx + 1 < len(sys.argv):
             try:
                 level = int(sys.argv[idx + 1])
-                level = max(1, min(3, level))  # 限制在1-3之间
+                level = max(1, min(3, level))
             except ValueError:
                 pass
     
     # 扫描
-    print(f"正在扫描章节目录: {chapters_dir} (检测级别: {level})")
+    if not quiet:
+        print(f"正在扫描章节目录: {chapters_dir} (检测级别: {level})")
     result = scan_chapters(chapters_dir, level)
     
     # 输出
     if output_file:
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
-        print(f"检测报告已保存到: {output_file}")
-    else:
+        if not quiet:
+            print(f"检测报告已保存到: {output_file}")
+    elif not quiet:
         print("\n" + "="*60)
         print("敏感词检测结果")
         print("="*60)
@@ -230,6 +233,16 @@ def main():
                 action = finding.get('action', '')
                 print(f"\n  [{i+1}] {finding.get('chapter')} - {severity} - '{word}'")
                 print(f"      处理建议: {action}")
+    
+    # 静默模式：只输出有问题的提醒
+    elif quiet and result.get('total_findings', 0) > 0:
+        stats = result.get('stats', {})
+        level1 = stats.get('level1', 0)
+        level2 = stats.get('level2', 0)
+        if level1 > 0:
+            print(f"🚨 发现 {level1} 个一级敏感内容，必须修改")
+        if level2 > 0:
+            print(f"⚠️ 发现 {level2} 个二级敏感内容，建议修改")
     
     return result
 

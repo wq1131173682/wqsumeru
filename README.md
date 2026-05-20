@@ -41,24 +41,22 @@ skills/
 | 模式 | 复杂度 | 适用范围 | 特点 |
 |---|---|---|---|
 | `short/light` | 轻量 | 1-10章，3万字以内 | 快速完成，少文件，不强制 context pack/tests/issues |
-| `medium/standard` | 标准 | 10-50章，3万-20万字 | 有 docs/chapters/cache，问题和审查可合并为单文件 |
-| `long/full` | 完整 | 50章以上，20万字以上 | 启用完整工程化、context-packs、tests、issues、continuity |
+| `medium/standard` | 标准 | 10-50章，3万-20万字 | 使用 plan/outline/chapters/cache，问题合并为单文件 |
+| `long/full` | 完整 | 50章以上，20万字以上 | 启用 context-packs、continuity，报告和 tests 按需生成 |
 
 短篇优先灵感和完成度，中篇优先结构，长篇优先工程化稳定。
 
 ```text
 novel-project/
 ├── README.md                  # 项目说明
-├── NOVEL.md                   # 小说总控：一句话卖点、核心爽点、主线目标
-├── docs/                      # requirements、architecture、world、characters、plot、style-guide、glossary
+├── plan.md                    # 合并：需求、设定、人物、风格、创意策略、术语
+├── outline.md                 # 故事架构、主线、分卷、伏笔、章节规划摘要
 ├── outlines/                  # chapters.json 章节任务卡
-├── ideas/                     # AI创意引擎：高概念、钩子、反转、爽点、场景碎片
 ├── chapters/                  # 正文，按 001-标题.md 命名
-├── reviews/                   # 剧情审查报告
-├── tests/                     # 连贯性、章节验收、伏笔、字数、release 检查
-├── drafts/                    # 试写、废稿、A/B 版本、重写草稿
+├── reviews/                   # 按需生成的剧情审查报告
+├── tests/                     # 按需生成的发布/连贯性检查报告
 ├── publish/                   # 多平台导出产物
-└── .sumeru/                   # project/status/cache/context-packs/issues/continuity/snapshots 与阶段数据
+└── .sumeru/                   # project/status/cache/context-packs/issues.md/continuity 与阶段数据
 ```
 
 短篇项目可简化为：
@@ -81,10 +79,11 @@ short-story/
 - `.sumeru/status.json`：阶段状态和章节状态，支持断点恢复。
 - `.sumeru/cache/`：稳定摘要缓存，减少重复读取大文件。
 - `.sumeru/context-packs/`：子Agent任务上下文包，批量写作/审查/润色/导出时优先读取。
+- `plan.md`：需求、设定、人物、风格、创意策略和术语的合并文件。
+- `outline.md`：故事结构、主线、伏笔、分卷与章节规划摘要。
 - `outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
-- `ideas/`：创意库存，保存高概念 pitch、反套路替代、惊喜反转、爽点和名场面。
-- `.sumeru/issues/`：类似 GitHub Issues 的问题单。
-- `tests/`：类似 CI 的小说项目测试结果。
+- `.sumeru/issues.md`：类似 GitHub Issues 的问题单，合并为单文件。
+- `tests/`：按需生成的连贯性、章节验收、伏笔、字数、release 检查结果。
 - `publish/`：类似 build/release 的发布产物。
 
 ### 断点恢复与单独调用
@@ -94,7 +93,7 @@ short-story/
 - 自动定位项目根目录。
 - 读取或生成 `.sumeru/project.json` 和 `.sumeru/status.json`。
 - 从已有 `chapters/`、`outlines/`、`publish/` 推断当前阶段和章节状态。
-- 缺少 `.sumeru/cache/` 或 `.sumeru/context-packs/` 时自动生成最小版本。
+- 缺少 `.sumeru/cache/` 或 `.sumeru/context-packs/` 时按当前任务生成最小版本，不全量读取项目。
 - 兼容旧版 `.sumeru/outline/chapter-outlines.json`。
 - 完成后回写状态、缓存、changelog 和必要的 issue/test/build 文件。
 
@@ -159,7 +158,7 @@ npx skills add wq1131173682/wqsumeru
 
 #### 1. 选题策划 Skill
 **适用场景**：不知道写什么、想找热门题材、需要市场可行性分析
-**功能**：基于主流平台榜单数据分析，生成3-5套差异化选题方案，包含金手指设计、核心卖点、爽点模式，以及市场热度、竞争格局、变现潜力等多维度评估。
+**功能**：基于类型经验和模型知识生成3套差异化选题方案，包含金手指设计、核心卖点、爽点模式和风险提示。市场判断为非实时推断，需结合平台最新榜单验证。
 
 ```bash
 /sumeru-topic <题材类型> "<核心关键词>"
@@ -190,7 +189,7 @@ npx skills add wq1131173682/wqsumeru
 
 #### 2. 大纲设计 Skill
 **适用场景**：写小说大纲、设计人设、做世界观设定、生成章节细纲
-**功能**：生成完整世界观、人物设定卡、剧情框架、爽点排布规划，**自动生成完整章节细纲**（chapter-outlines.json），自动合规检查避免侵权风险。大批量细纲生成时使用子Agent并行处理。
+**功能**：生成 `plan.md`、`outline.md` 和 `outlines/chapters.json`，覆盖世界观、人物、剧情框架、爽点排布和章节任务卡。大批量细纲生成时使用子Agent并行处理。
 
 ```bash
 /sumeru-outline "<核心创意描述>"
@@ -217,13 +216,13 @@ npx skills add wq1131173682/wqsumeru
 /sumeru-outline "星际文明+机甲战斗+虫族入侵" 复用已有大纲草稿  # 复用之前的大纲草稿继续完善
 ```
 
-> 💡 **细纲驱动**：大纲设计完成后自动生成 `chapter-outlines.json`，供 `sumeru-write` 进行细纲驱动的并行批量创作。
+> 💡 **细纲驱动**：大纲设计完成后自动生成 `outlines/chapters.json`，供 `sumeru-write` 进行细纲驱动的并行批量创作。
 
 ---
 
 #### 3. 章节撰写 Skill
 **适用场景**：生成章节内容、续写、重写、批量创作
-**功能**：**细纲驱动生成**，自动读取 `chapter-outlines.json`，支持单章或批量并行生成所有章节。遵循网文黄金节奏结构，保持人物性格与剧情一致性，**批量生成时自动使用子Agent并行处理，每个Agent最多负责3个章节**。
+**功能**：**细纲驱动生成**，自动读取 `outlines/chapters.json`，支持单章或批量并行生成章节。使用单一通用写作模式，保持人物性格与剧情一致性，批量生成时每个子Agent最多负责3章。
 
 ```bash
 /sumeru-write <章节号> "<章节概要>"
@@ -270,16 +269,16 @@ npx skills add wq1131173682/wqsumeru
 
 #### 4. 逻辑审查 Skill
 **适用场景**：检查剧情bug、时间线错误、人物OOC、逻辑漏洞、字数不足
-**功能**：**三阶段审查修复流程**——全局审查→章节细节审查（子Agent并行，每个Agent最多3章）→统一修复。自动发现剧情矛盾和不合理之处，**自动修复所有轻量级问题**（修复结果直接修改 chapters/ 目录，修改前自动备份），对需要重写的章节生成修复计划。
+**功能**：默认做目标范围最小审查，检查剧情统一、时间线、人物OOC、伏笔、字数和常识问题。轻量问题直接修复为最终版本；需要重写的章节生成修复计划。用户要求全书审查时才生成完整报告。
 
 ```bash
 /sumeru-review <章节范围>
 ```
 
 **三阶段审查流程：**
-1. **全局审查**：分析整体剧情脉络、时间线、设定一致性、冲突点分布、伏笔回收状态
-2. **章节细节审查**：逐章检查字数、时间线、人物OOC、物品状态、场景质量、伏笔设置（子Agent并行）
-3. **统一修复**：合并问题按严重程度排序 → 轻量修复直接修改 chapters/ → 需重写章节生成 fix-plan.json
+1. **范围审查**：只读取目标章节、前后必要摘要和 continuity 状态
+2. **章节细节审查**：检查字数、时间线、人物OOC、物品状态、伏笔设置（必要时子Agent并行）
+3. **统一修复**：轻量修复直接修改 chapters/ → 需重写章节生成 fix-plan.json
 
 **支持检查的问题类型：**
 - 字数检查：章节字数达标检查，不足自动填充
@@ -308,7 +307,7 @@ npx skills add wq1131173682/wqsumeru
 
 #### 5. 内容润色 Skill
 **适用场景**：优化文笔、调整节奏、强化爽点、统一风格
-**功能**：3级润色级别，专注文笔与内容层面优化，支持多风格转换，针对性优化节奏、爽点、对话、悬念等，**润色结果直接修改 chapters/ 目录，修改前自动备份到 .sumeru/write/original/**，**批量润色时使用子Agent并行处理，每个Agent最多负责3个章节**。
+**功能**：专注文笔与内容层面优化，支持多风格转换，针对性优化节奏、爽点、对话、悬念等。润色结果直接修改 chapters/ 目录为最终版本，修改前自动备份；用户提供片段时不生成 context pack。
 
 ```bash
 /sumeru-polish <章节范围>
@@ -394,13 +393,11 @@ npx skills add wq1131173682/wqsumeru
 ├── decisions.md      # 重要创作决策
 ├── changelog.md      # 改动记录
 ├── continuity/       # 时间线、人物、物品、伏笔、世界状态
-├── issues/           # 结构化问题单
+├── issues.md         # 合并问题清单
 ├── cache/            # 项目/世界观/人物/风格/创意/连续性/issue摘要缓存
 ├── context-packs/    # write/review/polish/finalize 子Agent上下文包
-├── snapshots/        # 关键阶段快照
 ├── topic/            # 选题阶段中间数据
-├── outline/          # 大纲阶段中间数据
-│   └── chapter-outlines.json  # 兼容旧流程的章节细纲副本
+├── outline/          # 旧版大纲兼容数据（只读优先）
 ├── write/            # 创作阶段中间数据
 │   └── original/     # 原始章节备份（review/polish修改前自动备份）
 ├── review/           # 审查阶段中间数据
@@ -413,16 +410,13 @@ npx skills add wq1131173682/wqsumeru
 ```
 ./
 ├── README.md          # 项目说明
-├── NOVEL.md           # 小说总控
-├── docs/              # 需求、架构、世界观、人设、剧情、文风、术语表
+├── plan.md            # 需求、设定、人物、风格、创意策略、术语
+├── outline.md         # 故事结构、主线、伏笔、分卷与章节规划摘要
 ├── outlines/          # chapters.json 章节任务卡
-├── ideas/             # 高概念、钩子、反转、爽点、名场面创意库存
-├── 选题策划报告.md    # 选题策划阶段最终成果
 ├── chapters/         # 章节内容文件
-├── reviews/          # 逻辑审查报告
-├── tests/            # 连贯性、章节验收、伏笔、字数、release 检查
-├── publish/          # 完稿导出的各平台格式文件
-└── output/           # 全流程创作的最终输出目录
+├── reviews/          # 按需生成的逻辑审查报告
+├── tests/            # 按需生成的连贯性、章节验收、release 检查
+└── publish/          # 完稿导出的各平台格式文件
 ```
 
 所有创作过程支持断点恢复，中断后无需重头开始。

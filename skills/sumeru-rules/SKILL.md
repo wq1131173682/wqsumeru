@@ -73,7 +73,7 @@ type: skill
 | 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
 | 缓存刷新 | 统一刷新相关 cache 摘要 |
 | 日志记录 | 统一追加 `.sumeru/changelog.md`、`.sumeru/decisions.md` |
-| Issue/测试汇总 | 合并各子Agent发现的问题，写入 `.sumeru/issues/` 和 `tests/` |
+| Issue/测试汇总 | 合并各子Agent发现的问题，写入 `.sumeru/issues.md`；`tests/` 按需生成 |
 
 ### 子Agent（执行器）职责
 
@@ -150,7 +150,7 @@ type: skill
 
 ### 输入传递
 
-父Agent将 context pack 写入临时文件 `.sumeru/context-packs/<task>-<range>.md`，通过 Task tool 的 prompt 参数指示子Agent读取该文件。
+父Agent将 context pack 写入临时文件 `.sumeru/context-packs/<task>-<range>.md`，通过 Task tool 的 prompt 参数指示子Agent只读取该文件。
 
 ```
 父Agent:
@@ -162,24 +162,23 @@ type: skill
 
 ### 输出返回
 
-子Agent将结果写入临时文件 `.sumeru/context-packs/<task>-<range>-result.md`，父Agent读取该文件获取结果。
+子Agent只通过任务返回文本结果，不写项目文件。父Agent收到结果后再统一写入正式文件，必要时可由父Agent保存临时 result。
 
 ```
 子Agent:
   1. 读取 context pack
   2. 执行核心任务
-  3. 将结果写入 .sumeru/context-packs/write-001-003-result.md
-  4. 返回完成信号
+  3. 返回正文/审查结论/润色结果
 父Agent:
-  5. 读取 result 文件
-  6. 提取 SUMERU_STATUS 标记
-  7. 将正文写入 chapters/
+  4. 提取 SUMERU_STATUS 标记
+  5. 校验剧情统一
+  6. 将最终结果写入 chapters/ 或报告文件
 ```
 
 ### 沙箱约束
 
 - 子Agent只能读取 context pack 文件（通过 prompt 明确约束："只读取指定的 context pack 文件"）
-- 子Agent不写入任何项目文件（结果通过临时 result 文件返回）
+- 子Agent不写入任何项目文件
 - 父Agent负责将结果合并到正式文件（chapters/、outlines/、reviews/ 等）
 - 子Agent不应使用 Glob/Grep/Read 工具搜索项目目录
 
@@ -188,6 +187,18 @@ type: skill
 ## 五、Context Pack 格式
 
 context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超过 5000 中文字。
+
+### 最小消耗策略
+
+默认只读取完成当前任务所需的最小上下文：
+
+- 单章写作/续写：项目 brief、目标任务卡、上一章实际结尾、相关人物/道具/伏笔状态。
+- 1-3 章批量写作：目标任务卡、最近 3 批摘要、必要 continuity，不读全书正文。
+- 单段润色：只读用户片段、风格要求、必要术语；不生成 context pack。
+- 小范围审查：只读目标章节、前后各 1 章摘要、consistency-rules。
+- 完稿导出：只在用户明确完稿/导出时运行，不在普通写作和润色阶段提前触发。
+
+除非用户要求 `verbose` 或“完整报告”，默认不输出中间报告，不展开脚本细节。
 
 ### 标准结构
 
@@ -276,8 +287,8 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 1. **定位项目根目录**：从当前目录向上查找 `.sumeru/project.json`、`.sumeru/status.json`、`NOVEL.md`、`chapters/`、`outlines/`。找到任一组合即可视为候选项目根。
 2. **识别项目版本**：若存在 `.sumeru/project.json`，按新协议执行；若只存在旧版 `.sumeru/outline/chapter-outlines.json` 或 `chapters/`，进入兼容模式。
 3. **最小初始化**：缺少 `.sumeru/project.json` 时，根据已有文件生成最小配置；缺少 `.sumeru/status.json` 时，根据 `chapters/`、`outlines/`、`publish/` 推断阶段和章节状态。
-4. **补齐目录**：按需创建 `.sumeru/cache/`、`.sumeru/context-packs/`、`.sumeru/issues/`、`.sumeru/continuity/`、`tests/`、`reviews/`。不要覆盖用户已有内容。
-5. **迁移兼容输入**：若只有 `.sumeru/outline/chapter-outlines.json`，可以继续读取；长篇项目应生成 `outlines/chapters.index.json` 和 `outlines/chapters/*.json` 的拆分副本。
+4. **补齐目录/文件**：按需创建 `.sumeru/cache/`、`.sumeru/context-packs/`、`.sumeru/continuity/`、`.sumeru/issues.md`。`reviews/`、`tests/` 仅在用户要求报告或完稿检查时创建。不要覆盖用户已有内容。
+5. **迁移兼容输入**：若只有 `.sumeru/outline/chapter-outlines.json`，可以继续读取；新写入统一生成 `outlines/chapters.json`。
 6. **刷新摘要缓存**：如果相关 cache 缺失或明显过期，先生成最小摘要。
 7. **生成本次 context pack**：如果直接执行章节级任务且缺少对应 context pack，本 skill 应为当前范围生成临时 context pack，再执行任务。
 8. **执行任务并回写状态**：任务完成后更新 `.sumeru/status.json`、相关 cache、issue/test/manifest 文件。
@@ -315,6 +326,20 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 - 不因为缓存缺失而失败；缓存缺失时生成最小缓存
 - 不因为 context pack 缺失而全量读取项目；先生成当前任务的 context pack
 - 兼容旧项目，但新写入内容应遵守新项目结构
+
+### Canonical 路径协议
+
+新写入只使用以下路径；旧路径只读兼容，不再主动生成：
+
+| 类型 | 新写入路径 | 旧路径处理 |
+|------|------------|------------|
+| 项目配置 | `.sumeru/project.json`、`.sumeru/status.json` | 无 |
+| 需求/设定/创意 | `plan.md` | `docs/*`、`ideas/*` 只读兼容 |
+| 大纲/任务卡 | `outline.md`、`outlines/chapters.json` | `.sumeru/outline/chapter-outlines.json` 只读兼容 |
+| 正文 | `chapters/` 或短篇 `story.md` | 无 |
+| 问题清单 | `.sumeru/issues.md` | `.sumeru/issues/index.json` 只读兼容 |
+| 审查摘要 | `reviews/review-report.md` | 按需生成，不做默认全量报告 |
+| 发布产物 | `publish/` | 无 |
 
 ---
 
@@ -355,8 +380,8 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 | Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
 |-------|----------------|------------|------------|----------------|
 | **sumeru-write** | 按任务卡写正文（单章续写也走子agent） | context pack（含任务卡、上一章实际结尾、剧情事实基准、人物/道具/伏笔状态） | 纯正文文本 + 状态标记 | 先做剧情统一校验，通过后写入 chapters/、备份、更新 status、刷新 continuity cache |
-| **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准、consistency-rules.json） | 审查结论（问题列表、严重程度、证据、建议） | 合并所有子Agent问题、写入 issues/、生成 tests/、制定 fix-plan |
-| **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题、具象标杆） | 润色后正文 + diff 说明 + 状态标记 | 写入 chapters/（覆盖原文）、备份、更新 status→polished、刷新 continuity cache |
+| **sumeru-review** | 按任务卡审查章节 | context pack（含任务卡、正文、审查标准、consistency-rules.json） | 审查结论（问题列表、严重程度、证据、建议） | 合并问题写入 `.sumeru/issues.md`，按需生成 review report，制定 fix-plan |
+| **sumeru-polish** | 按标准润色章节 | context pack（含正文、style-brief、creative-brief、审查问题、具象标杆） | 润色后正文 + 状态标记 | 备份后直接写入最终正文，更新 status→polished、刷新 continuity cache |
 | **sumeru-outline** | 生成章节细纲 | context pack（含世界观、人物、分卷大纲、上下文关联） | 章节细纲 JSON/Markdown + 状态标记 | 合并所有子Agent细纲、校验一致性、写入 outlines/chapters.json、刷新 cache |
 | **sumeru-finalize** | 脚本预处理 + 待定项判断 | 脚本扫描结果（待定项列表，最多20个） | 待定项处理建议 | 汇总建议、执行最终校验、写入 publish/、生成 build-manifest |
 
@@ -364,11 +389,13 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ## 九、修改边界
 
-- `sumeru-review` 可以直接修复错别字、轻微逻辑补丁、字数不足补充、局部段落顺序等轻量问题
+- `sumeru-review` 默认直接修复错别字、轻微逻辑补丁、字数不足补充、局部段落顺序等轻量问题，输出最终可读版本
 - `sumeru-review` 不应直接大面积重写章节；严重问题写入 `fix-plan.json`
-- `sumeru-polish` 可以直接修改 `chapters/` 做文笔、节奏、对话、爽点优化，但不得改变主线事实、关键设定和角色关系
+- `sumeru-polish` 默认直接修改 `chapters/` 做文笔、节奏、对话、爽点优化，但不得改变主线事实、关键设定和角色关系
 - `sumeru-finalize` 专注技术性校验和发布格式，不承担剧情重构和文风再创作
 - 下游 Skill 不直接调用上游 Skill；需要返工时输出结构化计划
+
+正文修改默认产出最后版本。修改前只保留最小备份和状态记录，不要求用户阅读原文、diff 或中间建议。
 
 ---
 

@@ -130,7 +130,7 @@ allowedDeviations（鼓励添加） → 不强制，但鼓励
 - `progress.json`、`chapter-meta.json`、`character-state.json`、`original/`
 
 ### 与其他 Skill 配合
-- **前置**：`sumeru-outline` 的 `chapter-outlines.json`、`characters.json`、`world.json`
+- **前置**：`sumeru-outline` 生成的 `plan.md`、`outline.md`、`outlines/chapters.json`
 - **后续**：供 `sumeru-review`、`sumeru-polish`、`sumeru-finalize` 使用
 
 ### 全局约束引用

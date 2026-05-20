@@ -26,6 +26,7 @@ type: skill
 - 技术性文字校验（错别字/标点/语法）由本 Skill 负责
 - `sumeru-polish` 专注文笔和内容层面优化，两者互补不重叠
 - 不改变剧情事实、人物关系、伏笔状态和章节结尾钩子
+- 只在完稿、发布前检查或用户明确要求导出时触发；普通写作、审查、润色阶段不提前运行
 
 ### 独立调用自举
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
@@ -44,7 +45,7 @@ type: skill
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
 - 检查 `chapters/` 是否缺章、重章、命名不规范
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
-- 检查 `.sumeru/issues/index.json` 是否存在未关闭的 `critical` 或 `major` issue
+- 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
 
 ### 子Agent并行校验机制
 

@@ -110,6 +110,14 @@ for each protectedElement in context_pack.protectedElements:
 
 父Agent只有在状态标记可解析、剧情统一校验通过后，才允许写入正式章节文件。
 
+#### 剧情变更处理
+
+如果写作中出现比任务卡更好的走向：
+
+- 不违反 `protectedElements`、主线事实和 continuity 时，可以直接采用，并在 `state_diff`、`plot_update` 中记录变化。
+- 会影响人物关系、伏笔回收、战力体系或后续任务卡时，必须在 `plot_update` 标记影响范围，父Agent同步更新 cache 和 changelog。
+- 会违反 `protectedElements` 或造成 critical/high 冲突时，不写入正式章节，转为 issue 或 fix-plan。
+
 ---
 
 ### 四、毛边核心原则
@@ -126,9 +134,17 @@ for each protectedElement in context_pack.protectedElements:
 
 **宁可加，不要不加。**
 
+### 五、写作质感底线
+
+- 对话不要句句完整，允许停顿、打断、改口、没说出口的话。
+- 情绪不要只写“开心/愤怒/震惊”，优先用动作、身体反应、环境反差承载。
+- 爽点必须有铺垫、阻力、代价和释放，避免“反派嘲讽→主角秒打脸”的直线套路。
+- 每章保留 1-2 个真实感细节即可，细节必须服务人物、情绪或伏笔。
+- 结尾钩子必须承接本章输出，不能只靠突兀悬念。
+
 ---
 
-### 五、毛边场景触发机制
+### 六、毛边场景触发机制
 
 **用场景触发条件替代频率规则**（AI 容易判断是/否）：
 
@@ -155,7 +171,7 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 六、避免的毛边类型
+### 七、避免的毛边类型
 
 | 类型 | 示例 | 问题 |
 |------|------|------|
@@ -168,7 +184,7 @@ for each protectedElement in context_pack.protectedElements:
 
 ---
 
-### 七、自检清单（写作完成后检查）
+### 八、自检清单（写作完成后检查）
 
 ```markdown
 ## 人性化自检

@@ -38,12 +38,12 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 | 模式 | 创建内容 |
 |------|----------|
 | `short/light` | `README.md`、`story.md`、`outline.md`、`.sumeru/project.json`、`.sumeru/status.json`、`.sumeru/cache/story-brief.md` |
-| `medium/standard` | `README.md`、`NOVEL.md`、`docs/`、`outlines/chapters.md`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
-| `long/full` | 完整工程化结构（见 AGENTS.md） |
+| `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
+| `long/full` | medium 结构 + `.sumeru/context-packs/`、`.sumeru/continuity/`、必要时 `reviews/`、`tests/` |
 
 ### 模式升级协议
-- `short -> medium`：补齐 `docs/`、`outlines/`、`chapters/`、标准 cache
-- `medium -> long`：补齐 `ideas/`、`tests/`、`.sumeru/issues/`、`.sumeru/context-packs/`、`.sumeru/continuity/`
+- `short -> medium`：补齐 `plan.md`、`outlines/chapters.json`、`chapters/`、标准 cache
+- `medium -> long`：补齐 `.sumeru/context-packs/`、`.sumeru/continuity/`，`reviews/` 和 `tests/` 按需创建
 - 升级后更新 `.sumeru/project.json`，记录到 `.sumeru/decisions.md` 和 `.sumeru/changelog.md`
 
 ### 项目状态机
@@ -52,9 +52,9 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 **章节状态顺序**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
 
 **推进规则**：
-- `outline` 完成：`docs/architecture.md`、`outlines/chapters.json` 存在，且章节任务卡包含 `acceptanceCriteria`
+- `outline` 完成：`outline.md`、`outlines/chapters.json` 存在，且章节任务卡包含 `acceptanceCriteria`
 - `write` 完成：目标章节文件存在，章节状态更新为 `drafted`，且没有缺章
-- `review` 完成：`tests/continuity-report.md`、`.sumeru/issues/index.json` 生成
+- `review` 完成：目标范围已审查，问题写入 `.sumeru/issues.md`；完整报告和 tests 仅在用户要求时生成
 - `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写
 - `polish` 完成：章节状态更新为 `polished`
 - `finalize` 完成：技术校验通过，章节状态更新为 `finalized`

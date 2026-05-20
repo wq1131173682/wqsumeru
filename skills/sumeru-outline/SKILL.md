@@ -23,8 +23,8 @@ type: skill
 
 ### 独立调用自举
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
-2. 若已有 `docs/requirements.md` 或 `.sumeru/topic/options.json`，复用既有选题和需求
-3. 若缺少 `ideas/` 或 `docs/creative-strategy.md`，先生成最小创意策略和创意库存
+2. 若已有 `plan.md`、`.sumeru/topic/options.json` 或旧版 `docs/requirements.md`，复用既有选题和需求
+3. 若缺少 `plan.md`，先生成最小创意策略和创意库存
 4. 大纲完成后生成或刷新 `outlines/chapters.json`；长篇项目同步拆分
 5. 更新 `.sumeru/status.json`、`.sumeru/cache/` 相关摘要
 
@@ -32,21 +32,16 @@ type: skill
 | 模式 | 输出内容 |
 |------|----------|
 | `short/light` | `outline.md`，包含高概念、人物、三幕结构、核心反转、情绪曲线 |
-| `medium/standard` | `docs/outline.md`、`docs/characters.md`、`outlines/chapters.md` |
-| `long/full` | 完整 `docs/`、`outlines/chapters.json`（拆分 index + 分章JSON） |
+| `medium/standard` | `plan.md`、`outline.md`、`outlines/chapters.json` |
+| `long/full` | `plan.md`、`outline.md`、`outlines/chapters.json`，必要时拆分章节任务卡 |
 
 ### 项目化输出要求
-- `docs/architecture.md`：故事架构（主线目标、终局冲突、爽点密度）
-- `docs/world.md`：世界观、力量体系、地理与组织
-- `docs/characters.md`：人物设定卡、人物关系、成长弧线
-- `docs/plot.md`：主线、支线、分卷规划、关键高潮、伏笔规划
-- `docs/creative-strategy.md`：高概念、类型混血、反套路策略、惊喜反转
-- `docs/style-guide.md`：文风规范、禁用表达、平台偏好
-- `docs/glossary.md`：术语、人物、地点、组织、功法、道具命名表
+- `plan.md`：需求、世界观、人物、风格、创意策略、术语合并维护
+- `outline.md`：故事架构、主线、分卷规划、关键高潮、伏笔规划
 - `outlines/chapters.json`：章节任务卡主文件（每章必须包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`）
 
 ### 创意架构要求
-- **高概念锁定**：选择主 pitch，写入 `docs/creative-strategy.md`
+- **高概念锁定**：选择主 pitch，写入 `plan.md`
 - **类型混血控制**：说明主类型承诺和嫁接类型的边界
 - **反套路策略**：列出本书最容易俗套的 5 个桥段，并给出替代写法
 - **卷级惊喜**：每卷至少设计 1-3 个"意外但合理"的反转
@@ -63,10 +58,10 @@ type: skill
 
 ### 数据持久化
 **用户可见输出**：
-- `小说大纲_世界观设定.md`、`小说大纲_剧情框架.md`、`小说大纲_章节细纲.md`
+- `plan.md`、`outline.md`、`outlines/chapters.json`
 
 **中间数据（`.sumeru/outline/`）**：
-- `world.json`、`characters.json`、`plot-outline.json`、`chapter-outlines.json`
+- 仅保存必要缓存；旧版 `world.json`、`characters.json`、`plot-outline.json`、`chapter-outlines.json` 只读兼容
 
 ### 与其他 Skill 配合
 - **前置**：可读取 `sumeru-topic` 的 `options.json`

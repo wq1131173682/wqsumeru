@@ -18,7 +18,7 @@ user-invocable: true
 ### 核心功能
 1. **全局审查**：分析整体剧情脉络、时间线、设定一致性、冲突点分布、伏笔回收状态
 2. **章节细节审查**：逐章检查字数、时间线、人物OOC、物品状态、场景质量、伏笔设置
-3. **统一修复**：轻量问题直接修复，严重问题写入修复计划
+3. **统一修复**：轻量问题直接修复并输出最终版本，严重问题写入修复计划
 4. **创意疲劳检测**：套路重复、情绪重复、创意目标未落地检测
 5. **剧情统一验收**：检查章节是否承接上一章实际结尾，是否违反 continuity 中的人物、道具、伏笔、战力和时间线状态
 
@@ -34,15 +34,14 @@ user-invocable: true
 |------|----------|
 | `short/light` | 单文件 `review.md`，检查结构、人物动机、反转合理性 |
 | `medium/standard` | `reviews/review-report.md`，问题记录到 `.sumeru/issues.md` |
-| `long/full` | 完整 `reviews/`、`tests/`、`.sumeru/issues/`，支持轻扫和深度审查 |
+| `long/full` | 目标范围审查；用户要求完整报告时生成 `reviews/` 和 `tests/` |
 
 ### 三阶段审查修复流程
 
-**第一阶段：全局信息审查（父Agent执行）**
-- 加载完整大纲和章节细纲，建立全局审查基准
-- 分析整体剧情脉络和时间线结构
-- 审查全局设定一致性
-- 记录全局问题清单到 `.sumeru/review/global-issues.json`
+**第一阶段：目标范围基准审查（父Agent执行）**
+- 加载目标章节任务卡、前后必要摘要和 consistency-rules
+- 只分析当前范围所需的剧情脉络、时间线和设定一致性
+- 用户要求“全书审查/完整报告”时，才加载全局大纲并生成完整报告
 
 **第二阶段：章节细节审查（子Agent并行）**
 - 每个子Agent最多 3 章，使用 `review-<range>.md` context pack
@@ -50,7 +49,7 @@ user-invocable: true
 - 父Agent汇总所有子Agent输出
 
 **第三阶段：统一修复**
-- 轻量修复 → 直接修改 `chapters/`（自动备份到 `.sumeru/write/original/`）
+- 轻量修复 → 备份后直接修改 `chapters/`，产出最终版本
 - 重写修复 → 生成 `fix-plan.json`，由 `sumeru-worldbuilder` 编排或用户手动调用 `sumeru-write` 处理
 
 ### fix-plan.json 格式定义
@@ -96,7 +95,7 @@ user-invocable: true
 
 ### 检查类型
 - **剧情统一**：上一章结尾承接、人物位置/伤势/战力、道具归属、伏笔状态、时间线顺序
-- **字数检查**：章节字数达标检查，不足自动填充
+- **字数检查**：章节字数达标检查，不足时按任务卡直接补足
 - **时间线**：时间线/年龄/事件顺序一致性
 - **人物OOC**：人物性格/行为OOC检查
 - **剧情逻辑**：剧情逻辑/设定一致性
@@ -157,7 +156,7 @@ user-invocable: true
 - `tests/*.md`：各类测试报告
 
 **中间数据（`.sumeru/`）**：
-- `.sumeru/issues/index.json`：问题索引
+- `.sumeru/issues.md`：问题清单
 - `.sumeru/review/global-issues.json`：全局问题清单
 - `.sumeru/review/fix-plan.json`：重写修复计划
 

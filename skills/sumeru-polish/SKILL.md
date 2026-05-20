@@ -24,8 +24,10 @@ type: skill
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
 2. 根据用户指定范围或 `chapters/` 推断要润色的章节
 3. 若缺少 review 输出，不阻塞润色，在 `.sumeru/backlog.md` 记录"未经过 review"
-4. 若缺少 `docs/style-guide.md` 或 `.sumeru/cache/style-brief.md`，生成临时风格摘要
-5. 若缺少当前范围的 context pack，先生成临时 context pack 再润色
+4. 若缺少 `plan.md`、旧版 `docs/style-guide.md` 或 `.sumeru/cache/style-brief.md`，生成临时风格摘要
+5. 用户提供片段时直接润色片段；指定章节时读取目标章节和最小风格摘要；批量章节才生成 context pack
+
+默认直接产出最终润色版。修改前保留最小备份，不要求用户阅读 diff 或中间稿。
 
 ### 按模式润色
 | 模式 | 处理方式 |
@@ -38,7 +40,7 @@ type: skill
 - 保留既有主线事实、人物关系、战力体系、伏笔状态和章节结尾钩子
 - 保留 `outlines/chapters.json` 中每章 `acceptanceCriteria` 已满足的内容
 - 强化但不篡改 `creativeGoal`、`emotionalBeat`、`readerMemoryPoint`、`freshnessHook`
-- 术语、人物名、地名、组织名、功法名必须遵守 `docs/glossary.md`
+- 术语、人物名、地名、组织名、功法名必须遵守 `plan.md` 中的术语表（旧版 `docs/glossary.md` 只读兼容）
 - 发现剧情逻辑硬伤时记录到 `.sumeru/polish/logic-notes.json`
 
 ### 润色等级
@@ -69,10 +71,10 @@ type: skill
 父Agent在每个批次开始时，从已完成章节中自动提取3段"标杆段落"（场景描写、对话、情绪高潮），塞入 context pack。
 
 ### 数据持久化
-**用户可见输出**：润色结果直接替换 `chapters/` 中的原文件
+**用户可见输出**：润色结果直接替换 `chapters/` 中的原文件，作为最终版本
 
 **中间数据（`.sumeru/polish/`）**：
-- `diff/`：修改对比文件
+- `diff/`：仅在用户要求时生成
 - `summary.json`：润色统计报告
 - `style-config.json`：本次润色配置
 - `logic-notes.json`：发现的剧情逻辑硬伤

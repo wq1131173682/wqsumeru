@@ -6,7 +6,7 @@ type: skill
 
 ## 网文章节撰写核心规则
 
-> ⚠️ **这是通用写作规则**：`sumeru-write` 只使用这一种写作模式，不再区分 `light`/`medium`/`full`。
+> ⚠️ **这是通用写作规则**：供 `sumeru-write` 章节写作统一使用。
 
 > 📌 **输出级别**：遵循 `sumeru-rules` 的输出级别规范。默认 `quiet`。
 

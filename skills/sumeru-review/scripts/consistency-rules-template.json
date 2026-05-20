@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "须弥写作 剧情一致性规则库",
+  "description": "用于追踪和验证小说剧情一致性的规则库，包含人物状态、道具状态、伏笔、时间线等",
+  "version": "1.0.0",
+  
+  "conflict_detection": {
+    "description": "冲突检测规则，用于检测 state_diff 中的矛盾",
+    "rules": [
+      {
+        "id": "unique_location",
+        "description": "同一人物不能同时在两个地点",
+        "severity": "critical",
+        "on_conflict": "标记为critical issue，暂停写入，等待父Agent仲裁"
+      },
+      {
+        "id": "destroyed_item_used",
+        "description": "已毁道具不能再次使用",
+        "severity": "critical",
+        "on_conflict": "标记为critical issue，暂停写入，等待父Agent仲裁"
+      },
+      {
+        "id": "foreshadowing_recycled",
+        "description": "已标记回收的伏笔不能再次标记为active",
+        "severity": "high",
+        "on_conflict": "标记为high issue，记录到issues/"
+      },
+      {
+        "id": "character_state_regression",
+        "description": "人物状态不能无原因回退（如从重伤变回健康需有治疗情节）",
+        "severity": "high",
+        "on_conflict": "标记为high issue，检查是否有治疗情节"
+      },
+      {
+        "id": "power_level_consistency",
+        "description": "人物战力等级不能无原因跳跃（跳跃超过2级需有突破情节）",
+        "severity": "medium",
+        "on_conflict": "标记为medium issue，提醒检查"
+      },
+      {
+        "id": "timeline_order",
+        "description": "事件时间线必须有序",
+        "severity": "high",
+        "on_conflict": "标记为high issue，检查时间线"
+      }
+    ],
+    "state_hierarchy": {
+      "character_health": ["healthy", "minor_injury", "injured", "seriously_injured", "critical", "deceased"],
+      "power_levels": ["凡人", "武者", "大师", "宗师", "宗师巅峰", "元婴", "化神", "炼虚", "合体", "大乘", "渡劫"]
+    }
+  },
+  
+  "weapons": [
+    {
+      "item": "示例武器名",
+      "status": "已毁",
+      "chapter_destroyed": 12,
+      "destroyed_detail": "被反派一掌震碎",
+      "current_chapter": null,
+      "holder": null
+    }
+  ],
+  
+  "character_locations": [
+    {
+      "name": "示例人物名",
+      "current_location": "示例地点",
+      "since_chapter": 35,
+      "previous_locations": [
+        {"location": "新手村", "chapter_from": 1, "chapter_to": 34}
+      ]
+    }
+  ],
+  
+  "active_buffs": [
+    {
+      "character": "示例人物",
+      "buff": "示例增益状态",
+      "remaining_duration": "3天",
+      "since_chapter": 78,
+      "source": "示例来源",
+      "expires_chapter": 85
+    }
+  ],
+  
+  "foreshadowing": [
+    {
+      "id": "v1",
+      "description": "示例伏笔描述",
+      "status": "active",
+      "first_appeared": 15,
+      "last_mentioned": 42,
+      "expected_payoff_chapter": 80,
+      "payoff_status": "pending",
+      "related_chapters": [15, 28, 42, 67],
+      "importance": "high",
+      "reminder": "第80章前需回收",
+      "payoff_chapter": null,
+      "payoff_detail": null
+    }
+  ],
+  
+  "key_items": [
+    {
+      "item": "示例道具名",
+      "status": "示例人物持有",
+      "current_chapter": 45,
+      "origin": "示例来源",
+      "history": [
+        {"chapter": 10, "event": "获得", "holder": "主角"},
+        {"chapter": 30, "event": "使用", "holder": "主角"},
+        {"chapter": 45, "event": "丢失", "holder": null}
+      ]
+    }
+  ],
+  
+  "character_state": [
+    {
+      "character": "示例人物",
+      "chapter": 50,
+      "status": "healthy",
+      "power_level": "宗师",
+      "location": "主城",
+      "relationships": {"示例人物2": "盟友"},
+      "goals": ["示例目标"],
+      "healing_event": false,
+      "breakthrough_event": false
+    }
+  ],
+  
+  "timeline": [
+    {
+      "chapter": 1,
+      "event": "示例事件",
+      "date": "示例日期",
+      "location": "示例地点",
+      "characters": ["示例人物"]
+    }
+  ]
+}

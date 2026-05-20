@@ -22,11 +22,11 @@ FORMAT_RULES = {
     # 章节标题格式
     "chapter_title_pattern": re.compile(r'^(第[一二三四五六七八九十\d]+章|CHAPTER\s+\d+)[\s：:]\s*.+'),
     
-    # 段落首行缩进（起点风格）
-    "indent_pattern": re.compile(r'^[^\s\u4e00-\u9fff]'),  # 非中文非空格的行首
+    # 段落首行缩进检测（两个全角空格或两个半角空格）
+    "indent_pattern": re.compile(r'^( {2}|　{1})[\u4e00-\u9fff]'),
     
     # 对话格式
-    "dialogue_pattern": re.compile(r'[""''"]'),
+    "dialogue_pattern": re.compile(r'[""''"][^""''"]+[""''"]'),
     
     # 标点符号规范
     "punctuation_errors": {
@@ -35,7 +35,6 @@ FORMAT_RULES = {
         '！！': '！',
         '？？': '？',
         '""': '"',
-        '。。': '。',
         '：：': '：',
         '；；': '；',
     },
@@ -108,6 +107,29 @@ def validate_paragraph_format(text: str, chapter_id: str, style: str = "qidian")
                 empty_count = 0
         else:
             empty_count = 0
+    
+    # 检查段落首行缩进（根据平台风格）
+    prev_blank = True
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            prev_blank = True
+            continue
+        if prev_blank and stripped:
+            # 段落首行应有缩进（两个半角空格或一个全角空格）
+            if not line.startswith('  ') and not line.startswith('　'):
+                # 排除章节标题、Markdown 标记、空行等非段落内容
+                if not stripped.startswith('#') and not stripped.startswith('>') and not stripped.startswith('-') and not stripped.startswith('*'):
+                    issues.append({
+                        "chapter": chapter_id,
+                        "type": "paragraph",
+                        "severity": "low",
+                        "position": i + 1,
+                        "issue": "段落首行缺少缩进",
+                        "context": stripped[:50],
+                        "suggestion": "段落首行建议缩进两个空格"
+                    })
+            prev_blank = False
     
     # 检查段落长度（过长的段落建议分段）
     paragraphs = text.split('\n\n')

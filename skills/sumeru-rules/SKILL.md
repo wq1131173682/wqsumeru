@@ -26,17 +26,31 @@ type: skill
 
 ### 批次间串行摘要（长篇连贯性保障）
 
-每批子Agent完成后，父Agent生成"实际摘要"（≤500字），作为下一批 context pack 的输入：
+每批子Agent完成后，父Agent生成"实际摘要"（≤300字），作为下一批 context pack 的输入。
+
+**滚动窗口策略**：context pack 中只保留**最近 3 批**摘要，更早的摘要合并为一行概述。
 
 ```
 第 1 批（并行）: 子Agent A 写 1-3章 + 子Agent B 写 4-6章
-                  ↓ 父Agent生成"1-6章实际摘要"（≤500字）
+                  ↓ 父Agent生成"1-6章实际摘要"（≤300字）
 第 2 批（并行）: 子Agent C 写 7-9章 + 子Agent D 写 10-12章
-                  （context pack 中包含"1-6章实际摘要"）
+                  ↓ 父Agent生成"7-12章实际摘要"（≤300字）
+第 3 批（并行）: 子Agent E 写 13-15章 + 子Agent F 写 16-18章
+                  （context pack 中包含：第1批概述 + 第2批摘要 + 第3批无）
 ```
 
-**摘要内容**：本批章节的核心事件、人物状态变化、新伏笔、关键道具变化、情绪曲线。
+**摘要格式**（纯事实列表，不含描写，严控字数）：
+```
+## 批次摘要: 第1-6章
+- 事件：主角觉醒系统(001)、通过宗门考核(003)、击败外门弟子(005)
+- 人物：主角练气三层→五层，苏瑾轻伤恢复，赵无极首次出场
+- 道具：黑色残片归主角，回春丹消耗2枚
+- 伏笔：v1黑衣人身份(mentioned)，v2残片来历(active)
+- 情绪：压抑→突破→暗爽
+```
+
 **存储位置**：`.sumeru/continuity/batch-summaries/batch-001.md`、`batch-002.md`...
+**Context Pack 中只嵌入最近 3 批**，更早的合并为 `## 历史概述（第1-N章）: <一句话概括>`
 
 ---
 
@@ -82,38 +96,96 @@ type: skill
 ### 格式规范
 
 ```markdown
-<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff="示例人物:进入示例地点|示例道具已毁", char_update="示例人物:轻伤|示例人物:增益状态剩余3天", plot_update="v3伏笔推进:示例暗示", batch=002, timestamp=2026-05-18T10:30:00Z -->
+<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff={"location_change":{"苏瑾":"北域冰原"},"state_change":{"苏瑾":"minor_injury"},"item_change":{"黑色残片":"acquired"}}, char_update={"苏瑾":{"status":"minor_injury","location":"北域冰原"},"主角":{"status":"healthy","buff":"龙血狂暴","remaining":"3天"}}, plot_update={"foreshadowing":{"v3":"黑衣人身份暗示推进"}}, batch=002, timestamp=2026-05-18T10:30:00Z -->
 ```
 
 ### 字段说明
 
-| 字段 | 含义 | 示例 |
-|------|------|------|
-| `chapter` | 章节号 | `037` |
-| `status` | 章节状态 | `drafted` / `polished` / `finalized` |
-| `state_diff` | 人物/道具/伏笔的状态变化，用 `|` 分隔 | `主角进入北域|女配苏瑾受伤` |
-| `char_update` | 人物当前状态摘要 | `苏瑾:轻伤|主角:龙血狂暴剩余3天` |
-| `plot_update` | 伏笔线推进情况 | `v3伏笔推进:黑衣人身份暗示` |
-| `batch` | 所属批次号 | `002` |
-| `timestamp` | 生成时间 | `2026-05-18T10:30:00Z` |
+| 字段 | 含义 | 格式 | 示例 |
+|------|------|------|------|
+| `chapter` | 章节号 | 字符串 | `037` |
+| `status` | 章节状态 | 枚举值 | `drafted` / `polished` / `finalized` |
+| `state_diff` | 结构化状态变化（JSON 片段） | JSON 对象 | 见下方分类说明 |
+| `char_update` | 人物当前状态（JSON 对象） | JSON 对象 | `{"苏瑾":{"status":"minor_injury"}}` |
+| `plot_update` | 伏笔线推进（JSON 对象） | JSON 对象 | `{"foreshadowing":{"v1":"resolved"}}` |
+| `batch` | 所属批次号 | 字符串 | `002` |
+| `timestamp` | 生成时间 | ISO 8601 | `2026-05-18T10:30:00Z` |
+
+### state_diff 分类说明
+
+`state_diff` 使用 JSON 对象，按变化类型分类，父Agent可直接解析并更新 `consistency-rules.json` 对应字段：
+
+```json
+{
+  "location_change": {"人物名": "新地点"},           // → 更新 character_locations
+  "state_change": {"人物名": "新健康状态"},            // → 更新 character_state.status
+  "power_change": {"人物名": "新战力等级"},            // → 更新 character_state.power_level
+  "item_change": {"道具名": "acquired|destroyed|transferred"},  // → 更新 weapons/key_items
+  "foreshadow_change": {"伏笔ID": "mentioned|resolved"},        // → 更新 foreshadowing
+  "buff_change": {"人物名": "buff描述|expired"}       // → 更新 active_buffs
+}
+```
+
+- 各分类键可选，只包含本章有变化的分类
+- 值为 `{"实体名": "变化描述"}` 的简单映射
+- 父Agent按分类键直接写入 `consistency-rules.json` 对应数组，无需自然语言理解
 
 ### 关键约束
 
 - 状态标记必须放在输出内容的**第一行**，不能有任何前置文字
-- `state_diff` 字段必须用 `|` 分隔，每个变化项格式为 `实体名:变化描述`
-- 如果子Agent不确定某个状态变化，可以留空该字段但不能省略整个标记
+- `state_diff` 必须是合法 JSON（单行，无换行符）
+- 如果子Agent不确定某个状态变化，可以留空该分类但不能省略整个标记
 
 ### 父Agent处理流程
 
 1. 汇总子Agent输出时，提取每章的 `<!-- SUMERU_STATUS -->` 标记
-2. 解析 `state_diff` 字段，更新 `.sumeru/continuity/consistency-rules.json`
-3. 解析 `char_update` 字段，更新 `.sumeru/continuity/character-state.json`
+2. 解析 `state_diff` JSON，按分类键更新 `.sumeru/continuity/consistency-rules.json` 对应数组
+3. 解析 `char_update` JSON，更新 `.sumeru/continuity/consistency-rules.json` 的 `character_state`
 4. 将标记中的 `status` 写入 `.sumeru/status.json` 对应章节
 5. 即使父Agent中断，重启后扫描 `chapters/*.md` 的标记即可重建所有状态文件
 
 ---
 
-## 四、Context Pack 格式
+## 四、子Agent调用协议
+
+### 输入传递
+
+父Agent将 context pack 写入临时文件 `.sumeru/context-packs/<task>-<range>.md`，通过 Task tool 的 prompt 参数指示子Agent读取该文件。
+
+```
+父Agent:
+  1. 生成 context pack → 写入 .sumeru/context-packs/write-001-003.md
+  2. 启动 Task tool，prompt 中包含：
+     "请读取 .sumeru/context-packs/write-001-003.md，按其中的任务卡完成第1-3章写作。"
+  3. 子Agent读取该文件并执行任务
+```
+
+### 输出返回
+
+子Agent将结果写入临时文件 `.sumeru/context-packs/<task>-<range>-result.md`，父Agent读取该文件获取结果。
+
+```
+子Agent:
+  1. 读取 context pack
+  2. 执行核心任务
+  3. 将结果写入 .sumeru/context-packs/write-001-003-result.md
+  4. 返回完成信号
+父Agent:
+  5. 读取 result 文件
+  6. 提取 SUMERU_STATUS 标记
+  7. 将正文写入 chapters/
+```
+
+### 沙箱约束
+
+- 子Agent只能读取 context pack 文件（通过 prompt 明确约束："只读取指定的 context pack 文件"）
+- 子Agent不写入任何项目文件（结果通过临时 result 文件返回）
+- 父Agent负责将结果合并到正式文件（chapters/、outlines/、reviews/ 等）
+- 子Agent不应使用 Glob/Grep/Read 工具搜索项目目录
+
+---
+
+## 五、Context Pack 格式
 
 context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超过 5000 中文字。
 
@@ -143,12 +215,23 @@ context pack 必须控制在 **1500-3000 中文字**，复杂任务最多不超�
 ## Chapter Cards (仅本组章节)
 目标章节任务卡，包含 purpose、events、outputs、acceptanceCriteria、creativeGoal。
 
+## 本章执行提醒（新增）
+- 必须在第15段附近制造情绪反转（keyMoment）
+- 主角必须主动选择，不能被推着走
+- 本章爽点类型：信息差碾压（前3章为：武力碾压、智力碾压、财富碾压 → 检查是否重复）
+- 毛边机会点：对手倒下的瞬间，主角的反应可以反常
+
 ## Batch Summary (仅非第一批)
 前N批实际摘要（≤500字），来自 .sumeru/continuity/batch-summaries/。
 
 ## Output Requirements (仅本组章节)
 文件命名、状态更新需求（由父agent执行，子agent无需关心）。
 ```
+
+**本章执行提醒说明：**
+- 这不是规则，是"创作过程中的耳语"
+- 事后检查治标，过程提醒治本
+- 提醒内容要具体、可执行、不超过 5 条
 
 ### 分层摘要缓存 + 按需检索
 
@@ -184,7 +267,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 五、独立调用自举协议
+## 六、独立调用自举协议
 
 用户可能不通过 `sumeru-worldbuilder`，而是直接调用任意 Skill。任何 Skill 单独启动时，都必须执行同一套自举流程。
 
@@ -235,7 +318,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 六、项目配置 Schema
+## 七、项目配置 Schema
 
 `.sumeru/project.json` 是全项目唯一配置源。
 
@@ -267,7 +350,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 七、各 Skill 子Agent职责明细
+## 八、各 Skill 子Agent职责明细
 
 | Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
 |-------|----------------|------------|------------|----------------|
@@ -279,7 +362,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 八、修改边界
+## 九、修改边界
 
 - `sumeru-review` 可以直接修复错别字、轻微逻辑补丁、字数不足补充、局部段落顺序等轻量问题
 - `sumeru-review` 不应直接大面积重写章节；严重问题写入 `fix-plan.json`
@@ -289,7 +372,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 九、质量检查
+## 十、质量检查
 
 执行任一 Skill 后，应至少检查：
 
@@ -301,7 +384,7 @@ polish 子Agent的 context pack 中，除了 abstract 的 style-brief，还必�
 
 ---
 
-## 十、剧情一致性冲突检测
+## 十一、剧情一致性冲突检测
 
 **问题**：多个子Agent并行写作时，可能报告矛盾的 `state_diff`（如一个说"主角在北域"，另一个说"主角在南海"）。
 
@@ -339,7 +422,7 @@ python scripts/continuity-check.py .sumeru/continuity --output continuity-report
 python scripts/foreshadowing-tracker.py .sumeru/continuity 50 --output foreshadowing-report.json
 ```
 
-## 十一、伏笔管理
+## 十二、伏笔管理
 
 **问题**：长篇创作容易忘记回收伏笔，导致剧情漏洞。
 
@@ -376,7 +459,7 @@ python scripts/foreshadowing-tracker.py .sumeru/continuity 50 --output foreshado
 - **数量控制**：活跃伏笔超过10个时，建议回收低优先级
 - **新伏笔规划**：近期设置多个新伏笔时，规划回收时间
 
-## 十二、输出级别规范
+## 十三、输出级别规范
 
 **问题**：创作过程中输出过多技术细节，用户只需要知道进度和结果。
 
@@ -474,7 +557,7 @@ python scripts/continuity-check.py .sumeru/continuity --verbose
 
 ---
 
-## 十三、写作安全与原创性
+## 十四、写作安全与原创性
 
 - 避免直接复刻现实公众人物、真实组织、真实地名、知名 IP 角色和受版权保护的具体设定
 - 用户要求参考某作品时，只学习节奏、类型结构和读者情绪价值，不复用具体人物、世界观、桥段或专有名词

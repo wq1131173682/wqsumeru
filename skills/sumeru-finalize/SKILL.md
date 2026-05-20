@@ -60,7 +60,25 @@ type: skill
 **子Agent只处理脚本标记出的"待定项"**：
 - 敏感词上下文判断
 - 每次最多传 20 个待定项给子Agent
-- 子Agent输出待定项的处理建议
+- 待定项 context 字段扩展为前后 100 字符（原 30 字符不足）
+- 子Agent输出待定项的处理建议，写入 `.sumeru/finalize/pending-results.json`
+
+**待定项返回协议：**
+```json
+// .sumeru/finalize/pending-results.json
+{
+  "results": [
+    {
+      "chapter": "005",
+      "word": "杀人灭口",
+      "position": 1234,
+      "verdict": "safe|remove|replace",
+      "reason": "此处为角色对话中的威胁用语，非实际暴力描写",
+      "replacement": null
+    }
+  ]
+}
+```
 
 ### 各平台导出格式规则
 

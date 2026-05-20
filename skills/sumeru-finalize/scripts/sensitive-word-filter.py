@@ -59,11 +59,10 @@ SENSITIVE_WORDS = {
 }
 
 # 需要上下文判断的敏感词（待定项）
+# 只保留真正需要上下文才能判断的组合词，常见单字词移除以减少误报
 CONTEXT_SENSITIVE_WORDS = [
-    "杀人", "死亡", "尸体", "血", "刀", "枪",
-    "打", "杀", "死", "亡",
-    "爱情", "恋爱", "亲密",
-    "权力", "政治", "政府",
+    "杀人灭口", "血腥场面", "尸体遍地", "血流成河",
+    "自杀身亡", "性暗示", "权力斗争", "政治阴谋",
 ]
 
 
@@ -130,6 +129,26 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
         return {"error": f"目录不存在: {chapters_dir}", "chapters_scanned": 0}
     
     for file_path in chapters_path.glob("**/*.md"):
+        chapters_scanned += 1
+        chapter_id = file_path.stem
+        
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                text = f.read()
+            
+            findings = detect_sensitive_words(text, chapter_id, level)
+            all_findings.extend(findings)
+            
+        except Exception as e:
+            all_findings.append({
+                "chapter": chapter_id,
+                "type": "read_error",
+                "severity": "high",
+                "error": str(e),
+                "requires_context_check": False
+            })
+    
+    for file_path in chapters_path.glob("**/*.txt"):
         chapters_scanned += 1
         chapter_id = file_path.stem
         

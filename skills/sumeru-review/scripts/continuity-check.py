@@ -133,7 +133,26 @@ def check_destroyed_item_used(data: Dict) -> List[Dict]:
                 conflicts.append({
                     "rule": "destroyed_item_used",
                     "severity": "critical",
-                    "message": f"已毁道具'{item.get('item')}'在第{current_chapter}章再次出现（第{destroyed_chapter}章已毁）",
+                    "message": f"已毁武器'{item.get('item')}'在第{current_chapter}章再次出现（第{destroyed_chapter}章已毁）",
+                    "item": item.get("item"),
+                    "destroyed_chapter": destroyed_chapter,
+                    "reappeared_chapter": current_chapter,
+                    "evidence": item
+                })
+
+    for item in key_items:
+        if item.get("item") in destroyed_items:
+            current_chapter = item.get("current_chapter")
+            # key_items 没有 chapter_destroyed 字段，从 history 中推断
+            destroyed_chapter = None
+            for event in item.get("history", []):
+                if event.get("event") in ["已毁", "destroyed", "broken", "丢失"]:
+                    destroyed_chapter = event.get("chapter")
+            if current_chapter and destroyed_chapter and current_chapter > destroyed_chapter:
+                conflicts.append({
+                    "rule": "destroyed_item_used",
+                    "severity": "critical",
+                    "message": f"已毁道具'{item.get('item')}'在第{current_chapter}章再次出现（第{destroyed_chapter}章已毁/丢失）",
                     "item": item.get("item"),
                     "destroyed_chapter": destroyed_chapter,
                     "reappeared_chapter": current_chapter,
@@ -151,10 +170,13 @@ def check_foreshadowing_recycled(data: Dict) -> List[Dict]:
     
     for fs in foreshadowing:
         status = fs.get("status")
-        if status == "recycled" or status == "resolved":
+        payoff_status = fs.get("payoff_status")
+        # 已回收的伏笔：status 为 resolved/recycled，或 payoff_status 为 resolved
+        is_resolved = status in ("recycled", "resolved") or payoff_status == "resolved"
+        if is_resolved:
             # 检查是否有后续更新将其重新标记为active
-            # 这需要结合版本历史，当前只能检查当前状态
-            if fs.get("reactivated"):
+            # 如果 resolved 的伏笔又被标记为 active，说明被重新激活
+            if status == "active" and payoff_status == "resolved":
                 conflicts.append({
                     "rule": "foreshadowing_recycled",
                     "severity": "high",
@@ -197,8 +219,8 @@ def check_character_state_regression(data: Dict) -> List[Dict]:
             
             # 如果当前状态比之前更健康，且没有治疗情节标记，可能是回退
             if prev_level > curr_level and curr_level >= 0:
-                # 检查是否有治疗情节
-                has_healing = states[i].get("healing_event", False)
+                # 检查是否有治疗情节（healing_event 非 null/False/None）
+                has_healing = states[i].get("healing_event")
                 if not has_healing:
                     conflicts.append({
                         "rule": "character_state_regression",
@@ -248,7 +270,7 @@ def check_power_level_consistency(data: Dict) -> List[Dict]:
                 if prev_idx >= 0 and curr_idx >= 0:
                     jump = curr_idx - prev_idx
                     if jump > 2:
-                        has_breakthrough = states[i].get("breakthrough_event", False)
+                        has_breakthrough = states[i].get("breakthrough_event")
                         if not has_breakthrough:
                             conflicts.append({
                                 "rule": "power_level_consistency",

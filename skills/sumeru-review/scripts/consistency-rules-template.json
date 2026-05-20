@@ -123,8 +123,30 @@
       "location": "主城",
       "relationships": {"示例人物2": "盟友"},
       "goals": ["示例目标"],
-      "healing_event": false,
-      "breakthrough_event": false
+      "healing_event": null,
+      "breakthrough_event": null
+    },
+    {
+      "character": "示例人物",
+      "chapter": 55,
+      "status": "injured",
+      "power_level": "宗师",
+      "location": "秘境",
+      "relationships": {"示例人物2": "盟友"},
+      "goals": ["示例目标"],
+      "healing_event": null,
+      "breakthrough_event": null
+    },
+    {
+      "character": "示例人物",
+      "chapter": 60,
+      "status": "healthy",
+      "power_level": "宗师巅峰",
+      "location": "秘境",
+      "relationships": {"示例人物2": "盟友"},
+      "goals": ["示例目标"],
+      "healing_event": {"method": "丹药恢复", "detail": "服用回春丹"},
+      "breakthrough_event": {"method": "秘境试炼", "detail": "在生死边缘突破"}
     }
   ],
   

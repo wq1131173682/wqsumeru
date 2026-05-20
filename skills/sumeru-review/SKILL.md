@@ -52,6 +52,47 @@ user-invocable: true
 - 轻量修复 → 直接修改 `chapters/`（自动备份到 `.sumeru/write/original/`）
 - 重写修复 → 生成 `fix-plan.json`，由 `sumeru-worldbuilder` 编排或用户手动调用 `sumeru-write` 处理
 
+### fix-plan.json 格式定义
+
+`fix-plan.json` 由 review 阶段生成，供 write 阶段的重写流程读取：
+
+```json
+{
+  "generatedAt": "2026-05-18T10:00:00Z",
+  "chapters": ["005", "012"],
+  "fixes": [
+    {
+      "chapter": "005",
+      "type": "character_ooc",
+      "severity": "high",
+      "description": "苏瑾性格突变，从冷静变为暴躁",
+      "suggestedFix": "保留冷静人设，将暴躁对话改为内心独白",
+      "autoFixable": false
+    },
+    {
+      "chapter": "012",
+      "type": "timeline_error",
+      "severity": "critical",
+      "description": "第12章事件发生在第11章之前",
+      "suggestedFix": "调整第12章时间线，确保在第11章之后",
+      "autoFixable": true
+    }
+  ]
+}
+```
+
+**字段说明：**
+- `type`：问题类型（`character_ooc`、`timeline_error`、`plot_hole`、`foreshadow_missing`、`word_count`、`other`）
+- `severity`：严重程度（`critical`、`high`、`medium`、`low`）
+- `autoFixable`：是否可自动修复（`true` 时 write 子Agent可直接处理，`false` 时需用户确认）
+
+**重写流程：**
+1. 用户调用 `/sumeru-write 重写第5章` 或 worldbuilder 自动触发
+2. write Skill 读取 `fix-plan.json` 中对应章节的 fix 项
+3. 将 fix 项嵌入 context pack 的 `## 重写要求` 章节
+4. write 子Agent按 fix 要求重写，输出新正文 + 状态标记
+5. 父Agent将 fix 项标记为 `fixed`，更新 status.json
+
 ### 检查类型
 - **字数检查**：章节字数达标检查，不足自动填充
 - **时间线**：时间线/年龄/事件顺序一致性
@@ -60,6 +101,53 @@ user-invocable: true
 - **伏笔**：伏笔回收检查
 - **常识**：常识/因果合理性检查
 - **创意疲劳**：套路重复、情绪重复、创意目标未落地
+- **情绪节点验证**（新增）：检查 emotionalCurve 中的每个阶段是否在文本中有对应内容
+
+### 情绪节点验证规则
+
+**问题**：任务卡定义了 `emotionalBeat: "压抑 → 困惑 → 恍然 → 暗爽"`，但 AI 可能跳过某个阶段或顺序错乱。
+
+**解决方案**：生成后自动检查每个情绪阶段是否有对应内容，且顺序正确。
+
+**验证规则：**
+```markdown
+## 情绪节点验证
+
+### 输入
+- emotionalBeat: "压抑 → 困惑 → 恍然 → 暗爽"
+
+### 检查（必须按顺序验证）
+- [ ] "压抑"阶段：文本前 1/4 是否有体现压抑情绪的内容？
+- [ ] "困惑"阶段：文本 1/4-1/2 是否有体现困惑情绪的内容？（必须在压抑之后）
+- [ ] "恍然"阶段：文本 1/2-3/4 是否有体现恍然情绪的内容？（必须在困惑之后）
+- [ ] "暗爽"阶段：文本后 1/4 是否有体现暗爽情绪的内容？（必须在恍然之后）
+
+### 顺序校验
+- 各情绪阶段在文本中的出现位置必须符合 emotionalBeat 定义的顺序
+- 允许中间穿插其他情绪，但主情绪顺序不可颠倒
+- 如果"暗爽"出现在"压抑"之前 → ⚠️ emotional_order_error
+
+### 输出
+- 全部通过且顺序正确 → ✅ emotional_curve_complete
+- 缺少某阶段 → ⚠️ emotional_gap: [缺少阶段名称]
+- 顺序错乱 → ⚠️ emotional_order_error: [实际顺序]
+```
+
+**示例：**
+```markdown
+# 任务卡定义
+"emotionalBeat": "压抑 → 困惑 → 恍然 → 暗爽"
+
+# 实际文本
+- 压抑（段落5）：✅ 开篇展示主角废柴处境
+- 困惑：❌ 直接跳到恍然，缺少困惑阶段
+- 恍然（段落20）：✅ 主角识破残片真实价值
+- 暗爽（段落25）：✅ 反派以为自己赢了，实际是主角的陷阱
+
+# 审查结果
+⚠️ emotional_gap: 困惑
+建议：在"识破残片"前增加主角的困惑阶段（如"这残片...不对劲？"）
+```
 
 ### 数据持久化
 **用户可见输出**：

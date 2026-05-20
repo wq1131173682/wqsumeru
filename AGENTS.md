@@ -314,7 +314,7 @@ python scripts/continuity-check.py .sumeru/continuity --quiet
 
 章节不是单纯的文本生成任务，而是一个带输入、输出和验收标准的 feature。
 
-`outlines/chapters.json` 中每章应包含：
+`outlines/chapters.json`（兼容旧路径 `.sumeru/outline/chapter-outlines.json`）中每章应包含：
 
 ```json
 {
@@ -394,13 +394,13 @@ python scripts/continuity-check.py .sumeru/continuity --quiet
 
 ### 批次间串行摘要
 
-每批完成后，父Agent生成"实际摘要"（≤500字），作为下一批 context pack 的输入：
+每批完成后，父Agent生成"实际摘要"（≤300字），作为下一批 context pack 的输入。采用**滚动窗口策略**：context pack 中只保留最近 3 批摘要，更早的合并为一行概述。
 
 ```
 第 1 批（并行）: 子Agent A 写 1-3章 + 子Agent B 写 4-6章
-                  ↓ 父Agent生成"1-6章实际摘要"
+                  ↓ 父Agent生成"1-6章实际摘要"（≤300字，纯事实列表）
 第 2 批（并行）: 子Agent C 写 7-9章 + 子Agent D 写 10-12章
-                  （context pack 中包含"1-6章实际摘要"）
+                  （context pack 中包含"第1批概述"）
 ```
 
 ---
@@ -435,12 +435,13 @@ python scripts/continuity-check.py .sumeru/continuity --quiet
 ### 状态标记格式
 
 ```markdown
-<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff="主角进入北域|女配受伤", char_update="苏瑾:轻伤|主角:龙血狂暴剩余3天", plot_update="v3伏笔推进:黑衣人身份暗示", batch=002, timestamp=2026-05-18T10:30:00Z -->
+<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff={"location_change":{"苏瑾":"北域冰原"},"state_change":{"苏瑾":"minor_injury"},"item_change":{"黑色残片":"acquired"}}, char_update={"苏瑾":{"status":"minor_injury","location":"北域冰原"}}, plot_update={"foreshadowing":{"v3":"黑衣人身份暗示推进"}}, batch=002, timestamp=2026-05-18T10:30:00Z -->
 ```
 
 **关键约束**：
 - 状态标记必须放在输出内容的**第一行**
-- `state_diff` 字段必须用 `|` 分隔，格式为 `实体名:变化描述`
+- `state_diff` 必须是合法 JSON（单行，无换行符），按变化类型分类：`location_change`、`state_change`、`power_change`、`item_change`、`foreshadow_change`、`buff_change`
+- 父Agent按分类键直接更新 `.sumeru/continuity/consistency-rules.json` 对应数组
 
 ### 各 Skill 子Agent职责明细
 

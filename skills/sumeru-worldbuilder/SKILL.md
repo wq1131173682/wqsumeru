@@ -17,7 +17,7 @@ type: skill
 worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创意萌芽到作品完稿的完整创作链路：
 
 0. **项目初始化**：创建标准小说项目目录
-1. **选题策划**：调用 `sumeru-topic` 进行市场分析、选题定位
+1. **选题策划**：调用 `sumeru-outline`（选题阶段）进行市场分析、选题定位
 2. **大纲设计**：调用 `sumeru-outline` 构建完整世界观、人物设定、分卷大纲与章节任务卡
 3. **内容创作**：调用 `sumeru-write` 按章节任务卡进行分章节内容撰写
 4. **逻辑审查**：调用 `sumeru-review` 对已完成章节进行项目测试式审查
@@ -130,7 +130,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求 → 收集需求 → topic → outline → write → review → [fix] → polish → finalize → build/release
+用户需求 → 收集需求 → outline[选题+大纲] → write → review → [fix] → polish → finalize → build/release
                                     ↓
                             阶段检查点验证
 ```

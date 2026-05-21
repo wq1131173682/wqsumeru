@@ -1,23 +1,19 @@
 # CLAUDE.md - 须弥写作当前协议
 
-本仓库当前以 `AGENTS.md` 和 `skills/sumeru-rules/SKILL.md` 为准。此文件只保留 Claude Code 兼容入口，避免旧目录协议污染执行。
+本仓库以 `skills/sumeru-rules/SKILL.md` 为唯一全局约束源。
 
 ## 当前 Skill
 
 ```
 skills/
 ├── sumeru-worldbuilder/
-├── sumeru-topic/
-├── sumeru-outline/
+├── sumeru-outline/        # 选题策划 + 大纲设计
 ├── sumeru-write/
-├── sumeru-write-core/
 ├── sumeru-review/
 ├── sumeru-polish/
 ├── sumeru-finalize/
-└── sumeru-rules/
+└── sumeru-rules/          # 全局约束（唯一来源）
 ```
-
-`sumeru-write-core` 是 `sumeru-write` 的通用写作规则，不是独立用户入口。写作只使用一种通用模式。
 
 ## Canonical 路径
 
@@ -41,4 +37,4 @@ skills/
 - 发布导出必须剥离 `SUMERU_STATUS` 注释。
 - 子Agent只读 context pack，只返回文本结果，不写项目文件。
 
-详细规则见 `AGENTS.md` 与 `skills/sumeru-rules/SKILL.md`。
+详细规则见 `skills/sumeru-rules/SKILL.md`。

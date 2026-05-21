@@ -35,66 +35,19 @@ type: skill
 4. 若缺少当前范围的 context pack，先生成临时 context pack
 
 ### 按模式导出
-
 | 模式 | 输出内容 |
 |------|----------|
-| `short/light` | 分章导出，生成 `publish/<平台>/chapters/` |
-| `medium/standard` | 分章导出 + 总导出，生成 `publish/<平台>/chapters/` 和 `publish/<平台>/<书名>.txt` |
+| `short/light` | `publish.md` 或单篇发布稿，基础检查 |
+| `medium/standard` | 导出全文和分章版本，生成 `publish/` 和 release 检查报告 |
 | `long/full` | 完整 build/release，生成 `publish/`、`tests/release-check-report.md`、`build-manifest.json` |
-
-**默认导出平台**：番茄（如果未指定，默认导出番茄格式）
-
-**同时导出两个平台**：如果用户要求"全部导出"或"多平台导出"，同时生成七猫和番茄两个目录
 
 ### Build 前检查
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
 - 检查 `chapters/` 是否缺章、重章、命名不规范
-- 检查正文第一行是否符合格式 `第X章 标题xxxx`
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
 - 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
 - 导出到 `publish/` 时必须剥离章节首行的 `SUMERU_STATUS` 注释
-
-### 总导出标题处理规则
-
-**总导出时，必须执行以下处理：**
-
-1. **读取 `plan.md` 或 `project.json` 获取书名**
-2. **生成总文件第一行**：`《书名》`
-3. **遍历所有章节**：
-   - 读取每章内容
-   - 去掉第一行标题（`第X章 标题xxxx`）
-   - 保留正文内容
-4. **章节之间**：用两个空行分隔
-5. **输出文件**：`publish/<平台>/<书名>.txt`
-
-**示例处理流程**：
-```
-输入：chapters/001-离婚协议落在雨里.md
-内容：
-第1章 离婚协议落在雨里
-
-雨下得挺大。
-...
-
-处理：
-- 去掉第一行：`第1章 离婚协议落在雨里`
-- 保留正文：`雨下得挺大。\n...`
-
-输出：publish/tomato/书名.txt
-内容：
-《书名》
-
-雨下得挺大。
-...
-
-
-（空行）
-
-
-（第2章正文）
-
-...
-```
+- 若存在 `.sumeru/intro.md`，将简介写入各平台导出版本的开头（起点/番茄/纵横等）
 
 ### 子Agent并行校验机制
 
@@ -130,81 +83,15 @@ type: skill
 }
 ```
 
-### 导出平台限制
-
-**只支持以下两个平台：**
-- 七猫
-- 番茄
-
-其他平台（起点、晋江、纵横、17K）不支持导出。
-
----
-
 ### 各平台导出格式规则
 
 | 平台 | 章节标题 | 段落格式 | 字数建议 |
 |------|----------|----------|----------|
-| 七猫 | `第X章 标题` | 首行不缩进，段落间空一行 | 2000-3000字 |
+| 起点 | `第X章 标题` | 首行缩进2字符 | 3000-5000字 |
 | 番茄 | `第X章 标题` | 首行不缩进，段落间空一行 | 2000-3000字 |
-
----
-
-### 导出方式
-
-#### 分章导出
-
-**输出**：`publish/<平台>/chapters/` 目录，每章一个 txt 文件
-
-**文件名格式**：`{三位章节号}-{章节标题}.txt`
-
-**文件内容格式**：
-```
-第X章 标题xxxx
-
-（正文内容）
-```
-
-**示例**：
-```
-publish/qimao/chapters/
-├── 001-离婚协议落在雨里.txt
-├── 002-雨夜告别.txt
-├── 003-新住处.txt
-└── ...
-
-publish/tomato/chapters/
-├── 001-离婚协议落在雨里.txt
-├── 002-雨夜告别.txt
-├── 003-新住处.txt
-└── ...
-```
-
-#### 总导出
-
-**输出**：`publish/<平台>/<书名>.txt`
-
-**文件内容格式**：
-- **去掉所有章节标题行**
-- **采用书名作为总标题（第一行）**
-- **所有章节正文连续排列，章节之间用空行分隔**
-
-**格式示例**：
-```
-《书名》
-
-（第1章正文内容）
-
-（第2章正文内容）
-
-（第3章正文内容）
-
-...
-```
-
-**注意**：
-- 总导出时，每章的第一行标题（`第X章 标题xxxx`）必须去掉
-- 章节之间用两个空行分隔，保持阅读清晰度
-- 书名从 `plan.md` 或 `project.json` 中读取
+| 晋江 | `第X章 标题` | 首行缩进2字符，支持HTML | 2500-4000字 |
+| 纵横 | `第X章 标题` | 首行缩进2字符 | 3000-6000字 |
+| 17K | `第X章 标题` | 首行缩进2字符 | 2000-4000字 |
 
 ### 敏感词检测标准
 
@@ -216,18 +103,14 @@ publish/tomato/chapters/
 
 ### 数据持久化
 **用户可见输出**：
-- `publish/qimao/chapters/`：七猫分章 txt
-- `publish/qimao/<书名>.txt`：七猫总导出
-- `publish/tomato/chapters/`：番茄分章 txt
-- `publish/tomato/<书名>.txt`：番茄总导出
+- `publish/`：各平台导出版本（含简介）
 - `tests/release-check-report.md`：发布前检查报告
 
 **中间数据（`.sumeru/finalize/`）**：
-- `clean/full-text/`：清洗后的全文（用于总导出）
-- `clean/chapters/`：清洗后的分章（用于分章导出）
-- `error-report.json`：错误报告
-- `stats.json`：统计报告
-- `build-manifest.json`：构建清单
+- `clean/full-text.md`、`clean/chapters/`、`error-report.json`、`stats.json`、`build-manifest.json`
+
+**项目元数据**：
+- `.sumeru/intro.md`：小说简介（大纲完成后自动生成）
 
 ### 与其他 Skill 配合
 - **前置**：读取最终章节内容（`chapters/`）

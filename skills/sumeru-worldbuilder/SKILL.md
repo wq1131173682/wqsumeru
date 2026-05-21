@@ -19,6 +19,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 0. **项目初始化**：创建标准小说项目目录
 1. **选题策划**：调用 `sumeru-outline`（选题阶段）进行市场分析、选题定位
 2. **大纲设计**：调用 `sumeru-outline` 构建完整世界观、人物设定、分卷大纲与章节任务卡
+2.5 **简介生成**：大纲完成后自动生成 `.sumeru/intro.md`（作品名称、目标读者、类型标签、主角名、简介正文、平台标签映射）
 3. **内容创作**：调用 `sumeru-write` 按章节任务卡进行分章节内容撰写
 4. **逻辑审查**：调用 `sumeru-review` 对已完成章节进行项目测试式审查
 5. **内容润色**：调用 `sumeru-polish` 对已审查章节进行文笔优化
@@ -38,7 +39,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 | 模式 | 创建内容 |
 |------|----------|
 | `short/light` | `README.md`、`story.md`、`outline.md`、`.sumeru/project.json`、`.sumeru/status.json`、`.sumeru/cache/story-brief.md` |
-| `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
+| `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
 | `long/full` | medium 结构 + `.sumeru/context-packs/`、`.sumeru/continuity/`、必要时 `reviews/`、`tests/` |
 
 ### 模式升级协议
@@ -52,7 +53,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 **章节状态顺序**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
 
 **推进规则**：
-- `outline` 完成：`outline.md`、`outlines/chapters.json` 存在，且章节任务卡包含 `acceptanceCriteria`
+- `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡包含 `acceptanceCriteria`
 - `write` 完成：目标章节文件存在，章节状态更新为 `drafted`，且没有缺章
 - `review` 完成：目标范围已审查，问题写入 `.sumeru/issues.md`；完整报告和 tests 仅在用户要求时生成
 - `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写
@@ -130,7 +131,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求 → 收集需求 → outline[选题+大纲] → write → review → [fix] → polish → finalize → build/release
+用户需求 → 收集需求 → outline[选题+大纲] → intro[简介生成] → write → review → [fix] → polish → finalize → build/release
                                     ↓
                             阶段检查点验证
 ```

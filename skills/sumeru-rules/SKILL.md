@@ -1,12 +1,16 @@
 ---
 name: sumeru-rules
-description: 须弥写作全局约束规则。包含子Agent并行处理规则、职责边界、状态标记格式、Context Pack格式、独立调用自举、剧情一致性冲突检测、伏笔管理、输出级别等所有Skill共享的全局约束。
+description: 须弥写作全局约束规则。包含父Agent/子Agent职责划分、状态标记格式、Context Pack格式、独立调用自举、剧情一致性冲突检测、伏笔管理、输出级别等所有Skill共享的全局约束。规则拆分为 global-rules.md（父Agent）+ subagent-rules.md（子Agent精简版）。
 type: skill
 ---
 
 # 须弥写作全局约束规则
 
 > ⚠️ **重要**：所有须弥写作 Skill 都必须遵守以下全局约束。单独调用任意 Skill 时，请确保已加载本规则。
+
+> 📌 **规则拆分**：本文件为总索引。详细规则已拆分为：
+> - **`global-rules.md`** — 父Agent（调度器）完整规则，包含子Agent管理、状态维护、文件写入、剧情统一校验等
+> - **`subagent-rules.md`** — 子Agent精简版规则，只包含子Agent需要的核心约束
 
 ---
 

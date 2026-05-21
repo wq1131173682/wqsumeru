@@ -4,7 +4,12 @@ sumeru-finalize 敏感词检测脚本
 对小说章节进行三级敏感内容检测
 
 使用方法：
-    python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>]
+    python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>] [--custom <自定义词库>]
+
+词库来源：
+    1. 默认加载 skills/sumeru-finalize/sensitive-words.json
+    2. 可通过 --custom 参数指定自定义词库文件
+    3. 用户可在 sensitive-words.json 的 "custom" 字段中添加自定义词
 
 输出：
     生成 error-report.json 包含所有发现的敏感内容
@@ -15,89 +20,108 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Any
 
-# 敏感词库（三级分类）
-# 注意：实际使用时应根据项目需求扩展和更新词库
+# 默认词库路径
+DEFAULT_WORDLIB_PATH = Path(__file__).parent / "sensitive-words.json"
 
-SENSITIVE_WORDS = {
-    # 一级敏感（必须修改）- 违反法律法规、政治敏感、色情淫秽、暴力恐怖等
-    "level1": [
-        # 政治敏感
-        "分裂国家", "颠覆国家", "反动", "反革命",
-        # 色情淫秽
-        "淫秽", "色情", "裸体", "性交", "性器官",
-        # 暴力恐怖
-        "恐怖主义", "极端主义", "自杀", "自焚",
-        # 毒品
-        "毒品", "贩毒", "吸毒", "海洛因", "冰毒", "大麻",
-        # 赌博
-        "赌博", "赌钱", "赌场",
-    ],
+
+def load_wordlib(custom_path: str = None) -> Dict[str, Any]:
+    """加载敏感词库"""
+    wordlib_path = custom_path if custom_path else str(DEFAULT_WORDLIB_PATH)
     
-    # 二级敏感（建议修改）- 血腥暴力、低俗、医疗等
-    "level2": [
-        # 血腥暴力
-        "血腥", "残杀", "肢解", "碎尸", "虐杀",
-        # 低俗用语
-        "傻逼", "屌丝", "绿茶婊", "脑残",
-        # 医疗（可能引起不适）
-        "手术台", "解剖", "尸检",
-        # 未成年人不当内容
-        "未成年", "幼女", "萝莉",
-    ],
+    if not os.path.exists(wordlib_path):
+        print(f"⚠️ 词库文件不存在: {wordlib_path}，使用内置默认词库")
+        return get_default_wordlib()
     
-    # 三级敏感（优化建议）- 网络用语、争议话题等
-    "level3": [
-        # 网络热梗（过度使用影响阅读）
-        "yyds", "绝绝子", "破防", "emo",
-        # 争议话题
-        "女权", "男权", "性别对立",
-        # 重复冗余
-        "真的真的", "非常非常", "特别特别",
-    ],
-}
+    try:
+        with open(wordlib_path, 'r', encoding='utf-8') as f:
+            wordlib = json.load(f)
+        
+        # 合并自定义词
+        if "custom" in wordlib:
+            for level in ["level1", "level2", "level3"]:
+                if level in wordlib.get("custom", {}):
+                    custom_words = wordlib["custom"][level]
+                    if level in wordlib:
+                        wordlib[level]["categories"]["custom"] = custom_words
+        
+        return wordlib
+    except json.JSONDecodeError as e:
+        print(f"⚠️ 词库文件JSON解析失败: {e}，使用内置默认词库")
+        return get_default_wordlib()
 
-# 需要上下文判断的敏感词（待定项）
-# 只保留真正需要上下文才能判断的组合词，常见单字词移除以减少误报
-CONTEXT_SENSITIVE_WORDS = [
-    "杀人灭口", "血腥场面", "尸体遍地", "血流成河",
-    "自杀身亡", "性暗示", "权力斗争", "政治阴谋",
-]
+
+def get_default_wordlib() -> Dict[str, Any]:
+    """内置默认词库（降级方案）"""
+    return {
+        "level1": {
+            "categories": {
+                "political": ["分裂国家", "颠覆国家", "反动", "反革命"],
+                "pornographic": ["淫秽", "色情", "裸体", "性交", "性器官"],
+                "violence_terror": ["恐怖主义", "极端主义", "自杀", "自焚"],
+                "drugs": ["毒品", "贩毒", "吸毒", "海洛因", "冰毒", "大麻"],
+                "gambling": ["赌博", "赌钱", "赌场"],
+            }
+        },
+        "level2": {
+            "categories": {
+                "gore": ["血腥", "残杀", "肢解", "碎尸", "虐杀"],
+                "vulgar": ["傻逼", "屌丝", "绿茶婊", "脑残"],
+                "medical": ["手术台", "解剖", "尸检"],
+                "minors": ["未成年", "幼女", "萝莉"],
+            }
+        },
+        "level3": {
+            "categories": {
+                "internet_slang": ["yyds", "绝绝子", "破防", "emo"],
+                "controversial": ["女权", "男权", "性别对立"],
+                "redundancy": ["真的真的", "非常非常", "特别特别"],
+            }
+        },
+        "context_sensitive": {
+            "words": ["杀人灭口", "血腥场面", "尸体遍地", "血流成河", "自杀身亡", "性暗示"]
+        }
+    }
 
 
-def detect_sensitive_words(text: str, chapter_id: str, level: int = 3) -> List[Dict]:
+def detect_sensitive_words(text: str, chapter_id: str, wordlib: Dict, level: int = 3) -> List[Dict]:
     """检测文本中的敏感词"""
     findings = []
     
     # 检测各级敏感词
     for lvl in range(1, level + 1):
         key = f"level{lvl}"
-        if key not in SENSITIVE_WORDS:
+        if key not in wordlib:
             continue
-            
-        for word in SENSITIVE_WORDS[key]:
-            # 使用正则匹配，支持部分匹配
-            pattern = re.compile(re.escape(word), re.IGNORECASE)
-            for match in pattern.finditer(text):
-                start = max(0, match.start() - 30)
-                end = min(len(text), match.end() + 30)
-                context = text[start:end]
-                
-                findings.append({
-                    "chapter": chapter_id,
-                    "type": "sensitive_word",
-                    "severity": "high" if lvl == 1 else ("medium" if lvl == 2 else "low"),
-                    "level": lvl,
-                    "position": match.start(),
-                    "word": word,
-                    "context": context,
-                    "action": "必须修改" if lvl == 1 else ("建议修改" if lvl == 2 else "优化建议"),
-                    "requires_context_check": False
-                })
+        
+        categories = wordlib[key].get("categories", {})
+        action = wordlib[key].get("action", "建议修改")
+        
+        for category, words in categories.items():
+            for word in words:
+                pattern = re.compile(re.escape(word), re.IGNORECASE)
+                for match in pattern.finditer(text):
+                    start = max(0, match.start() - 30)
+                    end = min(len(text), match.end() + 30)
+                    context = text[start:end]
+                    
+                    findings.append({
+                        "chapter": chapter_id,
+                        "type": "sensitive_word",
+                        "severity": "high" if lvl == 1 else ("medium" if lvl == 2 else "low"),
+                        "level": lvl,
+                        "category": category,
+                        "position": match.start(),
+                        "word": word,
+                        "context": context,
+                        "action": action,
+                        "requires_context_check": False
+                    })
     
     # 标记需要上下文判断的词
-    for word in CONTEXT_SENSITIVE_WORDS:
+    context_words = wordlib.get("context_sensitive", {}).get("words", [])
+    for word in context_words:
         pattern = re.compile(re.escape(word), re.IGNORECASE)
         for match in pattern.finditer(text):
             start = max(0, match.start() - 30)
@@ -119,7 +143,7 @@ def detect_sensitive_words(text: str, chapter_id: str, level: int = 3) -> List[D
     return findings
 
 
-def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
+def scan_chapters(chapters_dir: str, wordlib: Dict, level: int = 3) -> Dict:
     """扫描章节目录中的所有文件"""
     all_findings = []
     chapters_scanned = 0
@@ -136,9 +160,8 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
             with open(file_path, 'r', encoding='utf-8') as f:
                 text = f.read()
             
-            findings = detect_sensitive_words(text, chapter_id, level)
+            findings = detect_sensitive_words(text, chapter_id, wordlib, level)
             all_findings.extend(findings)
-            
         except Exception as e:
             all_findings.append({
                 "chapter": chapter_id,
@@ -156,9 +179,8 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
             with open(file_path, 'r', encoding='utf-8') as f:
                 text = f.read()
             
-            findings = detect_sensitive_words(text, chapter_id, level)
+            findings = detect_sensitive_words(text, chapter_id, wordlib, level)
             all_findings.extend(findings)
-            
         except Exception as e:
             all_findings.append({
                 "chapter": chapter_id,
@@ -176,7 +198,7 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
         "pending": len([f for f in all_findings if f.get("requires_context_check")]),
     }
     
-    # 分离待定项（需要子Agent处理）
+    # 分离待定项
     pending_items = [f for f in all_findings if f.get("requires_context_check")]
     
     return {
@@ -184,17 +206,19 @@ def scan_chapters(chapters_dir: str, level: int = 3) -> Dict:
         "total_findings": len(all_findings),
         "stats": stats,
         "findings": all_findings,
-        "pending_items": pending_items[:20],  # 最多返回20个待定项
-        "pending_count": len(pending_items)
+        "pending_items": pending_items[:20],
+        "pending_count": len(pending_items),
+        "wordlib_version": wordlib.get("version", "unknown")
     }
 
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>] [--quiet]")
+        print("用法: python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>] [--custom <词库路径>] [--quiet]")
         print("\n示例:")
         print("  python sensitive-word-filter.py chapters/")
         print("  python sensitive-word-filter.py chapters/ --level 2")
+        print("  python sensitive-word-filter.py chapters/ --custom my-words.json")
         print("  python sensitive-word-filter.py chapters/ --quiet")
         sys.exit(1)
     
@@ -202,6 +226,7 @@ def main():
     output_file = None
     level = 3
     quiet = "--quiet" in sys.argv
+    custom_path = None
     
     # 解析参数
     if "--output" in sys.argv:
@@ -218,10 +243,20 @@ def main():
             except ValueError:
                 pass
     
+    if "--custom" in sys.argv:
+        idx = sys.argv.index("--custom")
+        if idx + 1 < len(sys.argv):
+            custom_path = sys.argv[idx + 1]
+    
+    # 加载词库
+    wordlib = load_wordlib(custom_path)
+    
     # 扫描
     if not quiet:
         print(f"正在扫描章节目录: {chapters_dir} (检测级别: {level})")
-    result = scan_chapters(chapters_dir, level)
+        if custom_path:
+            print(f"使用自定义词库: {custom_path}")
+    result = scan_chapters(chapters_dir, wordlib, level)
     
     # 输出
     if output_file:
@@ -253,7 +288,6 @@ def main():
                 print(f"\n  [{i+1}] {finding.get('chapter')} - {severity} - '{word}'")
                 print(f"      处理建议: {action}")
     
-    # 静默模式：只输出有问题的提醒
     elif quiet and result.get('total_findings', 0) > 0:
         stats = result.get('stats', {})
         level1 = stats.get('level1', 0)

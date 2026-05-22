@@ -1,4 +1,7 @@
 # Sumeru project intermediate data
 .sumeru/
 
+# Editor / IDE config
+.opencode/
+
 .git-credentials

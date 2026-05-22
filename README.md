@@ -24,7 +24,7 @@
 ```
 skills/
 ├── sumeru-worldbuilder/  # 全流程编排器
-├── sumeru-outline/       # 选题策划+大纲设计，市场分析→世界观→人设→剧情框架→章节细纲
+├── sumeru-outline/       # 选题策划+大纲设计，市场分析→世界观→人设→剧情框架→伏笔管理表→章节细纲
 ├── sumeru-write/         # 章节撰写，单章/批量创作+续写+重写
 ├── sumeru-review/        # 逻辑审查，时间线+剧情+人物一致性校验
 ├── sumeru-polish/        # 内容润色，文笔优化+节奏调整+风格统一
@@ -50,7 +50,7 @@ skills/
 novel-project/
 ├── README.md                  # 项目说明
 ├── plan.md                    # 合并：需求、设定、人物、风格、创意策略、术语
-├── outline.md                 # 故事架构、主线、分卷、伏笔、章节规划摘要
+├── outline.md                 # 故事架构、主线、分卷、伏笔管理表、章节规划摘要
 ├── outlines/                  # chapters.json 章节任务卡
 ├── chapters/                  # 正文，按 001-标题.md 命名
 ├── reviews/                   # 按需生成的剧情审查报告
@@ -80,7 +80,7 @@ short-story/
 - `.sumeru/cache/`：稳定摘要缓存，减少重复读取大文件。
 - `.sumeru/context-packs/`：子Agent任务上下文包，批量写作/审查/润色/导出时优先读取。
 - `plan.md`：需求、设定、人物、风格、创意策略和术语的合并文件。
-- `outline.md`：故事结构、主线、伏笔、分卷与章节规划摘要。
+- `outline.md`：故事结构、主线、伏笔管理表、分卷与章节规划摘要。
 - `outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
 - `.sumeru/issues.md`：类似 GitHub Issues 的问题单，合并为单文件。
 - `tests/`：按需生成的连贯性、章节验收、伏笔、字数、release 检查结果。
@@ -189,7 +189,7 @@ npx skills add wq1131173682/wqsumeru
 
 #### 2. 大纲设计 Skill（含选题策划）
 **适用场景**：写小说大纲、设计人设、做世界观设定、生成章节细纲，向前覆盖选题策划
-**功能**：首阶段执行选题策划（市场分析+创意引擎），第二阶段生成 `plan.md`、`outline.md` 和 `outlines/chapters.json`，覆盖世界观、人物、剧情框架、爽点排布和章节任务卡。大批量细纲生成时使用子Agent并行处理。
+**功能**：首阶段执行选题策划（市场分析+创意引擎），第二阶段生成 `plan.md`、`outline.md` 和 `outlines/chapters.json`，覆盖世界观、人物、剧情框架、伏笔管理表、爽点排布和章节任务卡。大批量细纲生成时使用子Agent并行处理。
 
 ```bash
 /sumeru-outline "<核心创意描述>"
@@ -411,7 +411,7 @@ npx skills add wq1131173682/wqsumeru
 ./
 ├── README.md          # 项目说明
 ├── plan.md            # 需求、设定、人物、风格、创意策略、术语
-├── outline.md         # 故事结构、主线、伏笔、分卷与章节规划摘要
+├── outline.md         # 故事结构、主线、伏笔管理表、分卷与章节规划摘要
 ├── outlines/          # chapters.json 章节任务卡
 ├── chapters/         # 章节内容文件
 ├── reviews/          # 按需生成的逻辑审查报告
@@ -431,7 +431,7 @@ npx skills add wq1131173682/wqsumeru
 ### 效率提升
 - 多Agent并行创作，效率提升5倍以上
 - 智能爽点排布，遵循网文创作黄金节奏公式
-- 自动追踪伏笔，提醒回收时机
+- 伏笔管理表自动追踪，提醒回收时机
 
 ### 质量保障
 - 人物性格与剧情逻辑一致性校验

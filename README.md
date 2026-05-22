@@ -49,14 +49,12 @@ skills/
 ```text
 novel-project/
 ├── README.md                  # 项目说明
-├── plan.md                    # 合并：需求、设定、人物、风格、创意策略、术语
+├── plan.md                    # 需求、设定、人物、风格、创意策略、术语
 ├── outline.md                 # 故事架构、主线、分卷、伏笔管理表、章节规划摘要
-├── outlines/                  # chapters.json 章节任务卡
 ├── chapters/                  # 正文，按 001-标题.md 命名
-├── reviews/                   # 按需生成的剧情审查报告
-├── tests/                     # 按需生成的发布/连贯性检查报告
 ├── publish/                   # 多平台导出产物
-└── .sumeru/                   # project/status/cache/context-packs/issues.md/continuity 与阶段数据
+└── .sumeru/                   # 内部数据：project/status/cache/context-packs/issues.md/continuity/
+                              #  outlines/章节任务卡、reviews/审查报告、tests/检查报告 等
 ```
 
 短篇项目可简化为：
@@ -66,12 +64,11 @@ short-story/
 ├── README.md
 ├── story.md
 ├── outline.md
-├── review.md
 ├── publish.md
 └── .sumeru/
     ├── project.json
     ├── status.json
-    └── cache/story-brief.md
+    └── cache/
 ```
 
 关键机制：
@@ -81,10 +78,10 @@ short-story/
 - `.sumeru/context-packs/`：子Agent任务上下文包，批量写作/审查/润色/导出时优先读取。
 - `plan.md`：需求、设定、人物、风格、创意策略和术语的合并文件。
 - `outline.md`：故事结构、主线、伏笔管理表、分卷与章节规划摘要。
-- `outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
+- `.sumeru/outlines/chapters.json`：章节任务卡，每章包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`。
+- `.sumeru/reviews/`：按需生成的逻辑审查报告。
+- `.sumeru/tests/`：按需生成的连贯性、章节验收、伏笔、字数、release 检查结果。
 - `.sumeru/issues.md`：类似 GitHub Issues 的问题单，合并为单文件。
-- `tests/`：按需生成的连贯性、章节验收、伏笔、字数、release 检查结果。
-- `publish/`：类似 build/release 的发布产物。
 
 ### 断点恢复与单独调用
 
@@ -92,7 +89,7 @@ short-story/
 
 - 自动定位项目根目录。
 - 读取或生成 `.sumeru/project.json` 和 `.sumeru/status.json`。
-- 从已有 `chapters/`、`outlines/`、`publish/` 推断当前阶段和章节状态。
+- 从已有 `chapters/`、`publish/`、`.sumeru/outlines/` 推断当前阶段和章节状态。
 - 缺少 `.sumeru/cache/` 或 `.sumeru/context-packs/` 时按当前任务生成最小版本，不全量读取项目。
 - 兼容旧版 `.sumeru/outline/chapter-outlines.json`。
 - 完成后回写状态、缓存、changelog 和必要的 issue/test/build 文件。
@@ -398,6 +395,9 @@ npx skills add wq1131173682/wqsumeru
 ├── context-packs/    # write/review/polish/finalize 子Agent上下文包
 ├── topic/            # 选题阶段中间数据
 ├── outline/          # 旧版大纲兼容数据（只读优先）
+├── outlines/         # chapters.json 章节任务卡
+├── reviews/           # 按需生成的逻辑审查报告
+├── tests/             # 按需生成的连贯性/章节验收/伏笔/字数/release 检查
 ├── write/            # 创作阶段中间数据
 │   └── original/     # 原始章节备份（review/polish修改前自动备份）
 ├── review/           # 审查阶段中间数据
@@ -411,12 +411,9 @@ npx skills add wq1131173682/wqsumeru
 ./
 ├── README.md          # 项目说明
 ├── plan.md            # 需求、设定、人物、风格、创意策略、术语
-├── outline.md         # 故事结构、主线、伏笔管理表、分卷与章节规划摘要
-├── outlines/          # chapters.json 章节任务卡
-├── chapters/         # 章节内容文件
-├── reviews/          # 按需生成的逻辑审查报告
-├── tests/            # 按需生成的连贯性、章节验收、release 检查
-└── publish/          # 完稿导出的各平台格式文件
+├── outline.md         # 故事架构、主线、伏笔管理表、分卷与章节规划摘要
+├── chapters/          # 章节正文（按 001-标题.md 命名）
+└── publish/           # 完稿导出的各平台格式文件
 ```
 
 所有创作过程支持断点恢复，中断后无需重头开始。

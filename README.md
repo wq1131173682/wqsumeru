@@ -48,7 +48,7 @@ skills/
 
 ```text
 novel-project/
-├── README.md                  # 项目说明
+├── README.md                  # 小说首页：书名、简介、标签、平台映射、进度
 ├── plan.md                    # 需求、设定、人物、风格、创意策略、术语
 ├── outline.md                 # 故事架构、主线、分卷、伏笔管理表、章节规划摘要
 ├── chapters/                  # 正文，按 001-标题.md 命名
@@ -409,7 +409,7 @@ npx skills add wq1131173682/wqsumeru
 #### 用户可见输出（当前工作目录）
 ```
 ./
-├── README.md          # 项目说明
+├── README.md          # 小说首页：书名、简介、标签、平台映射
 ├── plan.md            # 需求、设定、人物、风格、创意策略、术语
 ├── outline.md         # 故事架构、主线、伏笔管理表、分卷与章节规划摘要
 ├── chapters/          # 章节正文（按 001-标题.md 命名）

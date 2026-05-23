@@ -4,11 +4,7 @@ description: 小说逻辑/剧情审查、项目测试与创意疲劳检测。用
 user-invocable: true
 ---
 
-> ⚠️ **依赖技能**：本 Skill 依赖 `sumeru-rules` 中的全局约束。执行前请确保已加载。
-
-> 📌 **核心功能增强**：本 Skill 包含剧情一致性自动检查脚本（`scripts/continuity-check.py`）和伏笔追踪脚本（`scripts/foreshadowing-tracker.py`）。
-
-> 📌 **输出级别**：默认 `quiet` 模式，只输出问题和进度。详细规范见 `sumeru-rules` "输出级别规范"。
+> 依赖 `sumeru-rules`，默认 `quiet` 模式。附检查脚本：`scripts/continuity-check.py`、`scripts/foreshadowing-tracker.py`。
 
 ## 网文逻辑审查
 
@@ -200,23 +196,6 @@ user-invocable: true
 | ⚠️ emotional_intensity_low: [阶段名称，强度评分] | 强度不足 |
 | ⚠️ emotional_transition_abrupt: [从前一阶段到后一阶段] | 转换生硬 |
 
-### 示例
-
-```markdown
-# 任务卡定义
-"emotionalBeat": "压抑 → 困惑 → 恍然 → 暗爽"
-
-# 实际文本分析
-- 压抑（段落1-5）：✅ 开篇展示主角废柴处境，3处压抑描写
-- 困惑（段落6-10）：❌ 直接跳到恍然，缺少困惑阶段
-- 恍然（段落11-15）：✅ 主角识破残片真实价值，有顿悟描写
-- 暗爽（段落16-20）：✅ 反派以为自己赢了，实际是主角的陷阱
-
-# 审查结果
-⚠️ emotional_gap: 困惑
-⚠️ emotional_transition_abrupt: 压抑 → 恍然（缺少过渡）
-建议：在"识破残片"前增加主角的困惑阶段（如"这残片...不对劲？"），并增加过渡段落
-```
 ```
 
 ### 数据持久化
@@ -233,9 +212,4 @@ user-invocable: true
 - **前置**：`sumeru-write` 生成的 `chapters/` 和 `sumeru-outline` 的大纲数据
 - **后续**：输出供 `sumeru-polish`、`sumeru-finalize` 使用
 
-### 全局约束引用
-> 完整全局约束见 `sumeru-rules` 技能，核心要点如下：
-> - **子Agent规则**：最多5个并行，每个最多3章
-> - **职责边界**：子Agent只读 context pack，输出纯结果+状态标记
-> - **状态标记**：输出首行必须包含 `<!-- SUMERU_STATUS: chapter=X, status=Y, ... -->`
-> - **Context Pack**：控制在1500-3000中文字，包含审查标准、正文、consistency-rules.json
+

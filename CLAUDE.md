@@ -7,7 +7,8 @@
 ```
 skills/
 ├── sumeru-worldbuilder/
-├── sumeru-outline/        # 选题策划 + 大纲设计
+├── sumeru-topic/          # 选题策划（拆自 outline）
+├── sumeru-outline/        # 大纲设计（拆自 outline）
 ├── sumeru-write/
 ├── sumeru-review/
 ├── sumeru-polish/
@@ -23,6 +24,8 @@ skills/
 - `outline.md`：故事结构、主线、伏笔、分卷与章节规划摘要
 - `outlines/chapters.json`：章节任务卡
 - `chapters/` 或短篇 `story.md`：正文
+- `characters/`：人物卡（每人一文件）
+- `world.md`：世界观手册（long/full 模式）
 - `.sumeru/issues.md`：问题清单
 - `publish/`：发布产物
 

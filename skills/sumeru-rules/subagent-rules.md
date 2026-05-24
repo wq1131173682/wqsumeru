@@ -82,7 +82,7 @@ type: skill
 
 ## 五、输出级别
 
-默认 `quiet` 模式，只输出进度和关键节点。详见 sumeru-rules 输出级别规范。
+默认 `quiet` 模式，只输出进度和关键节点。详见 `sumeru-rules conventions.md` 输出级别规范。
 
 ---
 

@@ -15,7 +15,7 @@ type: skill
 worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创意萌芽到作品完稿的完整创作链路：
 
 0. **项目初始化**：创建标准小说项目目录
-1. **选题策划**：调用 `sumeru-outline`（选题阶段）进行市场分析、选题定位
+1. **选题策划**：调用 `sumeru-topic` 进行市场分析、选题定位、创意引擎
 2. **大纲设计**：调用 `sumeru-outline` 构建完整世界观、人物设定、分卷大纲与章节任务卡
 2.5 **风格样本询问（可选）**：大纲完成后，询问用户是否提供写作风格样本（不提供不影响后续）
 2.6 **简介生成**：大纲完成后自动生成 `.sumeru/intro.md`（作品名称、目标读者、类型标签、主角名、简介正文、平台标签映射）
@@ -38,8 +38,8 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 | 模式 | 创建内容 |
 |------|----------|
 | `short/light` | `README.md`、`story.md`、`outline.md`、`.sumeru/project.json`、`.sumeru/status.json`、`.sumeru/cache/story-brief.md` |
-| `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
-| `long/full` | medium 结构 + `.sumeru/context-packs/`、`.sumeru/continuity/`、必要时 `reviews/`、`tests/` |
+| `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`characters/`、`.sumeru/intro.md`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md` |
+| `long/full` | medium 结构 + `world.md`、`.sumeru/context-packs/`、`.sumeru/continuity/`、必要时 `reviews/`、`tests/` |
 
 ### 模式升级协议
 - `short -> medium`：补齐 `plan.md`、`outlines/chapters.json`、`chapters/`、标准 cache
@@ -52,11 +52,12 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 **章节状态顺序**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
 
 **推进规则**：
+- `topic` 完成：`plan.md` 已写入，至少包含选题方向和核心创意
 - `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡包含 `acceptanceCriteria`
 - `write` 完成：目标章节文件存在，章节状态更新为 `drafted`，且没有缺章
 - `review` 完成：目标范围已审查，问题写入 `.sumeru/issues.md`；完整报告和 tests 仅在用户要求时生成
-- `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写
-- `polish` 完成：章节状态更新为 `polished`
+- `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写；反审验证通过后章节状态更新为 `fixed`
+- `polish` 完成：章节状态更新为 `polished`；发现逻辑硬伤时自动触发反审
 - `finalize` 完成：技术校验通过，章节状态更新为 `finalized`
 
 > 子Agent并行规则、分片策略、输出级别见 `sumeru-rules`。
@@ -108,7 +109,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求 → 收集需求 → outline[选题+大纲] → intro[简介生成] → write → review → [fix] → polish → finalize → build/release
+用户需求 → 收集需求 → topic[选题策划] → outline[大纲设计] → intro[简介生成] → write → review → [fix] → polish → finalize → build/release
                                     ↓
                             阶段检查点验证
 ```

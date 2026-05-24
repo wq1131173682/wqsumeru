@@ -32,7 +32,7 @@ user-invocable: true
 | `medium/standard` | `reviews/review-report.md`，问题记录到 `.sumeru/issues.md` |
 | `long/full` | 目标范围审查；用户要求完整报告时生成 `reviews/` 和 `tests/` |
 
-### 三阶段审查修复流程
+### 四阶段审查修复流程
 
 **第一阶段：目标范围基准审查（父Agent执行）**
 - 加载目标章节任务卡、前后必要摘要和 consistency-rules
@@ -47,6 +47,22 @@ user-invocable: true
 **第三阶段：统一修复**
 - 轻量修复 → 备份后直接修改 `chapters/`，产出最终版本
 - 重写修复 → 生成 `fix-plan.json`，由 `sumeru-worldbuilder` 编排或用户手动调用 `sumeru-write` 处理
+
+**第四阶段：修复验证（反审模式）**
+修复完成后（auto-fix 或 rewrite），自动触发轻量反审：
+
+**反审范围**：仅验证 fix-plan.json 中标记的问题是否已解决
+- 不重新做全量审查
+- 只检查 fix 目标章节中已报告问题的修复状态
+- 输出 `.sumeru/review/reverify-result.json`
+
+**反审流程**：
+1. 读取 fix-plan.json 中的修复记录
+2. 对每个已修复章节执行针对性验证（只检查原问题类型）
+3. 验证通过 → 章节状态更新为 `fixed`
+4. 验证未通过 → 追加到 issues.md，标记 `reverify_failed`
+
+**反审由父Agent直接执行**，不启动子Agent。
 
 ### fix-plan.json 格式定义
 

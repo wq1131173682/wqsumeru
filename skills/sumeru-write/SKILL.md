@@ -128,7 +128,7 @@ type: skill
 
 你现在要写小说第 {范围} 章。
 先读取共享上下文 `.sumeru/context-packs/shared-write.md`，再读取本组任务卡 `.sumeru/context-packs/cards-{范围}.md`。
-输出纯正文文本，每章首行包含 `<!-- SUMERU_STATUS: ... -->` 注释。
+输出格式：每章先放 `<!-- SUMERU_STATUS: ... -->` 作为该章输出的**首行**，随后跟该章正文。多章间用 `---` 分隔。
 不写文件、不搜目录、不更新状态。
 
 输出前自检：
@@ -168,7 +168,8 @@ type: skill
 - Continuity State（上一章结尾、道具、伏笔、时间线）
 - Creative Strategy（创意目标、情绪节拍、要避开的套路）
 - Batch Summary（非第一批时）
-- Output Requirements
+- Output Requirements（子Agent输出格式: 每章先放 SUMERU_STATUS 首行, 随后正文, 多章间---）
+  - 父Agent收到后: 提取首行状态标记 → 更新 status.json → 将正文(不含状态行)写入 chapters/ → 并在正文末尾追加 SUMERU_STATUS 注释用于崩溃恢复
 
 **2. 本组任务卡 `cards-{范围}.md`** — 每子Agent独有，仅写入：
 - 本组章节的 Chapter Cards（purpose、events、acceptanceCriteria、creativeGoal、emotionalBeat）

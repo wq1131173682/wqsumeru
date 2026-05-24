@@ -12,12 +12,19 @@ type: skill
 
 ## 一、Context Pack 格式
 
-控制在 **1500-3000 中文字**，最多 5000 字。
+**为减少同批次内容重复，context pack 拆为 2 个文件：**
 
-### 标准结构
+| 文件 | 命名规则 | 大小 | 是否共享 |
+|------|----------|------|----------|
+| 共享上下文 | `shared-{task}.md` | ~1500-2000 字 | 同批次所有子Agent共用 |
+| 本组任务卡 | `cards-{范围}.md` | ~300-500 字 | 每子Agent独有 |
+
+子Agent先读共享上下文，再读本组任务卡，两者合并作为完整 context。
+
+### 共享上下文格式（`shared-{task}.md`）
 
 ```markdown
-# Context Pack: <task>-<range>
+# Shared Context: write (batch 002)
 
 ## Project Brief (1-2行)
 题材、平台、字数范围、整体风格。
@@ -25,23 +32,17 @@ type: skill
 ## Current Volume (1-2行)
 本卷目标、当前冲突、卷级反转、阶段情绪。
 
-## Relevant Characters (仅本组章节相关)
+## Relevant Characters (仅本卷相关)
 相关人物的当前状态、目标、关系、语言风格。
 
-## Relevant World & Glossary (仅本组章节会用到的)
+## Relevant World & Glossary (仅本卷会用到的)
 地点、组织、功法、道具、禁用变体。
 
-## Continuity State (仅本组章节需要的)
+## Continuity State
 上一章结尾、关键道具状态、未回收伏笔、时间线位置。
 
-## Creative Strategy (仅本组章节需要的)
+## Creative Strategy
 创意目标、要避开的套路、情绪节拍变化、读者记忆点。
-
-## Chapter Cards (仅本组章节)
-目标章节任务卡，包含 purpose、events、outputs、acceptanceCriteria、creativeGoal。
-
-## 本章执行提醒 (≤5条, 可选)
-具体可执行的过程提醒，如"主角必须主动选择"、"第15段附近制造反转"。
 
 ## Batch Summary (仅非第一批)
 前N批实际摘要（≤500字）。
@@ -50,20 +51,49 @@ type: skill
 文件命名、状态更新需求（由父agent执行）。
 ```
 
-### 分层摘要缓存
+### 本组任务卡格式（`cards-{范围}.md`）
 
-context pack 中嵌入可用缓存的键列表，子Agent可在输出中标记需要补充的缓存：
+```markdown
+# Task Cards: 004-006
 
-```
-【可用缓存的键】：char:主角, char:反派, plotline:v1, plotline:v2, world:current, prev:actual, arc:001-003
+## Chapter Cards
+### 第004章「标题」
+- purpose: ...
+- events: ...
+- acceptanceCriteria: ...
+- creativeGoal: ...
+- emotionalBeat: 压抑→困惑→恍然→暗爽
+
+### 第005章「标题」
+...
+
+## 本章执行提醒 (≤5条)
+具体可执行的过程提醒，如"主角必须主动选择"、"第15段附近制造反转"。
 ```
 
 ### 具象标杆（polish 专属）
 
-polish 子Agent的 context pack 须嵌入已确认的好段落作为风格标杆：
+polish 的共享上下文中额外嵌入风格标杆：
 
 ```
 【风格标杆】--打斗标杆(第003章)--原文/润色 --对话标杆(第005章)--原文/润色 --情绪标杆(第008章)--原文/润色
+```
+
+### 节省计算
+
+同批次 5 个子Agent，原方案 vs 新方案：
+
+| 方案 | 每Agent传输量 | 每批总传输量 | 节省 |
+|------|--------------|-------------|------|
+| 原方案（单文件） | 2400 字 × 1 文件 | 2400 × 5 = 12000 字 | - |
+| 新方案（双文件） | 1800 字（共享）+ 400 字（卡片） | 1800 × 1 + 400 × 5 = 3800 字 | **68%** |
+
+### 分层摘要缓存
+
+共享上下文中嵌入可用缓存的键列表，子Agent可在输出中标记需要补充的缓存：
+
+```
+【可用缓存的键】：char:主角, char:反派, plotline:v1, plotline:v2, world:current, prev:actual, arc:001-003
 ```
 
 ---

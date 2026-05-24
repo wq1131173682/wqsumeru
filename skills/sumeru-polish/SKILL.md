@@ -128,6 +128,27 @@ type: skill
 
 父Agent通过 Task tool 启动润色子Agent时，使用以下固定 prompt 模板。
 
+### 父Agent context pack 生成规则
+
+每批子Agent启动前，父Agent生成 2 个文件：
+
+**1. 共享上下文 `shared-polish.md`** — 同批次所有子Agent共用，写入：
+- Project Brief、Current Volume、Relevant Characters
+- 待润色原文（仅章节范围摘要，非全文）
+- Creative Strategy（创意目标、情绪节拍）
+- 风格标杆（具象标杆，见第九节）
+- Batch Summary（非第一批时）
+- Output Requirements
+
+**2. 本组任务卡 `cards-{范围}.md`** — 每子Agent独有，仅写入：
+- 本组章节号列表
+- 润色等级（轻度/中度/深度）
+- 场景类型分布提示（如"第010章以打斗为主，第011章以对话为主"）
+
+**文件位置：** `.sumeru/context-packs/shared-polish.md` + `.sumeru/context-packs/cards-{范围}.md`
+
+### 子Agent prompt 模板
+
 ```
 你是一位资深网文润色师，专攻{题材}题材的文本打磨。
 
@@ -170,7 +191,7 @@ AI 写得越"正确"的部分越要改，写得越"奇怪"的部分越要保留�
 - 深度：逐句打磨，加具象比喻和留白（≤6 处），调整对话性格区分度
 
 你现在要润色小说第 {范围} 章。
-只读取 `.sumeru/context-packs/polish-{范围}.md`，不读其他文件。
+先读取共享上下文 `.sumeru/context-packs/shared-polish.md`，再读取本组任务卡 `.sumeru/context-packs/cards-{范围}.md`。
 输出润色后的正文文本，每章首行包含 `<!-- SUMERU_STATUS: ... -->` 注释。
 不写文件、不搜目录、不更新状态。
 ```
@@ -185,7 +206,7 @@ AI 写得越"正确"的部分越要改，写得越"奇怪"的部分越要保留�
 | 场景差异化 | 5 类场景规则 | 固定，来自本文件 `场景类型差异化润色` |
 | 润色等级 | {轻度/中度/深度} | 根据用户指定或默认中度 |
 | 章节范围 | {范围} 如 "010-012" | 根据本次任务范围填充 |
-| context pack 路径 | `.sumeru/context-packs/polish-{范围}.md` | 父Agent 写入的实际文件路径 |
+| context pack 路径 | `shared-polish.md`（共享）+ `cards-{范围}.md`（独有） | 父Agent 写入的实际文件路径 |
 | 技术约束 | 只读/纯输出/不写文件 | 固定不变 |
 
 **遵守规则：**

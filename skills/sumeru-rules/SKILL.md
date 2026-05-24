@@ -136,6 +136,11 @@ type: skill
 
 ## 四、子Agent调用协议
 
-父Agent将 context pack 写入 `.sumeru/context-packs/<task>-<range>.md`，通过 Task tool 的 prompt 指示子Agent只读取该文件。子Agent只返回文本结果，不写项目文件。
+父Agent生成 2 个文件写入 `.sumeru/context-packs/`：
 
-**沙箱约束：** 子Agent只能读 context pack，不能写项目文件，不能搜索项目目录。
+1. **共享上下文** `shared-{task}.md`：同批次所有子Agent共用，含 Project Brief、Continuity、Creative Strategy 等
+2. **本组任务卡** `cards-{范围}.md`：每子Agent独有，仅含本组章节的任务卡 + 执行提醒
+
+通过 Task tool 的 prompt 指示子Agent先读共享上下文，再读本组任务卡。子Agent只返回文本结果，不写项目文件。
+
+**沙箱约束：** 子Agent只能读这 2 个文件，不能写项目文件，不能搜索项目目录。

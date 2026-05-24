@@ -14,7 +14,7 @@ type: skill
 
 | 原则 | 说明 |
 |------|------|
-| **只读 context pack** | 不读取任何额外文件，context pack 外的一切文件访问均视为违规 |
+| **读 2 个文件：共享上下文 + 本组任务卡** | 先读共享上下文 `shared-{task}.md`，再读本组任务卡 `cards-{范围}.md`。除此之外不读任何文件。 |
 | **执行单一核心任务** | 根据 context pack 中的任务卡/审查标准/润色要求，完成唯一核心任务 |
 | **输出纯结果** | 输出纯文本结果（正文、审查结论、润色后文本、细纲），不包含状态更新指令 |
 | **不碰状态** | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
@@ -51,7 +51,20 @@ type: skill
 
 ## 三、Context Pack 使用规则
 
-- 只读取 context pack 中提供的信息
+**context pack 拆为 2 个文件：**
+
+| 文件 | 命名规则 | 内容 | 是否共享 |
+|------|----------|------|----------|
+| 共享上下文 | `shared-{task}.md` | Project Brief、Current Volume、Characters、World、Continuity、Creative Strategy、Batch Summary | 同批次所有子Agent共用 |
+| 本组任务卡 | `cards-{范围}.md` | 仅本组章节的 Chapter Cards + 执行提醒 | 每子Agent独有 |
+
+**读取顺序：**
+1. 先读 `shared-{task}.md`，获取全局上下文
+2. 再读 `cards-{范围}.md`，获取本组章节的具体任务
+3. 两个文件的内容合并作为完整的 context
+
+**规则：**
+- 不读取这两个文件之外的任何信息
 - context pack 中嵌入的"可用缓存的键"列表，如需更多信息可在输出中标记
 - 不主动搜索项目目录（Glob/Grep/Read 搜索项目目录视为违规）
 
@@ -152,7 +165,7 @@ context pack 中嵌入了用户风格特征时，主动模仿其用词、句式�
 
 ## 十、禁止行为
 
-- ❌ 不读取 context pack 以外的任何文件
+- ❌ 不读取 `shared-{task}.md` 和 `cards-{范围}.md` 以外的任何文件
 - ❌ 不写入任何项目文件（chapters/、outlines/、reviews/ 等）
 - ❌ 不更新 status.json、changelog、cache、issues
 - ❌ 不使用 Glob/Grep/Read 搜索项目目录

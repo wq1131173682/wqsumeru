@@ -95,7 +95,7 @@ type: skill
 - 结尾不留总结，留悬念钩子
 
 你现在要写小说第 {范围} 章。
-只读取 `.sumeru/context-packs/write-{范围}.md`，不读其他文件。
+先读取共享上下文 `.sumeru/context-packs/shared-write.md`，再读取本组任务卡 `.sumeru/context-packs/cards-{范围}.md`。
 输出纯正文文本，每章首行包含 `<!-- SUMERU_STATUS: ... -->` 注释。
 不写文件、不搜目录、不更新状态。
 
@@ -113,7 +113,7 @@ type: skill
 | 身份设定 | "资深网文作者，主攻{题材}" | 固定开头 + `.sumeru/project.json` 中的 `genre` |
 | 写作风格 | 5 条风格描述 | 来自本文件 `反AI写作规则` 节 |
 | 章节范围 | {范围} 如 "004-006" | 根据本次任务范围填充 |
-| context pack 路径 | `.sumeru/context-packs/write-{范围}.md` | 父Agent 写入的实际文件路径 |
+| context pack 路径 | `shared-write.md`（共享）+ `cards-{范围}.md`（独有） | 父Agent 写入的实际文件路径 |
 | 3 条技术约束 | 只读/纯输出/不写文件 | 固定不变 |
 | 5 条自检 | 创意落地自检 | 来自本文件 `创意落地自检` 节 |
 
@@ -123,6 +123,23 @@ type: skill
 - 自检 5 条逐字使用，不删减、不合并
 - 技术约束 3 条必须全部保留，不能省略"不写文件、不搜目录、不更新状态"
 - 子Agent输出格式控制（SUMERU_STATUS 注释）不能省略
+
+### 父Agent context pack 生成规则
+
+每批子Agent启动前，父Agent生成 2 个文件：
+
+**1. 共享上下文 `shared-write.md`** — 同批次所有子Agent共用，写入：
+- Project Brief、Current Volume、Relevant Characters、World & Glossary
+- Continuity State（上一章结尾、道具、伏笔、时间线）
+- Creative Strategy（创意目标、情绪节拍、要避开的套路）
+- Batch Summary（非第一批时）
+- Output Requirements
+
+**2. 本组任务卡 `cards-{范围}.md`** — 每子Agent独有，仅写入：
+- 本组章节的 Chapter Cards（purpose、events、acceptanceCriteria、creativeGoal、emotionalBeat）
+- 执行提醒（≤5 条）
+
+**文件位置：** `.sumeru/context-packs/shared-write.md` + `.sumeru/context-packs/cards-{范围}.md`
 
 ### 输入优先级
 1. 用户本次明确要求（章节号、字数、风格、视角、必须出现/禁止出现的情节）

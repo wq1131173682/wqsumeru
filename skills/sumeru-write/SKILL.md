@@ -161,7 +161,7 @@ type: skill
 
 ### 输入优先级
 1. 用户本次明确要求（章节号、字数、风格、视角、必须出现/禁止出现的情节）
-2. `.sumeru/context-packs/write-<range>.md`（批量写作首选）
+2. `.sumeru/context-packs/shared-write.md` + `.sumeru/context-packs/cards-{范围}.md`（批量写作首选）
 3. `.sumeru/cache/` 摘要（project-brief、style-brief、creative-brief、continuity-brief）
 4. `.sumeru/review/fix-plan.json` 中标记的重写要求
 5. `outlines/chapters.json` 中的目标章节任务卡（兼容旧路径 `.sumeru/outline/chapter-outlines.json`）

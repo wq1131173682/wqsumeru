@@ -77,4 +77,4 @@ _（小说简介生成已移至 `sumeru-worldbuilder`）_
 
 ### 与其他 Skill 配合
 - **前置**：`sumeru-topic`（选题策划），可复用已有 `plan.md`
-- **后续**：`README.md` 可供 `sumeru-finalize` 在发布导出时复用简介；`sumeru-write` 可参考其中的传播句作为章节结尾钩子；`characters/` 和 `world.md` 供全部下游技能使用
+- **后续**：`.sumeru/intro.md` 可供 `sumeru-finalize` 在发布导出时复用简介；`sumeru-write` 可参考其中的传播句作为章节结尾钩子；`characters/` 和 `world.md` 供全部下游技能使用

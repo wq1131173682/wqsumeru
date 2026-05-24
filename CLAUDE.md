@@ -27,6 +27,8 @@ skills/
 - `characters/`：人物卡（每人一文件）
 - `world.md`：世界观手册（long/full 模式）
 - `.sumeru/issues.md`：问题清单
+- `.sumeru/intro.md`：小说简介
+- `reviews/review-report.md`：审查报告
 - `publish/`：发布产物
 
 旧路径如 `docs/*`、`ideas/*`、`.sumeru/issues/index.json`、`.sumeru/outline/chapter-outlines.json` 只读兼容，不再作为新写入目标。

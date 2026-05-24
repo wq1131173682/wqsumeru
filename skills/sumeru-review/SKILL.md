@@ -28,7 +28,7 @@ user-invocable: true
 ### 按模式审查
 | 模式 | 输出内容 |
 |------|----------|
-| `short/light` | 单文件 `review.md`，检查结构、人物动机、反转合理性 |
+| `short/light` | 单文件 `reviews/review-report.md`，检查结构、人物动机、反转合理性 |
 | `medium/standard` | `reviews/review-report.md`，问题记录到 `.sumeru/issues.md` |
 | `long/full` | 目标范围审查；用户要求完整报告时生成 `reviews/` 和 `tests/` |
 

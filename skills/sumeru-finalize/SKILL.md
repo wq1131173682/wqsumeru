@@ -35,7 +35,7 @@ type: skill
 ### 按模式导出
 | 模式 | 输出内容 |
 |------|----------|
-| `short/light` | `publish.md` 或单篇发布稿，基础检查 |
+| `short/light` | `publish/release.md` 或单篇发布稿，基础检查 |
 | `medium/standard` | 导出全文和分章版本，生成 `publish/` 和 release 检查报告 |
 | `long/full` | 完整 build/release，生成 `publish/`、`tests/release-check-report.md`、`build-manifest.json` |
 

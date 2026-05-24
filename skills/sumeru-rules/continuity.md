@@ -42,9 +42,10 @@ type: skill
 
 ### 检查脚本
 
+脚本位于 `sumeru-review/scripts/`：
 ```bash
-python scripts/continuity-check.py .sumeru/continuity --output continuity-report.json
-python scripts/foreshadowing-tracker.py .sumeru/continuity 50 --output foreshadowing-report.json
+python sumeru-review/scripts/continuity-check.py .sumeru/continuity --output continuity-report.json
+python sumeru-review/scripts/foreshadowing-tracker.py .sumeru/continuity 50 --output foreshadowing-report.json
 ```
 
 ---

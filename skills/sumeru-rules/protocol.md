@@ -119,11 +119,13 @@ polish 的共享上下文中额外嵌入风格标杆：
 | 项目配置 | `.sumeru/project.json`、`.sumeru/status.json` | 无 |
 | 需求/设定/创意 | `plan.md` | `docs/*`、`ideas/*` 只读兼容 |
 | 大纲/任务卡 | `outline.md`、`outlines/chapters.json` | `.sumeru/outline/chapter-outlines.json` 只读兼容 |
+| 简介 | `.sumeru/intro.md` | 无 |
 | 正文 | `chapters/` 或短篇 `story.md` | 无 |
 | 人物卡 | `characters/` 目录 | 无 |
 | 世界观 | `world.md` | 无 |
 | 问题清单 | `.sumeru/issues.md` | `.sumeru/issues/index.json` 只读兼容 |
 | 审查摘要 | `reviews/review-report.md` | 按需生成 |
+| 测试报告 | `tests/` | 按需生成 |
 | 发布产物 | `publish/` | 无 |
 
 ### 独立调用原则
@@ -161,6 +163,30 @@ polish 的共享上下文中额外嵌入风格标杆：
 **章节状态：** `planned` / `drafted` / `reviewed` / `fixed` / `polished` / `finalized` / `exported`
 
 修复后经反审验证通过进入 `fixed`；润色发现逻辑硬伤时触发反审验证。
+
+### consistency-rules.json 格式
+
+由父Agent从每章的 SUMERUS_STATUS 解析合并生成，位于 `.sumeru/continuity/consistency-rules.json`：
+
+```json
+{
+  "characters": {
+    "苏瑾": { "status": "minor_injury", "location": "北域冰原" }
+  },
+  "items": {
+    "黑色残片": "acquired"
+  },
+  "foreshadowing": {
+    "v3": { "status": "mentioned", "last_mentioned": 42 }
+  },
+  "timeline": {
+    "current_location": "北域冰原",
+    "current_chapter": 42
+  }
+}
+```
+
+**更新规则：** 每批次完成后，父Agent汇总本批所有子Agent的 state_diff/char_update/plot_update，合并写入该文件。持续累积，不重置。
 
 ---
 

@@ -17,10 +17,11 @@ user-invocable: true
 worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创意萌芽到作品完稿的完整创作链路：
 
 0. **项目初始化**：创建标准小说项目目录
-1. **选题策划**：调用 `sumeru-topic` 进行市场分析、选题定位、创意引擎
+1. **选题策划**：调用 `sumeru-topic` 进行市场分析、选题定位、创意引擎、平台定向
 2. **大纲设计**：调用 `sumeru-outline` 构建完整世界观、人物设定、分卷大纲与章节任务卡
 2.5 **风格样本询问（可选）**：大纲完成后，询问用户是否提供写作风格样本（不提供不影响后续）
 2.6 **简介生成**：大纲完成后自动生成 `.sumeru/intro.md`（作品名称、目标读者、类型标签、主角名、简介正文、平台标签映射）
+2.7 **创意锚点确认**（新增）：大纲完成后、写作开始前，从大纲中提取核心创意锚点供用户确认
 3. **内容创作**：调用 `sumeru-write` 按章节任务卡进行分章节内容撰写
 4. **逻辑审查**：调用 `sumeru-review` 对已完成章节进行项目测试式审查
 4.5 **修复**：根据审查结果修复问题（轻量 auto-fix 或重写），章节状态更新为 `fixed`
@@ -50,13 +51,14 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - 升级后更新 `.sumeru/project.json`，记录到 `.sumeru/decisions.md` 和 `.sumeru/changelog.md`
 
 ### 项目状态机
-**阶段顺序**：`init -> topic -> outline -> write -> review -> fix -> polish -> finalize -> build/release`
+**阶段顺序**：`init -> topic -> outline -> intro -> anchor -> write -> review -> fix -> polish -> finalize -> build/release`
 
 **章节状态顺序**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
 
 **推进规则**：
-- `topic` 完成：`plan.md` 已写入，至少包含选题方向和核心创意
-- `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡包含 `acceptanceCriteria`
+- `topic` 完成：`plan.md` 已写入，至少包含选题方向和核心创意，且包含目标平台信息
+- `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡包含 `acceptanceCriteria` 和 `emotionalBeatTemplate`
+- `anchor` 完成：`.sumeru/creative-anchors.md` 存在，至少 3 个用户确认的锚点
 - `write` 完成：目标章节文件存在，章节状态更新为 `drafted`，且没有缺章
 - `review` 完成：目标范围已审查，问题写入 `.sumeru/issues.md`；完整报告和 tests 仅在用户要求时生成
 - `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写；反审验证通过后章节状态更新为 `fixed`
@@ -98,6 +100,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 2. 篇幅预期
 3. 核心爽点
 4. 受众定位
+5. **目标发布平台**（起点/番茄/七猫/晋江/纵横/其他，必填，选题时进行平台定向分析）
 
 **核心设定引导（可选）**：
 5. 主角设定偏好
@@ -112,9 +115,9 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求 → 收集需求 → topic[选题策划] → outline[大纲设计] → intro[简介生成] → write → review → [fix] → polish → finalize → build/release
-                                    ↓
-                            阶段检查点验证
+用户需求 → 收集需求 → topic[选题策划+平台定向] → outline[大纲设计] → intro[简介生成] → anchor[创意锚点确认] → write → review → [fix] → polish → finalize → build/release
+                                     ↓
+                             阶段检查点验证
 ```
 
 ### 使用示例
@@ -131,3 +134,35 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 大纲完成后自动生成。从 `plan.md` 提取作品名称、目标读者、主角名、核心设定，从 `outlines/chapters.json` 提取主线冲突和爽点，撰写 300-500 字简介正文（困境→转折→冲突→悬念），生成平台标签映射，写入 `.sumeru/intro.md`。仅首次生成，后续不覆盖手动修改。
 
 **简介质量：** 作品名称简洁、目标读者明确、标签≥8个且来自平台标签库、正文含四要素、不剧透关键反转、结尾有传播句。
+
+### 创意锚点确认机制
+
+> **目标**：在大纲完成后，从AI生成的完整大纲中提炼出"只属于本书"的核心创意锚点，让用户确认/修改，作为后续所有写作的不可动摇的创意基准。
+
+#### 锚点提取
+
+父Agent从 `plan.md` 和 `outline.md` 中提取 5-7 个候选锚点，分为以下类型：
+
+| 锚点类型 | 含义 | 示例 |
+|----------|------|------|
+| **核心反差** | 主角/世界最独特的矛盾设定 | "最强废柴"——战力体系第一却被所有人认为是废物 |
+| **情感锚** | 贯穿全书的核心情感驱动 | "为师父复仇"——所有选择最终指向这个执念 |
+| **设定钩子** | 最独特的设定/金手指 | "每次死亡都回到3天前，但记忆保留" |
+| **关系张力** | 最重要的人物关系矛盾 | "必须杀了她才能活，但她是唯一理解你的人" |
+| **名场面种子** | 全书必须兑现的高概念场景 | "在万人面前展示真实实力，让所有嘲笑者闭嘴" |
+| **价值观冲突** | 本书探讨的核心价值冲突 | "力量至上 vs 人性底线" |
+| **风格签名** | 本书最独特的叙事风格/腔调 | "冷幽默+暗黑童话感" |
+
+#### 确认流程
+
+1. 父Agent提取候选锚点并输出表格
+2. 用户逐条确认（保留/修改/删除/新增）
+3. 确认后的锚点列表写入 `.sumeru/creative-anchors.md`
+4. 每个锚点标记为 `confirmed` / `user_modified` / `user_added`
+
+#### 后续使用
+
+- **context pack 注入**：写作阶段每个 shared context pack 开头插入锚点速查
+- **子Agent自检**：每章必须至少体现 1 个锚点（写作自检增加此项）
+- **review 验证**：审查阶段检查锚点是否被稀释/遗忘，连续 3 章未体现任何锚点 → 标记 `high` 警告
+- **修改保护**：锚点被视为 `protectedElements` 的最高优先级，子Agent不可违背

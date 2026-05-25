@@ -1,7 +1,9 @@
 ---
 name: sumeru-finalize
 description: 小说完稿校验与导出，也负责小说项目 build/release。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、构建发布包、导出起点/番茄/晋江/纵横等平台格式、多平台导出、自动拆章、标题优化、简介适配时必须使用本技能。
+version: 1.0.0
 type: skill
+user-invocable: true
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。

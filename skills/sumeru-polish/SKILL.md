@@ -1,7 +1,9 @@
 ---
 name: sumeru-polish
 description: 小说内容润色优化与创意强化。用户要润色小说、改文笔、优化章节节奏、强化爽点、强化名场面、让对话自然、提升代入感、调整风格、把一章写得更爽或更细腻时必须使用本技能。
+version: 1.0.0
 type: skill
+user-invocable: true
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。所有子Agent并行规则、状态标记格式、Context Pack 格式、剧情统一门禁均遵循 `sumeru-rules`。

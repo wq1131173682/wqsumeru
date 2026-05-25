@@ -6,10 +6,5 @@
 
 .git-credentials
 
-# UUMit 敏感文件
-skills/uumit-agent/memory/uumit-auth.json
-skills/uumit-agent/memory/uumit-state.json
-skills/uumit-agent/memory/sessions/
-
 # opencode 本地配置
 opencode.json

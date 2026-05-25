@@ -1,7 +1,9 @@
 ---
 name: sumeru-rules
 description: 须弥写作全局约束规则（入口）。子Agent规则 + 职责划分 + 状态标记格式。详细展开见同一目录下的 continuity.md / protocol.md / conventions.md。
+version: 1.0.0
 type: skill
+user-invocable: false
 ---
 
 # 须弥写作全局约束规则

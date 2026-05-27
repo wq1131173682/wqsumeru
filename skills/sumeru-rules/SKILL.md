@@ -15,9 +15,11 @@ user-invocable: false
 | 文件 | 内容 |
 |------|------|
 | `SKILL.md` （本文件） | 子Agent并行处理、职责边界、状态标记、调用协议 |
+| `ARCHITECTURE.md` | **系统架构总览**：技能调用链路、数据流向、状态机、文件索引 |
 | `continuity.md` | 剧情统一门禁、冲突检测规则、伏笔生命周期管理 |
 | `protocol.md` | Context Pack 格式、自举协议、项目 Schema、Skill 职责明细、修改边界、质量检查 |
 | `conventions.md` | 输出级别规范、写作安全与原创性 |
+| `subagent-rules.md` | 子Agent精简版约束规则（子Agent读此文件） |
 
 ---
 

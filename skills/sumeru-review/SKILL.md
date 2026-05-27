@@ -1,6 +1,8 @@
 ---
 name: sumeru-review
 description: 小说逻辑/剧情审查、项目测试与创意疲劳检测。用户要检查小说bug、时间线矛盾、人物OOC、剧情前后冲突、章节任务卡验收、伏笔是否回收、章节字数是否达标、剧情合理性、逻辑漏洞、套路重复、爽点同质化、角色被剧情推着走或创意不够新时必须使用本技能。
+version: 1.0.0
+type: skill
 user-invocable: true
 ---
 
@@ -21,7 +23,7 @@ user-invocable: true
 ### 独立调用自举
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
 2. 根据 `chapters/` 推断可审查章节范围
-3. 若缺少 `outlines/chapters.json`，尝试读取 `.sumeru/outline/chapter-outlines.json`
+3. 若缺少 `outlines/chapters.json`，按旧路径兼容策略处理（见 `sumeru-rules protocol.md`）
 4. 若缺少 `.sumeru/cache/`，生成最小摘要
 5. 若缺少当前范围的 context pack，先生成临时 context pack 再审查
 
@@ -40,6 +42,9 @@ user-invocable: true
 - 用户要求“全书审查/完整报告”时，才加载全局大纲并生成完整报告
 
 **第二阶段：章节细节审查（子Agent并行）**
+
+> **并行规则**详见 `sumeru-rules SKILL.md` 第一节"子Agent并行处理规则"。
+
 - 每个子Agent最多 3 章，使用 `review-<range>.md` context pack
 - 子Agent输出审查结论+状态标记
 - 父Agent汇总所有子Agent输出
@@ -156,6 +161,8 @@ user-invocable: true
 ### 平台适配审查规则
 
 > **定位**：通用质量检查，不区分平台类型。所有小说都需要检查的叙事效率指标，适用于七猫/番茄/起点/晋江等全平台。
+>
+> **核心指标阈值定义**见 `sumeru-rules protocol.md` 第六节"平台适配规则索引"。本节仅定义审查阶段的执行流程和输出格式。
 
 #### 开篇钩子强度检查
 

@@ -1,7 +1,9 @@
 ---
 name: sumeru-write
 description: 小说章节内容创作与创意落地。用户要写一章小说、续写、扩写、重写、生成某个情节、按细纲写章节、批量生成章节、写开篇/高潮/过渡章，或要求"帮我写小说内容"时必须使用本技能。
+version: 1.0.0
 type: skill
+user-invocable: true
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。
@@ -9,10 +11,12 @@ type: skill
 ## 网文章节撰写
 
 ### 触发关键词
-帮我写一章小说、续写接下来的内容、生成XX情节、批量写网文章节、扩写/重写这段内容、帮我写个XX情节、续写小说、把这段内容扩写、重写这一章、批量生成小说章节、写个开篇章节、写个高潮情节、小说内容生成、帮我写小说内容、网文章节生成、从细纲生成章节、按细纲写小说、批量生成所有章节、细纲驱动写作
+写第X章、续写、续写接下来的内容、扩写这段、重写这一章、批量写网文章节、批量生成小说章节、写个开篇章节、写个高潮情节、从细纲生成章节、按细纲写小说、批量生成所有章节、细纲驱动写作、生成XX情节、帮我写个XX情节
+
+> **与 sumeru-worldbuilder 的区分**：write 负责具体的章节写作操作（写一章、续写、扩写、重写、批量生成）。用户说"帮我写小说"且未指定具体章节时走 worldbuilder 统筹；明确说"写第X章"、"续写"、"扩写这段"时走 write。
 
 ### 核心功能
-1. **基于完整细纲生成**：自动读取 `outlines/chapters.json`（兼容 `.sumeru/outline/chapter-outlines.json`）
+1. **基于完整细纲生成**：自动读取 `outlines/chapters.json`（旧路径兼容见 `sumeru-rules protocol.md`）
 2. **智能细纲匹配**：支持按章节号、卷号、或全部章节进行生成
 3. 自动适配网文节奏：开头抓眼球、中间有冲突、结尾留悬念
 4. 保持人物性格、剧情逻辑的一致性
@@ -21,7 +25,7 @@ type: skill
 
 ### 独立调用自举
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
-2. 若缺少 `outlines/chapters.json`，尝试读取 `.sumeru/outline/chapter-outlines.json`（兼容旧路径）
+2. 若缺少 `outlines/chapters.json`，按旧路径兼容策略处理（见 `sumeru-rules protocol.md`）
 3. 若缺少 `.sumeru/cache/`，生成最小摘要
 4. 若缺少当前范围的 context pack，先生成临时 context pack 再写作
 5. 根据 `chapters/` 已有文件推断续写位置，默认不覆盖已有章节
@@ -197,6 +201,8 @@ type: skill
 
 ### 父Agent context pack 生成规则
 
+> **并行规则、Context Pack 格式、子Agent职责边界**详见 `sumeru-rules` 的 `SKILL.md`（并行处理规则、职责边界）和 `protocol.md`（Context Pack 格式、各 Skill 职责明细）。
+
 每批子Agent启动前，父Agent生成 2 个文件：
 
 **1. 共享上下文 `shared-write.md`** — 同批次所有子Agent共用，写入：
@@ -218,7 +224,7 @@ type: skill
 2. `.sumeru/context-packs/shared-write.md` + `.sumeru/context-packs/cards-{范围}.md`（批量写作首选）
 3. `.sumeru/cache/` 摘要（project-brief、style-brief、creative-brief、continuity-brief）
 4. `.sumeru/review/fix-plan.json` 中标记的重写要求
-5. `outlines/chapters.json` 中的目标章节任务卡（兼容旧路径 `.sumeru/outline/chapter-outlines.json`）
+5. `outlines/chapters.json` 中的目标章节任务卡（旧路径兼容见 `sumeru-rules protocol.md`）
 6. 已存在的 `chapters/` 内容用于续写和风格衔接
 
 ### 剧情统一门禁

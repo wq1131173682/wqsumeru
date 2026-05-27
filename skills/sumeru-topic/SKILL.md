@@ -1,7 +1,9 @@
 ---
 name: sumeru-topic
 description: 网文选题策划与创意架构。用户不知道写什么、找热门题材、做选题分析、设计金手指、需要创意方向时必须使用本技能。解耦自 sumeru-outline，专注「写什么」。
+version: 1.0.0
 type: skill
+user-invocable: true
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。
@@ -33,6 +35,8 @@ type: skill
 ### 平台风格匹配规则
 
 > **核心原则**：选题阶段必须检查风格与目标平台的匹配度，避免写完才发现平台不接纳。
+>
+> **平台适配规则总索引**见 `sumeru-rules protocol.md` 第六节"平台适配规则索引"。本节定义选题阶段的风格-平台兼容性矩阵和匹配检查流程。
 
 #### 平台风格兼容性矩阵
 

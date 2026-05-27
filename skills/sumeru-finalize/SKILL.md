@@ -1,7 +1,9 @@
 ---
 name: sumeru-finalize
 description: 小说完稿校验与导出，也负责小说项目 build/release。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、构建发布包、导出起点/番茄/晋江/纵横等平台格式、多平台导出、自动拆章、标题优化、简介适配时必须使用本技能。
+version: 1.0.0
 type: skill
+user-invocable: true
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。
@@ -51,6 +53,10 @@ type: skill
 #### 平台内容适配检查
 
 > **定位**：Build 前的最终质量门禁。检查结果不阻塞导出（不修改已有章节），但输出适配评分和警告供作者决策。
+>
+> **核心指标阈值定义**见 `sumeru-rules protocol.md` 第六节"平台适配规则索引"。本节仅定义 build 阶段的检查流程和输出格式。
+>
+> **与 review 的分工**：`sumeru-review` 负责审查阶段的平台适配检查（可修改章节）；`sumeru-finalize` 负责 build 前的最终门禁（仅报告，不修改）。
 
 ##### 检查项目
 

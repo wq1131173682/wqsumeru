@@ -11,7 +11,7 @@ user-invocable: true
 ## 网文大纲设计
 
 ### 核心功能
-1. **选题复用**：自动读取 `plan.md`、`.sumeru/topic/options.json` 或旧版 `docs/requirements.md` 中的选题成果
+1. **选题复用**：自动读取 `plan.md`、`.sumeru/topic/options.json` 中的选题成果（旧路径兼容见 `sumeru-rules protocol.md`）
 2. **世界观设定**：世界背景、力量体系、社会规则、地理设定
 3. **人物设定**：主角、配角、反派的人物画像、性格、成长线，同步写入 `characters/` 人物卡
 4. **剧情框架**：主线故事、支线剧情、关键节点、高潮安排
@@ -22,7 +22,7 @@ user-invocable: true
 
 ### 独立调用自举
 1. 定位项目根目录，读取或生成 `.sumeru/project.json`、`.sumeru/status.json`
-2. 若已有 `plan.md`、`.sumeru/topic/summary.json` 或旧版 `docs/requirements.md`，复用既有选题和需求
+2. 若已有 `plan.md`、`.sumeru/topic/summary.json`，复用既有选题和需求（旧路径兼容见 `sumeru-rules protocol.md`）
 3. 若缺少 `plan.md`，提示先执行 `sumeru-topic` 选题策划，或生成最小创意库存
 4. 大纲完成后生成或刷新 `outlines/chapters.json`；长篇项目同步拆分
 5. 同步生成 `characters/` 人物卡
@@ -38,7 +38,7 @@ user-invocable: true
 ### 项目化输出要求
 - `plan.md`：需求、世界观、人物、风格、创意策略、术语合并维护
 - `outline.md`：故事架构、主线、分卷规划、关键高潮、伏笔管理表
-- `outlines/chapters.json`：章节任务卡主文件（每章必须包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`）
+- `outlines/chapters.json`：章节任务卡主文件（旧路径 `.sumeru/outline/chapter-outlines.json` 只读兼容，见 `sumeru-rules protocol.md`）。每章必须包含 `purpose`、`events`、`outputs`、`acceptanceCriteria`
 - `characters/`：人物卡目录，每人物独立文件
 - `world.md`：世界观手册（long/full 模式）
 
@@ -85,6 +85,9 @@ user-invocable: true
 3. **自动检查**：发现疑似真实名称时自动提示并提供3个以上虚构替换方案
 
 ### 子Agent并行细纲生成
+
+> **并行规则**详见 `sumeru-rules SKILL.md` 第一节"子Agent并行处理规则"。
+
 当章节数大于3章时，支持子Agent并行生成细纲。每个子Agent最多负责3章，按卷分配优先。
 
 ### 数据持久化
@@ -92,7 +95,7 @@ user-invocable: true
 - `plan.md`、`outline.md`、`outlines/chapters.json`、`characters/`、`world.md`
 
 **中间数据（`.sumeru/outline/`）**：
-- 仅保存必要缓存；旧版 `world.json`、`characters.json`、`plot-outline.json`、`chapter-outlines.json` 只读兼容
+- 仅保存必要缓存；旧版 `world.json`、`characters.json`、`plot-outline.json`、`chapter-outlines.json` 只读兼容（旧路径兼容策略见 `sumeru-rules protocol.md`）
 
 > 风格样本机制详见 `sumeru-rules subagent-rules.md`。大纲完成后父 Agent 可询问用户是否提供样本，不提供不影响后续。
 

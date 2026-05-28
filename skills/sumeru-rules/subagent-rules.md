@@ -14,17 +14,17 @@ type: skill
 
 | 原则 | 说明 |
 |------|------|
-| **读 2 个文件：共享上下文 + 本组任务卡** | 先读共享上下文 `shared-{task}.md`，再读本组任务卡 `cards-{范围}.md`。除此之外不读任何文件。 |
+| **读 2 个文件：共享上下文 + 本组任务卡** | 先读共享上下文 `shared-{task}.md`，再读本组任务卡 `cards-{范围}.md`。可读已有章节文件以保持连续性。 |
 | **执行单一核心任务** | 根据 context pack 中的任务卡/审查标准/润色要求，完成唯一核心任务 |
-| **输出纯结果** | 输出纯文本结果（正文、审查结论、润色后文本、细纲），不包含状态更新指令 |
-| **不碰状态** | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
-| **输出状态标记** | 正文/细纲首行必须包含 `<!-- SUMERU_STATUS: ... -->` 注释 |
+| **直接写入正文章节文件** | 正文直接写入 `chapters/*.md`，细纲写入 `outlines/chapters.json` |
+| **返回状态标记** | 返回精简 `<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态 |
+| **不碰状态文件** | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
 
 ---
 
 ## 二、状态标记格式
 
-输出首行必须包含：
+写入的章节文件首行必须包含状态标记（供重启恢复），同时向父Agent返回同一标记（供实时状态同步）：
 
 ```markdown
 <!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff={"location_change":{"苏瑾":"北域冰原"},"state_change":{"苏瑾":"minor_injury"},"item_change":{"黑色残片":"acquired"}}, char_update={"苏瑾":{"status":"minor_injury","location":"北域冰原"},"主角":{"status":"healthy","buff":"龙血狂暴","remaining":"3天"}}, plot_update={"foreshadowing":{"v3":"黑衣人身份暗示推进"}}, batch=002, timestamp=2026-05-18T10:30:00Z -->
@@ -43,7 +43,8 @@ type: skill
 
 ### 关键约束
 
-- 状态标记必须放在输出内容的**第一行**，不能有任何前置文字
+- 状态标记必须放在写入文件的**第一行**，不能有任何前置文字
+- 向父Agent返回的标记内容必须与文件首行完全一致
 - `state_diff` 必须是合法 JSON（单行，无换行符）
 - 不确定的状态变化可以留空该分类但不能省略整个标记
 
@@ -64,9 +65,9 @@ type: skill
 3. 两个文件的内容合并作为完整的 context
 
 **规则：**
-- 不读取这两个文件之外的任何信息
+- 优先读取共享上下文和本组任务卡，可读已有章节文件保持连续性
 - context pack 中嵌入的"可用缓存的键"列表，如需更多信息可在输出中标记
-- 不主动搜索项目目录（Glob/Grep/Read 搜索项目目录视为违规）
+- 不使用 Glob/Grep/Read 搜索项目目录（已有的下一章文件可用已知路径直接读取）
 
 ---
 
@@ -103,10 +104,10 @@ type: skill
 
 | Skill | 核心任务 | 输入 | 输出 |
 |-------|----------|------|------|
-| **sumeru-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾+剧情事实基准+人物/道具/伏笔状态） | 纯正文文本 + 状态标记 |
+| **sumeru-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾+剧情事实基准+人物/道具/伏笔状态） | 写入 `chapters/*.md` + 返回状态标记 |
 | **sumeru-review** | 按任务卡审查章节 | context pack（任务卡+正文+审查标准+consistency-rules） | 审查结论（问题列表+严重程度+证据+建议） |
-| **sumeru-polish** | 按标准润色章节 | context pack（正文+style-brief+creative-brief+审查问题+具象标杆） | 润色后正文 + 状态标记 |
-| **sumeru-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 章节细纲 JSON/Markdown + 状态标记 |
+| **sumeru-polish** | 按标准润色章节 | context pack（正文+style-brief+creative-brief+审查问题+具象标杆） | 写入 `chapters/*.md` + 返回状态标记 |
+| **sumeru-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 写入 `outlines/chapters.json` + 返回状态标记 |
 | **sumeru-finalize** | 待定项判断 | 待定项列表（最多20个） | 待定项处理建议 |
 
 ---
@@ -165,9 +166,9 @@ context pack 中嵌入了用户风格特征时，主动模仿其用词、句式�
 
 ## 十、禁止行为
 
-- ❌ 不读取 `shared-{task}.md` 和 `cards-{范围}.md` 以外的任何文件
-- ❌ 不写入任何项目文件（chapters/、outlines/、reviews/ 等）
+- ❌ 不读取 `shared-{task}.md` 和 `cards-{范围}.md` 以外的项目文件（已有章节文件除外）
+- ❌ 不写入 `chapters/*.md` 和 `outlines/chapters.json` 以外的项目文件
 - ❌ 不更新 status.json、changelog、cache、issues
 - ❌ 不使用 Glob/Grep/Read 搜索项目目录
-- ❌ 不在输出中包含状态更新指令
+- ❌ 不在返回给父Agent的输出中包含正文内容（文件已直接写入）
 - ❌ 不输出中间报告和技术细节

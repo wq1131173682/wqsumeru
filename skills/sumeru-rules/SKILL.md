@@ -55,7 +55,7 @@ user-invocable: false
 
 ## 二、子Agent职责边界规则
 
-**核心原则：子Agent只做单一核心任务，所有状态维护、文件写入、缓存刷新、汇总合并均由父Agent统一处理。**
+**核心原则：子Agent直接写入本组正文章节文件，返回精简状态标记；父Agent负责备份、状态同步、缓存刷新和汇总。**
 
 ### 父Agent职责
 
@@ -67,8 +67,7 @@ user-invocable: false
 | 任务卡读取 | 集中读取目标章节任务卡，仅提取本组章节所需字段 |
 | 任务分发 | 启动 N 个子Agent，每个传入精简 context pack |
 | 结果汇总 | 收集所有子Agent输出，检查完整性、顺序、命名 |
-| 文件写入 | 统一写入输出文件，避免并发冲突 |
-| 备份 | 修改前将原文件备份到 `.sumeru/write/original/`，每章仅保留最近 1 份 |
+| 文件写入 & 备份 | 子Agent写入后，父Agent校验文件存在性、SUMERU_STATUS标记完整性；将原文件备份到 `.sumeru/write/original/`，每章仅保留最近 1 份 |
 | 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
 | 缓存刷新 | 统一刷新相关 cache 摘要 |
 | 日志记录 | 统一追加 `.sumeru/changelog.md`、`.sumeru/decisions.md` |
@@ -78,17 +77,17 @@ user-invocable: false
 
 | 职责 | 说明 |
 |------|------|
-| 只读 context pack | 不读取 context pack 外的任何文件 |
+| 只读 context pack | 不读取 context pack 外的任何文件（已有章节文件除外） |
 | 执行核心任务 | 根据 context pack 完成任务卡/审查/润色要求 |
-| 输出纯结果 | 纯文本结果，不含状态更新指令 |
-| 不碰状态 | 不更新 status.json、changelog、cache、issues |
-| 输出状态标记 | 正文/细纲首行必须包含 `<!-- SUMERU_STATUS: ... -->` |
+| 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写入 `outlines/chapters.json`，无需经父Agent透传 |
+| 返回状态标记 | 只返回 `<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态 |
+| 不碰状态文件 | 不更新 status.json、changelog、cache、issues |
 
 ---
 
 ## 三、子Agent输出状态标记
 
-每个子Agent的输出首行固定包含状态标记，父Agent提取并更新状态文件，避免单点故障。
+每个子Agent写入的章节文件首行必须包含状态标记（供重启恢复），同时向父Agent返回同一标记（供实时状态同步）。
 
 ### 格式
 
@@ -145,6 +144,6 @@ user-invocable: false
 1. **共享上下文** `shared-{task}.md`：同批次所有子Agent共用，含 Project Brief、Continuity、Creative Strategy 等
 2. **本组任务卡** `cards-{范围}.md`：每子Agent独有，仅含本组章节的任务卡 + 执行提醒
 
-通过 Task tool 的 prompt 指示子Agent先读共享上下文，再读本组任务卡。子Agent只返回文本结果，不写项目文件。
+通过 Task tool 的 prompt 指示子Agent先读共享上下文，再读本组任务卡。子Agent写入后返回精简状态标记（不含正文内容）。
 
-**沙箱约束：** 子Agent只能读这 2 个文件，不能写项目文件，不能搜索项目目录。
+**写权限：** 子Agent可写入本组章节对应的 `chapters/*.md`（正文）或 `outlines/chapters.json`（细纲），不得修改其他文件。父Agent负责校验和备份。

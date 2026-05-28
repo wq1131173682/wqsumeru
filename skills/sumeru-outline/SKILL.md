@@ -54,7 +54,8 @@ user-invocable: true
   "chapter": "001",
   "title": "章节标题",
   "purpose": "本章在全书中的核心作用",
-  "events": ["事件1", "事件2"],
+  "events": ["事件1", "事件2", "事件3"],
+  "openingHook": "本章具体开场方式（如：赵无缺从网吧出来，兜里没钱，正盘算去哪蹭饭）",
   "outputs": ["本章必须产出的内容"],
   "acceptanceCriteria": ["验收条件1", "验收条件2"],
   "creativeGoal": "本章创意目标（如：让读者记住主角的第一次选择）",
@@ -78,7 +79,8 @@ user-invocable: true
 | `chapter` | ✅ | 章节号（三位数） |
 | `title` | ✅ | 章节标题 |
 | `purpose` | ✅ | 本章在全书中的核心作用 |
-| `events` | ✅ | 本章核心事件列表 |
+| `events` | ✅ | 本章核心事件列表（≥3个，必须包含本章开场方式，禁止使用"场景建立""人物状态"等泛化描述） |
+| `openingHook` | ✅ | 本章具体开场方式——一段可执行的场景描述而非概括（如"赵无缺从网吧出来，兜里还剩十八块钱"），禁止"被X叫醒""从床上醒来"等模板式开场 |
 | `outputs` | ✅ | 本章必须产出的内容 |
 | `acceptanceCriteria` | ✅ | 验收条件（父Agent校验用） |
 | `creativeGoal` | ✅ | 本章创意目标 |
@@ -100,17 +102,26 @@ user-invocable: true
 ```markdown
 ## chapter.json 字段完整性检查
 
-| 章节 | chapter | title | purpose | events | outputs | acceptanceCriteria | creativeGoal | freshnessHook | emotionalBeat | emotionalBeatTemplate | readerMemoryPoint | tropeToAvoid | protectedElements | rhythm | 结果 |
-|------|---------|-------|---------|--------|---------|-------------------|--------------|---------------|---------------|-----------------------|-------------------|---------------|-------------------|--------|------|
-| 001  | ✅      | ✅    | ✅      | ✅     | ✅      | ✅                | ✅           | ✅            | ✅            | ✅                    | ✅                | ✅            | ✅                | ✅     | ✅   |
-| 002  | ❌      | ✅    | ❌      | ❌     | ❌      | ❌                | ❌           | ❌            | ❌            | ❌                    | ❌                | ❌            | ❌                | ❌     | ❌   |
+| 章节 | chapter | title | purpose | events | openingHook | outputs | acceptanceCriteria | creativeGoal | freshnessHook | emotionalBeat | emotionalBeatTemplate | readerMemoryPoint | tropeToAvoid | protectedElements | rhythm | 结果 |
+|------|---------|-------|---------|--------|--------------|---------|-------------------|--------------|---------------|---------------|-----------------------|-------------------|---------------|-------------------|--------|------|
+| 001  | ✅      | ✅    | ✅      | ✅     | ✅           | ✅      | ✅                | ✅           | ✅            | ✅            | ✅                    | ✅                | ✅            | ✅                | ✅     | ✅   |
+| 002  | ❌      | ✅    | ❌      | ❌     | ❌           | ❌      | ❌                | ❌           | ❌            | ❌            | ❌                    | ❌                | ❌            | ❌                | ❌     | ❌   |
 ```
 
 **验证规则**：
-- 每章必须包含全部 **13 个必填字段**：`chapter`、`title`、`purpose`、`events`、`outputs`、`acceptanceCriteria`、`creativeGoal`、`freshnessHook`、`emotionalBeat`、`emotionalBeatTemplate`、`readerMemoryPoint`、`tropeToAvoid`、`protectedElements`、`rhythm`
+- 每章必须包含全部 **15 个必填字段**：`chapter`、`title`、`purpose`、`events`、`openingHook`、`outputs`、`acceptanceCriteria`、`creativeGoal`、`freshnessHook`、`emotionalBeat`、`emotionalBeatTemplate`、`readerMemoryPoint`、`tropeToAvoid`、`protectedElements`、`rhythm`
 - 任意一章缺字段 → **不通过**，父Agent不得标记 outline 完成
-- 不通过时父Agent提示用户：`⚠️ chapters.json 第X章缺少字段: purpose, events, ...，请重新运行大纲生成或手动补全`
+- 不通过时父Agent提示用户：`⚠️ chapters.json 第X章缺少字段: purpose, events, openingHook, ...，请重新运行大纲生成或手动补全`
 - 通过后在 `.sumeru/changelog.md` 记录：`✅ chapters.json 字段完整性验证通过（共N章）`
+
+**字段质量规则（额外检查，不阻塞但标记警告）**：
+
+| 规则 | 检查方式 | 警告信息 |
+|------|----------|----------|
+| `events` 必须 ≥ 3 项 | `len(events) >= 3` | `⚠️ 第X章 events 少于3项，子Agent可能缺乏可执行事件` |
+| `events` 不得包含泛化描述 | 关键词匹配（"建立""开启""引入""状态"） | `⚠️ 第X章 events 含泛化词"XXX"，请替换为具体可执行事件` |
+| `openingHook` 不得为模板开场 | 关键词匹配（"被叫醒""从床上醒来""新的一天"） | `⚠️ 第X章 openingHook 使用了模板式开场"被X叫醒"，请指定独特的开场场景` |
+| `openingHook` 必须为一句话场景 | 长度 > 10 字且包含具体场景元素 | `⚠️ 第X章 openingHook 太简短，需要一段可执行的场景描述` |
 
 **兼容模式**：若用户选择跳过此验证（通过 `--skip-validation` 参数），父Agent记录到 `.sumeru/decisions.md` 并继续，但写作阶段不保证正文质量。
 
@@ -348,6 +359,31 @@ user-invocable: true
 > **并行规则**详见 `sumeru-rules SKILL.md` 第一节"子Agent并行处理规则"。
 
 当章节数大于3章时，支持子Agent并行生成细纲。每个子Agent最多负责3章，按卷分配优先。
+
+**细纲输出格式（写入 `outlines/chapter-XXX-YYY.md`）**：
+
+每章必须包含以下信息，后续供 `sumeru-write` 子Agent的 context pack 使用：
+
+```markdown
+## 第X章：章节标题
+
+| 项目 | 内容 |
+|------|------|
+| **情绪模板** | X |
+| **章节目的** | 一句话说清本章在全书中的作用 |
+| **圣杯状态** | 当前圣杯状态 |
+| **开场方式** | 本章第一句话/第一个场景具体描写（禁止"被X叫醒"、禁止"新的一天"） |
+
+### 剧情推进
+1. 具体可执行的事件1
+2. 具体可执行的事件2
+3. 具体可执行的事件3
+4. ...（≥3个）
+```
+
+**细纲质量规则**：
+- `events`（剧情推进）必须 ≥ 3 项，且每项是"主语+动词+对象"的具体可执行事件，不是"场景建立""情感过渡"等泛化描述
+- `开场方式` 必须指定一个独特的场景开端，禁止连续两章以相同方式开场（如同一批的 3 章都用"人物醒来"开头）
 
 ### 数据持久化
 **用户可见输出**：

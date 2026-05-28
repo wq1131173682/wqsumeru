@@ -119,6 +119,20 @@ user-invocable: true
 4. 禁止前1000字内插入≥200字的回忆闪回——打断当下节奏。
 ```
 
+#### 父Agent写入 context pack 时的开场多样性提醒（所有章节）
+
+父Agent必须在 `cards-{范围}.md` 末尾注入开场多样性提醒：
+
+```markdown
+## 本章开场方式
+- 第X章开场：{从 outlines/chapters.json 的 openingHook 字段摘取}
+- 第Y章开场：{同上}
+- 第Z章开场：{同上}
+
+⚠️ 禁止以"被X叫醒""从床上醒来""新的一天开始了""推门进来"等模板开场。
+⚠️ 同批次各章之间开场方式必须不同，不可出现连续两章以相同模式起始。
+```
+
 ### 创意落地自检
 
 子Agent写入章节前逐条检查。根据 `.sumeru/project.json` 的 `style` 字段自动选择自检项：
@@ -178,6 +192,15 @@ user-invocable: true
 3. {自检项3}
 4. {自检项4}
 5. {自检项5}
+
+跨章多样性检查（你有3章，输出前对照）：
+1. 这3章的开场方式是否各不相同？（禁止连续两章以"被叫醒""推门进来""新的一天"开头）
+2. 这3章的段落结构是否有明显重复？（如同样的"动作→对话→心理"三明治结构连用3章）
+3. 这3章的结尾钩子句式是否雷同？（避免连续"XXX突然出现""XXX变了脸色""XXX不说话了"）
+4. 同一句式（"他/她+动词"主谓结构）是否连续超过5句？→ 插入破碎句、倒装或口语短句
+5. 这3章中两个相邻章节是否用了相同的情节触发器？（如都从"吃饭"场景开始对话）
+
+发现重复 → 在进行输出前主动调整，确保同批各章的写作手法有差异。
 ```
 
 **说明：**
@@ -198,6 +221,7 @@ user-invocable: true
   - 其他（含"精品文""细腻""文艺"及未设置） → 精品文模式（字数达标/情绪节拍/结尾处理）
 - 技术约束 3 条必须全部保留，不能省略"不写文件、不搜目录、不更新状态"
 - 子Agent输出格式控制（SUMERU_STATUS 注释）不能省略
+- **跨章多样性检查 5 条为固定项，所有模式下必须保留，不受 style 影响**
 
 ### 章节任务卡字段完整性检测与回退机制
 
@@ -225,6 +249,7 @@ batch outline 字段 → task card 字段
 ─────────────────────────────────
 章节目的 / chapter purpose  → purpose
 剧情推进 / events            → events（列表化）
+开场方式 / openingHook      → openingHook
 情绪模板 / emotionalBeat     → emotionalBeat
 acceptanceCriteria 无直接对应 → 从 events + purpose 自动推导
 （其他字段无法映射的不填充）
@@ -252,10 +277,10 @@ acceptanceCriteria 无直接对应 → 从 events + purpose 自动推导
   - 父Agent收到后: 提取首行状态标记 → 更新 status.json → 将正文(不含状态行)写入 chapters/ → 并在正文末尾追加 SUMERU_STATUS 注释用于崩溃恢复
 
 **2. 本组任务卡 `cards-{范围}.md`** — 每子Agent独有，仅写入：
-- 本组章节的 Chapter Cards（purpose、events、acceptanceCriteria、creativeGoal、emotionalBeat）
-- 执行提醒（≤5 条）
+- 本组章节的 Chapter Cards（purpose、events、openingHook、acceptanceCriteria、creativeGoal、emotionalBeat）
+- 执行提醒（≤5 条），其中第1条必须是：⚠️ 本章禁止以"被叫醒""推门进来""新的一天"等模板开场，按 openingHook 字段指定的场景开篇
 
-> **字段补充来源**：优先使用 `outlines/chapters.json` 中的任务卡字段；若缺少必填字段，自动从 `outlines/chapter-XXX-YYY.md`（如 `chapter-001-015.md`）中提取 events 和 purpose 回退补充。
+> **字段补充来源**：优先使用 `outlines/chapters.json` 中的任务卡字段；若缺少必填字段，自动从 `outlines/chapter-XXX-YYY.md`（如 `chapter-001-015.md`）中提取 events、openingHook 和 purpose 回退补充。
 
 **文件位置：** `.sumeru/context-packs/shared-write.md` + `.sumeru/context-packs/cards-{范围}.md`
 
@@ -285,6 +310,26 @@ acceptanceCriteria 无直接对应 → 从 events + purpose 自动推导
 3. 检查人物位置冲突、道具状态冲突、时间线倒置、战力无因跳跃、伤势无因恢复、已回收伏笔重复激活。
 4. 发现 `critical` 或 `high` 冲突时，暂停写入正式章节，只生成 issue 或 fix-plan。
 5. 只有剧情统一校验通过后，才允许更新 `chapters/`、`.sumeru/status.json` 和 continuity cache。
+
+#### 父Agent反AI句式重复扫描
+
+剧情校验通过后，父Agent对每批收到的子Agent输出执行以下扫描：
+
+| # | 扫描项 | 阈值 | 处理方式 |
+|---|--------|------|----------|
+| 1 | **句式重复**：同一章内连续超过 5 句全部是完整主谓宾结构 | 6+ 句 | 标记该章为 `anti-ai-flagged`，提示用户：`⚠️ 第X章连续6+句主谓宾完整句式，建议打断节奏` |
+| 2 | **开场重复**：本批相邻两章以相同/相似模式开场（如都是"被叫醒""推门进来""新的一天"） | ≥2 章 | 标记并提示：`⚠️ 第X章和第Y章开场模式相同（XXX），建议差异化` |
+| 3 | **结构重复**：连续 3 段都在推进剧情（无环境/动作缓冲段） | 3 段 | 标记该段落后提示：`⚠️ 第X章连续3段纯推进剧情，建议插入缓冲段落` |
+| 4 | **句子开头重复**：同一段内连续 3 句以同一主语开头（"他""她""赵无缺"） | 3 句 | 提示：`⚠️ 第X章第X段主语重复，建议调整句子开头` |
+| 5 | **章间钩子雷同**：本批相邻章节结尾钩子使用了相同句式（如都是"XXX突然出现""XXX变了脸色"） | ≥2 章 | 提示：`⚠️ 第X章和第Y章结尾钩子句式雷同，建议变化` |
+| 6 | **字数波动**：本批各章字数偏差超过 ±50% | 超出 | 提示：`⚠️ 本批章节字数波动过大（第X章XXX字，第Y章XXX字）` |
+
+**扫描结果处理**：
+- 仅标记为 `anti-ai-flagged` 的章节 → 记录到 `.sumeru/changelog.md`，不阻塞写入，提醒下一轮 polish 时修复
+- 开场重复/结构重复/钩子雷同 → 如果仍在同一批次流程中（子Agent未释放），触发子Agent重写对应章节的开头/结尾
+- 字数波动 → 如果低于下限且仍在批次流程中，触发子Agent补充内容
+
+**扫描报告写入** `.sumeru/write/anti-ai-report.json`：
 
 ### 章节任务卡执行规则
 

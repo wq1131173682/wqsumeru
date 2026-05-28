@@ -1,7 +1,7 @@
 ---
 name: sumeru-write
 description: 小说章节内容创作与创意落地。用户要写一章小说、续写、扩写、重写、生成某个情节、按细纲写章节、批量生成章节、写开篇/高潮/过渡章，或要求"帮我写小说内容"时必须使用本技能。
-version: 1.0.0
+version: 1.1.0
 type: skill
 user-invocable: true
 ---
@@ -199,6 +199,44 @@ user-invocable: true
 - 技术约束 3 条必须全部保留，不能省略"不写文件、不搜目录、不更新状态"
 - 子Agent输出格式控制（SUMERU_STATUS 注释）不能省略
 
+### 章节任务卡字段完整性检测与回退机制
+
+父Agent在读取 `outlines/chapters.json` 后、生成 context pack 前，必须先执行字段完整性检测：
+
+**1. 检测目标章节的必填字段**
+
+目标章节范围（如第1-3章）的每章任务卡必须包含：`purpose`、`events`、`outputs`、`acceptanceCriteria`、`creativeGoal`、`emotionalBeat`、`readerMemoryPoint`、`tropeToAvoid`、`protectedElements`、`rhythm`
+
+**2. 缺失处理策略**
+
+| 情况 | 行为 |
+|------|------|
+| 全部字段齐全 | 直接生成 context pack |
+| 缺字段，但存在 `outlines/chapter-XXX-YYY.md` | 从 batch outline 文件中提取详情补入卡片，并记录：`ℹ️ 第X章字段从 chapter-XXX-YYY.md 回退补充` |
+| 缺字段，且无对应 batch outline 文件 | 警告用户：`⚠️ chapters.json 第X章缺字段且无 batch outline 回退，正文质量可能受影响`，使用当前可用数据继续 |
+| 目标章节在 `chapters.json` 中完全不存在 | 报错终止：`❌ chapters.json 中找不到第X章任务卡` |
+
+**3. batch outline 回退映射规则**
+
+当 `outlines/chapter-XXX-YYY.md` 存在时，按以下映射将内容填充到 cards：
+
+```
+batch outline 字段 → task card 字段
+─────────────────────────────────
+章节目的 / chapter purpose  → purpose
+剧情推进 / events            → events（列表化）
+情绪模板 / emotionalBeat     → emotionalBeat
+acceptanceCriteria 无直接对应 → 从 events + purpose 自动推导
+（其他字段无法映射的不填充）
+```
+
+**4. 回退警告写入**
+
+回退行为必须记录到 `.sumeru/changelog.md`：
+```
+ℹ️ write: 第1-3章 chapters.json 缺字段，从 outlines/chapter-001-015.md 回退补充
+```
+
 ### 父Agent context pack 生成规则
 
 > **并行规则、Context Pack 格式、子Agent职责边界**详见 `sumeru-rules` 的 `SKILL.md`（并行处理规则、职责边界）和 `protocol.md`（Context Pack 格式、各 Skill 职责明细）。
@@ -217,6 +255,8 @@ user-invocable: true
 - 本组章节的 Chapter Cards（purpose、events、acceptanceCriteria、creativeGoal、emotionalBeat）
 - 执行提醒（≤5 条）
 
+> **字段补充来源**：优先使用 `outlines/chapters.json` 中的任务卡字段；若缺少必填字段，自动从 `outlines/chapter-XXX-YYY.md`（如 `chapter-001-015.md`）中提取 events 和 purpose 回退补充。
+
 **文件位置：** `.sumeru/context-packs/shared-write.md` + `.sumeru/context-packs/cards-{范围}.md`
 
 ### 输入优先级
@@ -225,7 +265,8 @@ user-invocable: true
 3. `.sumeru/cache/` 摘要（project-brief、style-brief、creative-brief、continuity-brief）
 4. `.sumeru/review/fix-plan.json` 中标记的重写要求
 5. `outlines/chapters.json` 中的目标章节任务卡（旧路径兼容见 `sumeru-rules protocol.md`）
-6. 已存在的 `chapters/` 内容用于续写和风格衔接
+6. **`outlines/chapter-XXX-YYY.md`**：当 #5 缺少字段时，作为回退源补充任务卡内容
+7. 已存在的 `chapters/` 内容用于续写和风格衔接
 
 ### 剧情统一门禁
 

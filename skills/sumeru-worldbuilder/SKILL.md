@@ -1,7 +1,7 @@
 ---
 name: sumeru-worldbuilder
 description: 网文/小说全流程创作世界构建师和项目管理器。用户想从零写小说、初始化小说项目、把创意发展成完整作品、自动完成选题/大纲/章节/审查/润色/导出，或说"我想写小说""帮我写本XX类型小说""给我整个小说创作流程"时必须使用本技能。
-version: 1.0.0
+version: 1.1.0
 type: skill
 user-invocable: true
 ---
@@ -34,11 +34,21 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 当用户要求"初始化小说项目"或当前目录缺少 `.sumeru/project.json` 时：
 
 1. 根据用户指定、计划章节数、计划字数判断 `projectMode` 和 `workflowLevel`
-2. 写入 `.sumeru/project.json`
-3. 生成 `.sumeru/status.json`
-4. 按模式创建目录（不一刀切创建 full 结构）
-5. 生成必要 cache 和 context pack
-6. 生成 `.sumeru/backlog.md`、`.sumeru/decisions.md`、`.sumeru/changelog.md`
+2. **模式与章节数交叉校验**：选择 mode 后执行以下检查
+
+   | 模式 | 推荐章节范围 | 超出时行为 |
+   |------|-------------|-----------|
+   | `short/light` | 1-10 章 | 超出 → 自动升级为 `medium` 并提示：`ℹ️ 章节数超过10章，模式已自动升级为 medium/standard` |
+   | `medium/standard` | 10-50 章 | 超出 50 章 → 提示：`⚠️ 章节数超过50章，建议升级为 long/full 模式以启用 continuity 追踪。确认继续 medium 或自动升级？`，用户确认后写入 decisions.md |
+   | `long/full` | 50 章以上 | 符合 |
+
+   mode 确认后写入 `.sumeru/project.json`，并将验证结果记录到 `.sumeru/decisions.md`
+
+3. 写入 `.sumeru/project.json`（含 `projectMode` 和 `workflowLevel`）
+4. 生成 `.sumeru/status.json`
+5. 按模式创建目录（不一刀切创建 full 结构）
+6. 生成必要 cache 和 context pack
+7. 生成 `.sumeru/backlog.md`、`.sumeru/decisions.md`、`.sumeru/changelog.md`
 
 ### 模式初始化
 | 模式 | 创建内容 |
@@ -52,6 +62,8 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - `medium -> long`：补齐 `.sumeru/context-packs/`、`.sumeru/continuity/`，`reviews/` 和 `tests/` 按需创建
 - 升级后更新 `.sumeru/project.json`，记录到 `.sumeru/decisions.md` 和 `.sumeru/changelog.md`
 
+**自动触发升级的条件**：当项目恢复时，若 `chapters/` 或 `outlines/chapters.json` 中的实际章节数超出当前 mode 推荐范围，worldbuilder 应主动提示升级，并询问用户是否确认。用户拒绝时记录到 `.sumeru/decisions.md`。
+
 ### 项目状态机
 **阶段顺序**：`init -> topic -> outline -> intro -> anchor -> write -> review -> fix -> polish -> finalize -> build/release`
 
@@ -59,7 +71,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 **推进规则**：
 - `topic` 完成：`plan.md` 已写入，至少包含选题方向和核心创意，且包含目标平台信息
-- `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡包含 `acceptanceCriteria` 和 `emotionalBeatTemplate`
+- `outline` 完成：`outline.md`、`outlines/chapters.json`、`.sumeru/intro.md` 存在，且章节任务卡通过字段完整性验证（所有章节包含全部必填字段：`purpose`、`events`、`outputs`、`acceptanceCriteria`、`creativeGoal`、`emotionalBeat`、`readerMemoryPoint`、`tropeToAvoid`、`protectedElements`、`rhythm`）
 - `anchor` 完成：`.sumeru/creative-anchors.md` 存在，至少 3 个用户确认的锚点
 - `write` 完成：目标章节文件存在，章节状态更新为 `drafted`，且没有缺章
 - `review` 完成：目标范围已审查，问题写入 `.sumeru/issues.md`；完整报告和 tests 仅在用户要求时生成

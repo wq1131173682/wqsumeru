@@ -1,7 +1,7 @@
 ---
 name: sumeru-outline
 description: 小说大纲设计：世界观构建、人物设定、剧情框架、分卷大纲、章节细纲。写小说大纲、设计人物、做世界观设定、搭剧情框架、分卷大纲、章节细纲、人物卡、爽点排布、伏笔管理时必须使用本技能。选题策划请调用 sumeru-topic。
-version: 1.0.0
+version: 1.1.0
 type: skill
 user-invocable: true
 ---
@@ -39,9 +39,11 @@ user-invocable: true
 ### 项目化输出要求
 - `plan.md`：需求、世界观、人物、风格、创意策略、术语合并维护
 - `outline.md`：故事架构、主线、支线、分卷规划、关键高潮、伏笔管理表、节奏规划
-- `outlines/chapters.json`：章节任务卡主文件（旧路径兼容见 `sumeru-rules protocol.md`）
+- `outlines/chapters.json`：章节任务卡主文件，每章必须包含全部必填字段（见下文"章节任务卡格式"），旧路径兼容见 `sumeru-rules protocol.md`
 - `characters/`：人物卡目录，每人物独立文件
 - `world.md`：世界观手册（long/full 模式）
+
+> ⚠️ 生成 `outlines/chapters.json` 后必须执行"章节任务卡输出验证"质量门禁，缺字段不标记完成。
 
 ### 章节任务卡格式（`outlines/chapters.json`）
 
@@ -90,6 +92,27 @@ user-invocable: true
 | `allowedDeviations` | ❌ | 允许的自由发挥（可选） |
 | `rhythm` | ✅ | 节奏：`fast`/`medium`/`slow` |
 | `pacingNote` | ❌ | 节奏补充说明（可选） |
+
+### 章节任务卡输出验证（质量门禁）
+
+`outlines/chapters.json` 生成后，父Agent必须执行以下验证，全部通过才允许标记 `outline` 阶段完成：
+
+```markdown
+## chapter.json 字段完整性检查
+
+| 章节 | chapter | title | purpose | events | outputs | acceptanceCriteria | creativeGoal | freshnessHook | emotionalBeat | emotionalBeatTemplate | readerMemoryPoint | tropeToAvoid | protectedElements | rhythm | 结果 |
+|------|---------|-------|---------|--------|---------|-------------------|--------------|---------------|---------------|-----------------------|-------------------|---------------|-------------------|--------|------|
+| 001  | ✅      | ✅    | ✅      | ✅     | ✅      | ✅                | ✅           | ✅            | ✅            | ✅                    | ✅                | ✅            | ✅                | ✅     | ✅   |
+| 002  | ❌      | ✅    | ❌      | ❌     | ❌      | ❌                | ❌           | ❌            | ❌            | ❌                    | ❌                | ❌            | ❌                | ❌     | ❌   |
+```
+
+**验证规则**：
+- 每章必须包含全部 **13 个必填字段**：`chapter`、`title`、`purpose`、`events`、`outputs`、`acceptanceCriteria`、`creativeGoal`、`freshnessHook`、`emotionalBeat`、`emotionalBeatTemplate`、`readerMemoryPoint`、`tropeToAvoid`、`protectedElements`、`rhythm`
+- 任意一章缺字段 → **不通过**，父Agent不得标记 outline 完成
+- 不通过时父Agent提示用户：`⚠️ chapters.json 第X章缺少字段: purpose, events, ...，请重新运行大纲生成或手动补全`
+- 通过后在 `.sumeru/changelog.md` 记录：`✅ chapters.json 字段完整性验证通过（共N章）`
+
+**兼容模式**：若用户选择跳过此验证（通过 `--skip-validation` 参数），父Agent记录到 `.sumeru/decisions.md` 并继续，但写作阶段不保证正文质量。
 
 ### 人物卡格式（`characters/*.md`）
 

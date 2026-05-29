@@ -13,6 +13,7 @@ skills/
 ├── sumeru-review/
 ├── sumeru-polish/
 ├── sumeru-finalize/
+├── sumeru-migrate/        # 旧项目迁移与规整
 └── sumeru-rules/          # 全局约束（唯一来源）
 ```
 

@@ -30,6 +30,7 @@ skills/
 ├── sumeru-review/        # 逻辑审查，时间线+剧情+人物一致性校验
 ├── sumeru-polish/        # 内容润色，文笔优化+节奏调整+风格统一
 ├── sumeru-finalize/      # 完稿校验，合规检查+多平台格式导出
+├── sumeru-migrate/       # 旧项目迁移，路径迁移+配置补齐+字段补全
 └── sumeru-rules/         # 全局约束（唯一来源）
 ```
 
@@ -380,6 +381,53 @@ npx skills add wq1131173682/wqsumeru
 /sumeru-finalize 导出全平台格式                              # 导出全平台格式
 ```
 
+---
+
+#### 7. 项目迁移 Skill
+**适用场景**：旧版本项目升级、项目结构不完整、查缺补漏、路径迁移
+**功能**：扫描现有项目结构，识别文件缺失和字段问题，自动迁移旧路径、补齐配置文件、生成人物卡、补全章节任务卡字段
+
+```bash
+/sumeru-migrate                    # 完整迁移检查与修复
+/sumeru-migrate 仅检查             # 只检查不修复
+/sumeru-migrate 仅迁移路径         # 只迁移旧路径
+/sumeru-migrate 补齐配置           # 只补齐配置文件
+/sumeru-migrate 补齐人物卡         # 只生成缺失的人物卡
+```
+
+**可选参数说明：**
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| 仅检查 | 只扫描不修复 | `/sumeru-migrate 仅检查` |
+| 仅迁移路径 | 只迁移旧路径到新路径 | `/sumeru-migrate 仅迁移路径` |
+| 补齐配置 | 只补齐缺失的配置文件 | `/sumeru-migrate 补齐配置` |
+| 补齐人物卡 | 只生成缺失的人物卡 | `/sumeru-migrate 补齐人物卡` |
+
+**示例：**
+```bash
+# 基础用法
+/sumeru-migrate                          # 完整迁移检查与修复
+
+# 仅检查
+/sumeru-migrate 仅检查                   # 只检查项目完整性，不修复
+
+# 仅迁移路径
+/sumeru-migrate 仅迁移路径               # 只迁移旧路径到新 canonical 路径
+
+# 补齐特定内容
+/sumeru-migrate 补齐配置                 # 只补齐缺失的配置文件
+/sumeru-migrate 补齐人物卡               # 只生成缺失的人物卡
+```
+
+**支持的迁移项：**
+- 旧路径迁移：`.sumeru/outline/chapter-outlines.json` → `outlines/chapters.json`
+- 旧路径迁移：`.sumeru/issues/index.json` → `.sumeru/issues.md`
+- 旧路径迁移：`docs/*` → `plan.md`
+- 配置补齐：`project.json`、`status.json` 等
+- 目录补齐：`chapters/`、`characters/`、`outlines/` 等
+- 字段补全：章节任务卡必填字段
+- 人物卡生成：从大纲提取人物信息
+
 ## 💾 数据持久化
 
 ### 数据存储规范
@@ -422,6 +470,26 @@ npx skills add wq1131173682/wqsumeru
 ```
 
 所有创作过程支持断点恢复，中断后无需重头开始。
+
+### 风格样本（可选）
+
+用户可提供个人写作风格样本，让AI模仿其用词、句式、对话和情绪表达习惯。
+
+**使用方式**：
+1. 大纲完成后，系统会询问是否提供风格样本（不提供不影响后续）
+2. 复制 `style-samples/sample-template.md` 模板
+3. 填写你的写作片段（对话、情绪描写、叙事、比喻各300-500字）
+4. 保存为 `style-samples/user-sample-<时间戳>.md`
+5. 告诉AI文件路径，或直接在对话中粘贴
+
+**目录结构**：
+```
+style-samples/
+├── sample-template.md   # 提交模板
+└── user-style.md        # 系统自动生成的风格特征分析
+```
+
+**效果**：AI会在后续写作中主动模仿样本中的用词习惯、句式特点、对话风格和情绪表达方式。
 
 ## 🎨 核心优势
 

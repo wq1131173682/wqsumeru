@@ -1,7 +1,6 @@
 ---
 name: sumeru-finalize
-description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。
-version: 1.2.0
+description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。version: 1.2.0
 type: skill
 user-invocable: true
 ---

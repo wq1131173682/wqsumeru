@@ -1,6 +1,6 @@
 ---
 name: sumeru-migrate
-description: 旧项目迁移与规整。用户说"规整项目"�?迁移旧项�?�?补齐缺失文件"�?检查项目完整�?�?修复项目结构"时必须使用本技能�?version: 1.2.0
+description: 旧项目迁移与规整。用户说"规整项目"、迁移旧项目、补齐缺失文件、检查项目完整性、修复项目结构时必须使用本技能。version: 1.2.0
 type: skill
 user-invocable: true
 ---

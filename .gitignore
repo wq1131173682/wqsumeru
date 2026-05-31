@@ -8,3 +8,7 @@
 
 # opencode 本地配置
 opencode.json
+
+# Python cache
+__pycache__/
+*.pyc

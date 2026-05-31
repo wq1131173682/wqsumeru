@@ -85,7 +85,7 @@ def validate_chapter_title(text: str, chapter_id: str) -> List[Dict]:
     return issues
 
 
-def validate_paragraph_format(text: str, chapter_id: str, style: str = "qidian") -> List[Dict]:
+def validate_paragraph_format(text: str, chapter_id: str, style: str = "standard") -> List[Dict]:
     """验证段落格式"""
     issues = []
     lines = text.split('\n')

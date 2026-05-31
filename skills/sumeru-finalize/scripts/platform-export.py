@@ -1,289 +1,243 @@
 #!/usr/bin/env python3
 """
-sumeru-finalize 多平台格式导出脚本
-将章节内容转换为各平台的发布格式
+sumeru-finalize 通用格式导出脚本
+将章节内容导出为 md/txt 格式（分章 + 整文），不区分平台
 
 使用方法：
-    python platform-export.py <章节目录> <平台名称> [--output <输出目录>]
+    python platform-export.py <章节目录> <格式|repair> [--output <输出目录>]
 
-支持平台：qidian, tomato, jj, zongheng, 17k
+格式: md, txt
+repair: 按新规则重新导出 publish/
 """
 
-import json
 import os
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
-
-# 各平台格式规则
-PLATFORM_RULES = {
-    "qidian": {
-        "name": "起点中文网",
-        "title_format": "第{num}章 {title}",
-        "indent": True,
-        "indent_spaces": 2,
-        "blank_line_between_paragraphs": False,
-        "word_range": (3000, 5000),
-        "encoding": "utf-8",
-    },
-    "tomato": {
-        "name": "番茄小说",
-        "title_format": "第{num}章 {title}",
-        "indent": False,
-        "indent_spaces": 0,
-        "blank_line_between_paragraphs": True,
-        "word_range": (2000, 3000),
-        "encoding": "utf-8",
-    },
-    "jj": {
-        "name": "晋江文学城",
-        "title_format": "第{num}章 {title}",
-        "indent": True,
-        "indent_spaces": 2,
-        "blank_line_between_paragraphs": False,
-        "word_range": (2500, 4000),
-        "encoding": "utf-8",
-        "html_support": True,
-    },
-    "zongheng": {
-        "name": "纵横中文网",
-        "title_format": "第{num}章 {title}",
-        "indent": True,
-        "indent_spaces": 2,
-        "blank_line_between_paragraphs": False,
-        "word_range": (3000, 6000),
-        "encoding": "utf-8",
-    },
-    "17k": {
-        "name": "17K小说网",
-        "title_format": "第{num}章 {title}",
-        "indent": True,
-        "indent_spaces": 2,
-        "blank_line_between_paragraphs": False,
-        "word_range": (2000, 4000),
-        "encoding": "utf-8",
-    },
-}
+from typing import Dict, List, Optional
 
 
-def extract_chapter_info(filename: str) -> Tuple[int, str]:
-    """从文件名提取章节号和标题"""
-    stem = Path(filename).stem
-    
-    # 匹配 001-标题.md 格式
-    match = re.match(r'(\d+)-(.+)', stem)
-    if match:
-        return int(match.group(1)), match.group(2)
-    
-    # 匹配 第X章标题.md 格式
-    match = re.match(r'第(\d+)章\s*(.*)', stem)
-    if match:
-        return int(match.group(1)), match.group(2) or ""
-    
-    # 匹配 chapter-X.md 格式
-    match = re.match(r'chapter-(\d+)', stem, re.IGNORECASE)
-    if match:
-        return int(match.group(1)), ""
-    
-    # 尝试从纯数字提取
-    nums = re.findall(r'\d+', stem)
-    if nums:
-        return int(nums[0]), ""
-    
-    return 0, stem
-
-
-def format_title(chapter_num: int, title: str, platform: str) -> str:
-    """按平台规则格式化章节标题"""
-    rules = PLATFORM_RULES.get(platform, PLATFORM_RULES["qidian"])
-    fmt = rules["title_format"]
-    return fmt.format(num=chapter_num, title=title).strip()
-
-
-def format_paragraphs(text: str, platform: str) -> str:
-    """按平台规则格式化段落"""
-    rules = PLATFORM_RULES.get(platform, PLATFORM_RULES["qidian"])
-    
-    # 提取标题行（第一行）
-    lines = text.split('\n')
-    title_line = lines[0].strip() if lines else ""
-    body_lines = lines[1:] if len(lines) > 1 else []
-    
-    # 清理正文：去除多余空行，保留段落结构
-    paragraphs = []
-    current_para = []
-    
-    for line in body_lines:
-        stripped = line.strip()
-        if not stripped:
-            if current_para:
-                paragraphs.append('\n'.join(current_para))
-                current_para = []
-        else:
-            current_para.append(stripped)
-    if current_para:
-        paragraphs.append('\n'.join(current_para))
-    
-    # 格式化段落
-    formatted_paragraphs = []
-    for para in paragraphs:
-        # 去除已有缩进
-        para = para.lstrip()
-        
-        # 添加缩进
-        if rules["indent"]:
-            spaces = "　" if rules["indent_spaces"] == 2 else " " * rules["indent_spaces"]
-            para = spaces + para
-        
-        formatted_paragraphs.append(para)
-    
-    # 组装输出
-    separator = '\n\n' if rules["blank_line_between_paragraphs"] else '\n'
-    
-    result = title_line + '\n\n' + separator.join(formatted_paragraphs)
-    return result
-
-
-def export_chapter(file_path: Path, platform: str, output_dir: Path) -> Dict:
-    """导出单个章节到指定平台格式"""
+def read_chapter(file_path: Path) -> Optional[Dict]:
+    """读取单个章节文件，返回章节信息"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             text = f.read()
-        
-        chapter_num, title = extract_chapter_info(file_path.name)
-        formatted_title = format_title(chapter_num, title, platform)
-        formatted_text = format_paragraphs(text, platform)
-        
-        # 替换第一行为格式化标题
-        lines = formatted_text.split('\n')
-        lines[0] = formatted_title
-        final_text = '\n'.join(lines)
-        
-        # 写入输出文件
-        output_file = output_dir / file_path.name
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(final_text)
-        
-        # 统计字数
-        hanzi_pattern = re.compile(r'[\u4e00-\u9fa5]')
-        word_count = len(hanzi_pattern.findall(final_text))
-        
+
+        lines = text.split('\n')
+
+        # 剥离 SUMERU_STATUS 注释（第一行）
+        if lines and 'SUMERU_STATUS' in lines[0]:
+            lines = lines[1:]
+
+        if not lines:
+            return None
+
+        # 去掉第一行标题（如果有），避免重复
+        # 匹配格式如：第1章 标题、# 第1章 标题、第1章标题
+        first_line = lines[0].strip()
+        body_start = 1 if re.search(r'第\d+章', first_line) else 0
+
+        # 从文件名提取章节号和标题
+        stem = file_path.stem
+        chapter_num = 0
+        title = ""
+
+        match = re.match(r'(\d+)-(.+)', stem)
+        if match:
+            chapter_num = int(match.group(1))
+            title = match.group(2)
+        else:
+            match = re.match(r'第(\d+)章\s*(.*)', stem)
+            if match:
+                chapter_num = int(match.group(1))
+                title = match.group(2) or ""
+            else:
+                nums = re.findall(r'\d+', stem)
+                if nums:
+                    chapter_num = int(nums[0])
+
         return {
-            "file": file_path.name,
-            "chapter": chapter_num,
+            "num": chapter_num,
             "title": title,
-            "word_count": word_count,
-            "status": "success"
+            "body": '\n'.join(lines[body_start:]).strip(),
         }
     except Exception as e:
-        return {
-            "file": file_path.name,
-            "status": "error",
-            "error": str(e)
-        }
+        print(f"  读取失败 {file_path.name}: {e}")
+        return None
 
 
-def export_all(chapters_dir: str, platform: str, output_dir: str = None) -> Dict:
-    """导出所有章节"""
-    chapters_path = Path(chapters_dir)
-    if not chapters_path.exists():
-        return {"error": f"目录不存在: {chapters_dir}"}
-    
-    if platform not in PLATFORM_RULES:
-        return {"error": f"不支持的平台: {platform}，支持: {', '.join(PLATFORM_RULES.keys())}"}
-    
-    # 设置输出目录
-    if output_dir:
-        out_path = Path(output_dir)
-    else:
-        out_path = Path(f"publish/{platform}")
-    out_path.mkdir(parents=True, exist_ok=True)
-    
-    # 扫描章节文件
-    chapter_files = []
+def get_chapter_files(chapters_dir: Path) -> List[Path]:
+    """获取排序后的章节文件列表"""
+    files = []
     for ext in ['*.md', '*.txt']:
-        chapter_files.extend(chapters_path.glob(ext))
-    
-    # 按章节号排序
-    def get_num(fp):
+        files.extend(chapters_dir.glob(ext))
+
+    def sort_key(fp):
         nums = re.findall(r'\d+', fp.stem)
         return int(nums[0]) if nums else 0
-    chapter_files.sort(key=get_num)
-    
-    if not chapter_files:
-        return {"error": f"目录中未找到章节文件: {chapters_dir}"}
-    
-    # 导出
+
+    files.sort(key=sort_key)
+    return files
+
+
+def format_title(chapter: Dict) -> str:
+    """生成章节标题行"""
+    if chapter["title"]:
+        return f"第{chapter['num']}章 {chapter['title']}"
+    return f"第{chapter['num']}章"
+
+
+def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str) -> List[Path]:
+    """分章导出：每个章节独立文件，第一行仅标题"""
+    ch_dir = out_dir / "chapters"
+    ch_dir.mkdir(parents=True, exist_ok=True)
+
     results = []
-    total_words = 0
-    for fp in chapter_files:
-        result = export_chapter(fp, platform, out_path)
-        results.append(result)
-        if result.get("status") == "success":
-            total_words += result.get("word_count", 0)
-    
-    success_count = len([r for r in results if r.get("status") == "success"])
-    error_count = len([r for r in results if r.get("status") == "error"])
-    
-    rules = PLATFORM_RULES[platform]
-    
+    for ch in chapters:
+        padded = f"{ch['num']:03d}"
+        file_path = ch_dir / f"{padded}.{fmt}"
+
+        content = format_title(ch) + '\n\n' + ch["body"]
+
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        results.append(file_path)
+
+    return results
+
+
+def export_full(chapters: List[Dict], out_dir: Path, fmt: str) -> Path:
+    """整文导出：所有章节合并为一个文件，章节之间空行分隔"""
+    parts = []
+    for ch in chapters:
+        parts.append(format_title(ch) + '\n\n' + ch["body"])
+
+    full_text = '\n\n'.join(parts)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    file_path = out_dir / f"full.{fmt}"
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(full_text)
+
+    return file_path
+
+
+def export_all(chapters_dir: str, fmt: str, output_dir: str = None) -> Dict:
+    """执行完整导出（分章 + 整文）"""
+    ch_path = Path(chapters_dir)
+    if not ch_path.exists():
+        return {"error": f"目录不存在: {chapters_dir}"}
+
+    if fmt not in ('md', 'txt'):
+        return {"error": f"不支持的格式: {fmt}，支持: md, txt"}
+
+    out_path = Path(output_dir) if output_dir else Path("publish")
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    files = get_chapter_files(ch_path)
+    if not files:
+        return {"error": f"目录中未找到章节文件: {chapters_dir}"}
+
+    chapters = []
+    for fp in files:
+        ch = read_chapter(fp)
+        if ch:
+            chapters.append(ch)
+
+    chapters.sort(key=lambda c: c["num"])
+
+    if not chapters:
+        return {"error": "没有可导出的章节"}
+
+    # 分章导出
+    chapter_files = export_chapters(chapters, out_path, fmt)
+
+    # 整文导出
+    full_file = export_full(chapters, out_path, fmt)
+
+    total_words = sum(len(re.findall(r'[\u4e00-\u9fff]', ch["body"])) for ch in chapters)
+
     return {
-        "platform": platform,
-        "platform_name": rules["name"],
+        "format": fmt,
         "output_dir": str(out_path),
-        "chapters_exported": success_count,
-        "chapters_failed": error_count,
+        "chapters": len(chapters),
         "total_words": total_words,
-        "word_range": rules["word_range"],
-        "details": results
+        "chapter_files": [str(f) for f in chapter_files],
+        "full_file": str(full_file),
     }
+
+
+def repair(chapters_dir: str, output_dir: str = None) -> Dict:
+    """修复已有导出：按新技能规则重新导出（md + txt）"""
+    out_path = Path(output_dir) if output_dir else Path("publish")
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    results = {}
+    for fmt in ('md', 'txt'):
+        result = export_all(chapters_dir, fmt, str(out_path))
+        results[fmt] = result
+
+    return results
 
 
 def main():
     if len(sys.argv) < 3:
-        print("用法: python platform-export.py <章节目录> <平台名称> [--output <输出目录>] [--quiet]")
-        print("\n支持平台: qidian, tomato, jj, zongheng, 17k")
+        print("用法: python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--quiet]")
+        print("\n格式: md, txt")
+        print("repair: 按新规则重新导出 md + txt")
         print("\n示例:")
-        print("  python platform-export.py chapters/ qidian")
-        print("  python platform-export.py chapters/ tomato --output publish/tomato")
-        print("  python platform-export.py chapters/ jj --quiet")
+        print("  python platform-export.py chapters/ md")
+        print("  python platform-export.py chapters/ txt --output publish")
+        print("  python platform-export.py chapters/ repair")
         sys.exit(1)
-    
+
     chapters_dir = sys.argv[1]
-    platform = sys.argv[2]
+    fmt = sys.argv[2]
     output_dir = None
     quiet = "--quiet" in sys.argv
-    
+
     if "--output" in sys.argv:
         idx = sys.argv.index("--output")
         if idx + 1 < len(sys.argv):
             output_dir = sys.argv[idx + 1]
-    
-    if not quiet:
-        print(f"正在导出到 {PLATFORM_RULES.get(platform, {}).get('name', platform)} 格式...")
-    
-    result = export_all(chapters_dir, platform, output_dir)
-    
+
+    if fmt == "repair":
+        result = repair(chapters_dir, output_dir)
+        md_info = result.get("md", {})
+        txt_info = result.get("txt", {})
+
+        if "error" in md_info and "error" in txt_info:
+            print(f"错误: 修复失败")
+            if "error" in md_info:
+                print(f"  md: {md_info['error']}")
+            if "error" in txt_info:
+                print(f"  txt: {txt_info['error']}")
+            sys.exit(1)
+
+        if not quiet:
+            print("修复完成:")
+            if "error" not in md_info:
+                print(f"  md: {md_info['chapters']} 章, {md_info['total_words']:,} 字 -> {md_info['full_file']}")
+            if "error" not in txt_info:
+                print(f"  txt: {txt_info['chapters']} 章, {txt_info['total_words']:,} 字 -> {txt_info['full_file']}")
+        return
+
+    result = export_all(chapters_dir, fmt, output_dir)
+
     if "error" in result:
         print(f"错误: {result['error']}")
         sys.exit(1)
-    
+
     if not quiet:
-        print(f"\n导出完成:")
-        print(f"  平台: {result['platform_name']}")
-        print(f"  章节数: {result['chapters_exported']}")
+        print(f"导出完成 ({result['format'].upper()}):")
+        print(f"  章节数: {result['chapters']}")
         print(f"  总字数: {result['total_words']:,}")
-        print(f"  输出目录: {result['output_dir']}")
-        
-        if result['chapters_failed'] > 0:
-            print(f"  失败章节: {result['chapters_failed']}")
-    
-    elif quiet:
-        if result['chapters_exported'] > 0:
-            print(f"已导出 {result['chapters_exported']} 章到 {result['platform_name']} ({result['total_words']:,}字)")
-        if result['chapters_failed'] > 0:
-            print(f"警告: {result['chapters_failed']} 章导出失败")
+        print(f"  分章文件: {result['output_dir']}\\chapters\\")
+        print(f"  整文文件: {result['full_file']}")
+    else:
+        print(f"已导出 {result['chapters']} 章 ({result['format'].upper()}, {result['total_words']:,}字)")
 
 
 if __name__ == "__main__":

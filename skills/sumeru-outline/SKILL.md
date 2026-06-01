@@ -1,8 +1,15 @@
 ---
 name: sumeru-outline
-description: 小说大纲设计：世界观构建、人物设定、剧情框架、分卷大纲、章节细纲。写小说大纲、设计人物、做世界观设定、搭剧情框架、分卷大纲、章节细纲、人物卡、爽点排布、伏笔管理时必须使用本技能。选题策划请调用 sumeru-topic。version: 1.2.0
+description: 小说大纲设计：世界观构建、人物设定、剧情框架、分卷大纲、章节细纲
+version: 1.2.0
 type: skill
+argument-hint: ["核心创意描述"] [详细/精简/分卷] [复用数据] [允许映射]
+disable-model-invocation: false
 user-invocable: true
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
+model: sonnet
+context: project
+agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认`quiet` 模式。

@@ -1,8 +1,15 @@
 ---
 name: sumeru-review
-description: 小说逻辑/剧情审查、项目测试与创意疲劳检测。用户要检查小说bug、时间线矛盾、人物OOC、剧情前后冲突、章节任务卡验收、伏笔是否回收、章节字数是否达标、剧情合理性、逻辑漏洞、套路重复、爽点同质化、角色被剧情推着走或创意不够新时必须使用本技能。version: 1.2.0
+description: 小说逻辑/剧情审查、项目测试与创意疲劳检测
+version: 1.2.0
 type: skill
+argument-hint: [章节范围] [仅检查...]
+disable-model-invocation: false
 user-invocable: true
+allowed-tools: Read, Glob, Grep, Bash(python scripts/*.py), task
+model: sonnet
+context: project
+agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认`quiet` 模式。附检查脚本：`scripts/continuity-check.py`、`scripts/foreshadowing-tracker.py`。

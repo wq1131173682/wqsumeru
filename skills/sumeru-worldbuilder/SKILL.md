@@ -1,8 +1,15 @@
 ---
 name: sumeru-worldbuilder
-description: 网文/小说全流程创作世界构建师和项目管理器。用户想从零写小说、初始化小说项目、把创意发展成完整作品、自动完成选题/大纲/章节/审查/润色/导出，或说"我想写小说""帮我写本XX类型小说""给我整个小说创作流程"时必须使用本技能。version: 1.2.0
+description: 网文/小说全流程创作世界构建师和项目管理器
+version: 1.2.0
 type: skill
+argument-hint: [题材] ["核心创意"] [标题"xxx"] [长篇/中篇/短篇] [风格] [跳过...]
+disable-model-invocation: false
 user-invocable: true
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
+model: sonnet
+context: project
+agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认`quiet` 模式、

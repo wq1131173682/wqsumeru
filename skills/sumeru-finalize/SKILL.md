@@ -1,8 +1,15 @@
 ---
 name: sumeru-finalize
-description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。version: 1.2.0
+description: 小说完稿校验与导出
+version: 1.2.0
 type: skill
+argument-hint: [导出格式] [替换"旧词"为"新词"] [自动分段] [修复导出]
+disable-model-invocation: false
 user-invocable: true
+allowed-tools: Read, Edit, Glob, Grep, Bash(python *), Bash(powershell *), task
+model: sonnet
+context: project
+agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。

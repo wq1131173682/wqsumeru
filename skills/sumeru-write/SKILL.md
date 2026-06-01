@@ -1,8 +1,15 @@
 ---
 name: sumeru-write
-description: 小说章节内容创作与创意落地。用户要写一章小说、续写、扩写、重写、生成某个情节、按细纲写章节、批量生成章节、写开篇/高潮/过渡章，或要求"帮我写小说内容"时必须使用本技能。version: 1.2.0
+description: 小说章节内容创作与创意落地
+version: 1.2.0
 type: skill
+argument-hint: [章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]
+disable-model-invocation: false
 user-invocable: true
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
+model: sonnet
+context: project
+agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认`quiet` 模式。

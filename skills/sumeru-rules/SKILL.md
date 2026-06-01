@@ -1,8 +1,15 @@
 ---
 name: sumeru-rules
-description: 须弥写作全局约束规则（唯一来源）。子Agent并行规则 + 职责划分 + 状态标记 + Context Pack 格式 + 剧情统一门禁 + 输出规范 + 子Agent精简规则。version: 1.2.0
+description: 须弥写作全局约束规则（唯一来源）
+version: 1.2.0
 type: skill
+argument-hint: 
+disable-model-invocation: true
 user-invocable: false
+allowed-tools: Read
+model: sonnet
+context: project
+agent: build
 ---
 
 # 须弥写作全局约束规则

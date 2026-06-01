@@ -588,6 +588,46 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 4. 修改型Skill 是否生成备份和变更记当5. 写作/重写/润色后是否通过 SUMERU_STATUS 为continuity cache 校验
 6. 发布导出是否剥离 SUMERU_STATUS 注释
 
+## 跨卷连续性检查
+
+> 定义见 `sumeru-outline/SKILL.md` "大纲自检项·跨卷连续性检查"（#25-#32）。
+
+大纲阶段和审查阶段必须执行跨卷连续性检查。使用以下**跨卷依赖表**格式记录跨卷依赖：
+
+### 跨卷依赖表格式（写入 `outline.md`）
+
+```markdown
+## 跨卷依赖表
+
+| 依赖类型 | 内容 | 源卷 | 目标卷 | 依赖说明 |
+|----------|------|------|--------|----------|
+| 伏笔 | F3 黑衣人身份 | 卷1·005 | 卷3·012 | 卷1埋设，卷3回收 |
+| 成长 | 主角练气三层→筑基 | 卷1→卷2 | 卷2尾 | 卷1末尾练气三层→卷2经历3次战斗后突破 |
+| 关系 | 主角↔苏瑾 信任→怀疑 | 卷2·008 | 卷3·010 | 卷2结盟 → 卷3因误会生嫌 |
+| 设定 | 黑色残片吸收上限 | 卷1·intro | 卷3 | 卷1限定吸收3次 → 卷3突破上限需新设定补充 |
+```
+
+### 跨卷检查的执行时机
+
+| 阶段 | 检查范围 | 执行者 |
+|------|----------|--------|
+| outline 完成 | 跨卷依赖表生成 + 8 项跨卷自检 | sumeru-outline 父Agent |
+| review 完成 | 跨卷依赖表中每项的实际执行情况验证 | sumeru-review 子Agent（并行审查时分配） |
+| 新卷写作启动前 | 读取跨卷依赖表，确保前卷承诺在本卷可落地 | sumeru-write 父Agent（自举时读取） |
+
+### 跨卷冲突检测规则（新增）
+
+| 规则ID | 描述 | 严重程度 | 检测时机 |
+|--------|------|----------|----------|
+| `cross_volume_foreshadowing_gap` | 跨卷伏笔两卷间无提及 | high | outline/review |
+| `cross_volume_state_jump` | 跨卷人物状态无因跳跃 | critical | review/write |
+| `cross_volume_power_leap` | 跨卷战力无因暴涨 | high | review/write |
+| `cross_volume_timeline_gap` | 跨卷时间跳跃未交代 | medium | outline/review |
+| `cross_volume_setting_conflict` | 本卷新设定与前卷矛盾 | critical | review |
+| `cross_volume_emotion_cliff` | 卷间情绪断层（悲→喜无过渡） | low | outline/review |
+| `cross_volume_rhythm_cliff` | 卷间节奏断崖（fast→slow无过渡） | low | outline/review |
+| `cross_volume_relationship_stall` | 跨卷人物关系无推进 | medium | review |
+
 ---
 
 # 第十五部分：脚本索引

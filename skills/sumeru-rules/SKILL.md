@@ -3,7 +3,7 @@ name: sumeru-rules
 description: 须弥写作全局约束规则（唯一来源）
 version: 1.2.0
 type: skill
-argument-hint: 
+argument-hint: ""
 disable-model-invocation: true
 user-invocable: false
 allowed-tools: Read

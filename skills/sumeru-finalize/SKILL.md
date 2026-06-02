@@ -1,15 +1,9 @@
 ---
 name: sumeru-finalize
-description: 小说完稿校验与导出
+description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。
 version: 1.2.0
 type: skill
-argument-hint: [导出格式] [替换"旧词"为"新词"] [自动分段] [修复导出]
-disable-model-invocation: false
 user-invocable: true
-allowed-tools: Read, Edit, Glob, Grep, Bash(python *), Bash(powershell *), task
-model: sonnet
-context: project
-agent: build
 ---
 
 > 依赖 `sumeru-rules`，默认 `quiet` 模式。
@@ -47,14 +41,14 @@ agent: build
 |------|----------|
 | `short/light` | `publish/full.md` + `publish/full.txt`，基础检查 |
 | `medium/standard` | 分章 + 整文（md + txt），生成 `publish/` 和 release 检查报告 |
-| `long/full` | 完整 build/release，生成 `publish/`、`tests/release-check-report.md`、`build-manifest.json` |
+| `long/full` | 完整 build/release，生成 `publish/md/` + `publish/txt/` + `publish/clean/`、`tests/release-check-report.md`、`build-manifest.json` |
 
 ### Build 前检查
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
 - 检查 `chapters/` 是否缺章、重章、命名不规范
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
 - 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
-- 导出到 `publish/` 时必须剥离章节首行的 `SUMERU_STATUS` 注释
+- 导出到 `publish/`（包括 `publish/md/`、`publish/txt/`、`publish/clean/`）时必须剥离章节首行的 `SUMERU_STATUS` 注释
 - 若存在 `.sumeru/intro.md`，将简介写入各导出版本的开头
 
 #### 平台内容适配检查
@@ -125,8 +119,8 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 | 错别字检查 | `scripts/spell-check.py` | 词典匹配 + 上下文验证 |
 | 敏感词初筛 | `scripts/sensitive-word-filter.py` | 正则匹配 + 三级分类 |
 | 格式规范 | `scripts/format-validator.py` | 章节标题、段落格式、标点规范 |
-| 格式导出 | `scripts/platform-export.py` | md/txt 分章 + 整文导出 |
-| 修复导出 | `scripts/platform-export.py repair` | 按当前规则重新导出 |
+| 格式导出 | `scripts/platform-export.py` | md/txt/clean 分章 + 整文 + 按卷导出 |
+| 修复导出 | `scripts/platform-export.py repair` | 按当前规则重新导出 md + txt + clean |
 | Build前检查 | 内置逻辑 | 缺章检查、TODO检查、issue检查 |
 
 #### 子Agent处理的任务
@@ -165,14 +159,39 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 
 ### 导出格式规则
 
+#### 目录结构
+
+导出文件按格式分目录存放：
+
+```
+publish/
+├── md/             ← Markdown 格式
+│   ├── chapters/   ← 分章导出（每个章节独立文件）
+│   ├── full.md     ← 整文导出（所有章节合并）
+│   ├── vol-001/    ← 按卷导出（如有卷信息）
+│   │   ├── chapters/
+│   │   ├── full.md
+│   │   └── ...
+│   └── vol-002/
+│       └── ...
+├── txt/            ← 纯文本格式（结构同 md/）
+│   └── ...
+└── clean/          ← 正本（清理 SUMERU_STATUS 的原始版本）
+    ├── chapters/
+    ├── full.md
+    ├── vol-001/
+    └── ...
+```
+
 #### 分章导出
 
-每章独立文件，输出到 `publish/chapters/` 目录：
+每章独立文件，输出到对应格式的 `chapters/` 目录：
 
 | 格式 | 文件名 | 内容格式 |
 |------|--------|----------|
-| md | `publish/chapters/001.md` | 第一行 `第X章 标题`，正文紧随其后 |
-| txt | `publish/chapters/001.txt` | 同上，纯文本 |
+| md | `publish/md/chapters/001.md` | 第一行 `第X章 标题`，正文紧随其后 |
+| txt | `publish/txt/chapters/001.txt` | 同上，纯文本 |
+| clean | `publish/clean/chapters/001.md` | 同上，已清理 SUMERU_STATUS 注释 |
 
 - 章节号固定 3 位前导零（001, 002, ...）
 - 文件名不含标题文字，避免特殊字符问题
@@ -184,8 +203,42 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 
 | 格式 | 文件名 | 内容格式 |
 |------|--------|----------|
-| md | `publish/full.md` | 每章以 `第X章 标题` 开头，然后正文，空行分隔 |
-| txt | `publish/full.txt` | 同上，纯文本 |
+| md | `publish/md/full.md` | 每章以 `第X章 标题` 开头，然后正文，空行分隔 |
+| txt | `publish/txt/full.txt` | 同上，纯文本 |
+| clean | `publish/clean/full.md` | 同上，已清理 SUMERU_STATUS 注释 |
+
+#### 按卷导出
+
+当项目包含卷信息时自动启用（需通过 `--project` 指定项目根目录）。卷信息从以下位置读取（优先级从高到低）：
+
+1. **`outlines/chapters.json`**：每章的 `volume` 或 `vol` 字段定义了所属卷号
+2. **`.sumeru/outlines/chapters.json`**：同上，新路径
+3. **`outline.md`**：从 "第X卷" 和章节范围文本中正则提取（兜底方案）
+
+按卷导出时，每卷独立目录：
+
+| 格式 | 目录 |
+|------|------|
+| md | `publish/md/vol-001/chapters/`, `publish/md/vol-001/full.md` |
+| txt | `publish/txt/vol-001/chapters/`, `publish/txt/vol-001/full.txt` |
+| clean | `publish/clean/vol-001/chapters/`, `publish/clean/vol-001/full.md` |
+
+- 卷目录名固定 `vol-NNN` 格式（3 位前导零，如 `vol-001`）
+- 无卷信息的章节归入 `vol-000`（如有）
+- 按卷导出不影响分章和整文导出，是额外生成的
+
+#### 正本导出（clean）
+
+正本（clean 模式）是经过清理的原始版本，与 md/txt 导出的区别：
+
+| 对比项 | md/txt 导出 | clean 正本导出 |
+|--------|-------------|----------------|
+| 用途 | 发布/分享用 | 存档/备份/版本对照 |
+| SUMERU_STATUS | 已剥离 | 已剥离 |
+| 格式 | md 或 txt | 仅 md |
+| 输出位置 | `publish/md/` 或 `publish/txt/` | `publish/clean/` |
+| 内容 | 成品格式 | 原文保留，最小改动 |
+| 按卷导出 | 支持 | 支持 |
 
 #### 标题规则
 
@@ -197,28 +250,64 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 
 `repair` 模式用于按当前技能规则重新生成已有 publish/ 目录：
 - 从 `chapters/` 重新读取
-- 生成全新的 md + txt 分章和整文
+- 生成全新的 md + txt + clean 分章、整文和按卷导出
 - 覆盖已有 `publish/` 内容
 
 ### 调用示例
 
 ```bash
-# 导出 md 格式（分章 + 整文）
+# 导出 md 格式（分章 + 整文 + 按卷）
 /sumeru-finalize 导出md格式
 /sumeru-finalize 导出md格式 自动分段
 
-# 导出 txt 格式（分章 + 整文）
+# 导出 txt 格式（分章 + 整文 + 按卷）
 /sumeru-finalize 导出txt格式
 
-# 导出全部（md + txt）
+# 导出全部（md + txt + 正本）
 /sumeru-finalize 导出全部
 
-# 修复已有导出
+# 仅导出正本（clean，清理 SUMERU_STATUS 的原始版本）
+/sumeru-finalize 导出正本
+/sumeru-finalize 导出clean
+
+# 修复已有导出（按新规则重新生成 publish/）
 /sumeru-finalize 修复导出
 
 # 批量替换后重新导出
 /sumeru-finalize 替换"张三"为"李玄" 导出全部
 ```
+
+### 卷信息配置
+
+如需启用按卷导出，在 `outlines/chapters.json` 中为每章添加 `volume` 字段：
+
+```json
+{
+  "chapters": [
+    {
+      "num": 1,
+      "title": "觉醒",
+      "volume": 1,
+      "purpose": "...",
+      "events": [...]
+    },
+    {
+      "num": 2,
+      "title": "试炼",
+      "volume": 1,
+      ...
+    },
+    {
+      "num": 15,
+      "title": "宗门大会",
+      "volume": 2,
+      ...
+    }
+  ]
+}
+```
+
+父Agent在调用导出脚本时，会自动传入 `--project` 参数（指向项目根目录），脚本自动读取卷信息并按卷分组导出。
 
 ### 敏感词检测标准
 
@@ -230,13 +319,19 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 
 ### 数据持久化
 **用户可见输出**：
-- `publish/full.md`：整文 md 导出
-- `publish/full.txt`：整文 txt 导出
-- `publish/chapters/`：分章导出（001.md, 001.txt, ...）
+- `publish/md/full.md`：整文 md 导出
+- `publish/md/chapters/`：分章 md 导出（001.md, 002.md, ...）
+- `publish/md/vol-NNN/`：按卷 md 导出（如有卷信息）
+- `publish/txt/full.txt`：整文 txt 导出
+- `publish/txt/chapters/`：分章 txt 导出
+- `publish/txt/vol-NNN/`：按卷 txt 导出（如有卷信息）
+- `publish/clean/full.md`：整文正本
+- `publish/clean/chapters/`：分章正本
+- `publish/clean/vol-NNN/`：按卷正本（如有卷信息）
 - `tests/release-check-report.md`：发布前检查报告
 
 **中间数据（`.sumeru/finalize/`）**：
-- `clean/full-text.md`、`clean/chapters/`、`error-report.json`、`stats.json`、`build-manifest.json`
+- `error-report.json`、`stats.json`、`build-manifest.json`
 
 **项目元数据**：
 - `.sumeru/intro.md`：小说简介（大纲完成后自动生成）

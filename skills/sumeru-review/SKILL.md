@@ -3,7 +3,7 @@ name: sumeru-review
 description: 小说逻辑/剧情审查、项目测试与创意疲劳检测
 version: 1.2.0
 type: skill
-argument-hint: [章节范围] [仅检查...]
+argument-hint: "[章节范围] [仅检查...]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash(python scripts/*.py), task

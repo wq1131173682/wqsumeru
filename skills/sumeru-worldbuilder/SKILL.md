@@ -3,7 +3,7 @@ name: sumeru-worldbuilder
 description: 网文/小说全流程创作世界构建师和项目管理器
 version: 1.2.0
 type: skill
-argument-hint: [题材] ["核心创意"] [标题"xxx"] [长篇/中篇/短篇] [风格] [跳过...]
+argument-hint: '[题材] ["核心创意"] [标题"xxx"] [长篇/中篇/短篇] [风格] [跳过...]'
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task

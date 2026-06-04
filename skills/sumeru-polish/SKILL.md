@@ -3,7 +3,7 @@ name: sumeru-polish
 description: 小说内容润色优化与创意强化
 version: 1.2.0
 type: skill
-argument-hint: [章节范围] [轻度/中度/深度] [目标风格] [优化重点]
+argument-hint: "[章节范围] [轻度/中度/深度] [目标风格] [优化重点]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, task

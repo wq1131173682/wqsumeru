@@ -3,7 +3,7 @@ name: sumeru-migrate
 description: 旧项目迁移与规整
 version: 1.2.0
 type: skill
-argument-hint: [仅检查/仅迁移路径/补齐配置/补齐人物卡]
+argument-hint: "[仅检查/仅迁移路径/补齐配置/补齐人物卡]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task

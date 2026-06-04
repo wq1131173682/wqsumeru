@@ -3,7 +3,7 @@ name: sumeru-write
 description: 小说章节内容创作与创意落地
 version: 1.2.0
 type: skill
-argument-hint: [章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]
+argument-hint: '[章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]'
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task

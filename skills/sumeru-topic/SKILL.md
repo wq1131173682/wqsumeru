@@ -3,7 +3,7 @@ name: sumeru-topic
 description: 网文选题策划与创意架构
 version: 1.2.0
 type: skill
-argument-hint: [题材类型] [核心关键词] [平台] [受众] [篇幅]
+argument-hint: "[题材类型] [核心关键词] [平台] [受众] [篇幅]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task

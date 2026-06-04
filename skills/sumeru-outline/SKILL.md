@@ -3,7 +3,7 @@ name: sumeru-outline
 description: 小说大纲设计：世界观构建、人物设定、剧情框架、分卷大纲、章节细纲
 version: 1.2.0
 type: skill
-argument-hint: ["核心创意描述"] [详细/精简/分卷] [复用数据] [允许映射]
+argument-hint: ["核心创意描述", "详细/精简/分卷", "复用数据", "允许映射"]
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task

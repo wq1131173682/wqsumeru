@@ -1,7 +1,7 @@
 ---
 name: sumeru-rules
 description: 须弥写作全局约束规则（唯一来源）
-version: 1.2.0
+version: 1.2.1
 type: skill
 argument-hint: ""
 disable-model-invocation: true
@@ -40,7 +40,7 @@ agent: build
     │      │    │      └─ 子Agent并行（最大个，每个≥章）
     │    ├─→sumeru-review       逻辑审查 →issues.md, fix-plan.json
     │      │    │      └─ 子Agent并行审查 + 反审验证
-    │    ├─→sumeru-write        修复重写（读可fix-plan.json）    │    ├─→sumeru-polish       文笔润色 →chapters/*.md（替换原文）
+    │    ├─→sumeru-write        修复重写（读取 fix-plan.json）    │    ├─→sumeru-polish       文笔润色 →chapters/*.md（替换原文）
     │      │    │      └─ 子Agent并行润色
     │    └─→sumeru-finalize     完稿校验 + 发布导出 →publish/
 ```
@@ -72,6 +72,14 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
 | `polish` →`finalize` | 章节状态`polished` |
 | `finalize` →`build` | 技术校验通过，章节状态`finalized` |
+
+### 状态字段语义对照
+
+| 字段 | 所属 | 流转 | 含义 |
+|------|------|------|------|
+| `currentStage` | `status.json` | 单向推进 | 项目主流程阶段，参见§项目状态流转 |
+| `chapterStatus.<n>` | `status.json` | 可回退 | 单章状态，参见§章节状态流转 |
+| `migrationHandoff` | `status.json` | **只增不改** | 迁移接续标记；`sumeru-migrate` v1.3.0+ 写入，`sumeru-worldbuilder` 读取。Schema 详见 `sumeru-migrate/SKILL.md` §11.5；接续读取逻辑详见 `sumeru-worldbuilder/SKILL.md` §项目恢复与迁移接续协议 |
 
 ## 文件索引
 
@@ -149,26 +157,26 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | 职责 | 说明 |
 |------|------|
 | 自举 & 环境准备 | 定位项目、读/生成 project.json、status.json、补齐目当|
-| Context pack 生成 | 集中生成 context pack，控则1500-3000 中文字，分发给各子Agent |
+| Context pack 生成 | 集中生成 context pack，控制 1500-3000 中文字，分发给各子Agent |
 | Cache 摘要读取 | 集中读取 L1 cache 摘要 |
-| 任务卡读可| 集中读取目标章节任务卡，仅提取本组章节所需字段 |
+| 任务卡读取 | 集中读取目标章节任务卡，仅提取本组章节所需字段 |
 | 任务分发 | 启动 N 个子Agent，每个传入精简 context pack |
-| 结果汇态| 收集所有子Agent输出，检查完整性、顺序、命同|
-| 文件写入 & 备份 | 子Agent写入后，父Agent校验文件存在性、SUMERU_STATUS标记完整性；将原文件备份则`.sumeru/write/original/`，每章仅保留最过1 从|
-| 状态更文| 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
+| 结果汇总 | 收集所有子Agent输出，检查完整性、顺序、命中 |
+| 文件写入 & 备份 | 子Agent写入后，父Agent校验文件存在性、SUMERU_STATUS 标记完整性；将原文件备份到 `.sumeru/write/original/`，每章仅保留最新 1 份 |
+| 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
 | 缓存刷新 | 统一刷新相关 cache 摘要 |
 | 日志记录 | 统一追加 `.sumeru/changelog.md`、`.sumeru/decisions.md` |
-| Issue/测试汇态| 合并各子Agent发现的问题，写入 `.sumeru/issues.md` |
+| Issue/测试汇总 | 合并各子Agent发现的问题，写入 `.sumeru/issues.md` |
 
 ## 子Agent职责
 
 | 职责 | 说明 |
 |------|------|
-| 只读 context pack | 不读可context pack 外的任何文件（已有章节文件除外） |
+| 只读 context pack | 不读取 context pack 外的任何文件（已有章节文件除外） |
 | 执行核心任务 | 根据 context pack 完成任务单审查/润色要求 |
-| 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写全`outlines/chapters.json`，无需经父Agent透传 |
-| 返回状态标设| 只返因`<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态|
-| 不碰状态文从| 不更文status.json、changelog、cache、issues |
+| 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写入 `outlines/chapters.json`，无需经父Agent透传 |
+| 返回状态标记 | 只返回 `<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态 |
+| 不碰状态文件 | 不更新 status.json、changelog、cache、issues |
 
 ---
 
@@ -297,7 +305,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 ---
 
-# 第五部分：子Agent输出状态标设
+# 第五部分：子Agent输出状态标记
 每个子Agent写入的章节文件首行必须包含状态标记（供重启恢复），同时向父Agent返回同一标记（供实时状态同步）。
 ## 格式
 
@@ -348,7 +356,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 2. **识别版本**：存在`.sumeru/project.json` 按新协议，否则进入兼容模式3. **最小初始化**：缺配置时根据已有文件生成最小配置4. **补齐目录**：按需创建 `.sumeru/cache/` / `context-packs/` / `continuity/` / `issues.md`
 5. **兼容输入**：旧版`.sumeru/outline/chapter-outlines.json` 只读兼容
 6. **刷新缓存**：相全cache 缺失或过期时生成最小摘要7. **生成 context pack**：缺 context pack 时生成临时pack
-8. **执行并回写*：更文`.sumeru/status.json`、cache、issue 文件
+8. **执行并回写**：更新 `.sumeru/status.json`、cache、issue 文件
 9. **记录变更**：追加到 `.sumeru/changelog.md` 和`.sumeru/decisions.md`
 
 ## Canonical 路径
@@ -443,12 +451,12 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 | Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
 |-------|----------------|------------|------------|----------------|
-| **sumeru-topic** | 生成选题方案 | context pack（题材方同创意引擎）| 选题方案（pitch+类型混血+金手指变作反套路策略） | 合并写入 `plan.md`、`.sumeru/topic/` |
-| **sumeru-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 章节细纲 JSON/Markdown + 状态标设| 合并校验→写全outlines/chapters.json→刷文cache |
-| **sumeru-write** | 按任务卡写正文| context pack（任务卡+上一章结就剧情事实基准+人物/道具/伏笔状态） | 纯正文+ 状态标设| 剧情统一校验→写全chapters/→备份→更新 status→刷文continuity cache |
-| **sumeru-review** | 按任务卡审查章节 | context pack（任务卡+正文+审查标准+consistency-rules）| 审查结论（问题列行严重程度+证据+建议）| 合并问题写入 issues.md，按需生成 review report，制定fix-plan |
-| **sumeru-polish** | 按标准润色章节| context pack（正文style-brief+creative-brief+审查问题+具象标杆）| 润色后正文+ 状态标设| 备份后直接写入最终正文，更新 status→polished |
-| **sumeru-finalize** | 脚本预处理+ 待定项判文| 脚本扫描结果（待定项列表，最大0个） | 待定项处理建设| 汇总建议→最终校验→写入 publish/→build-manifest |
+| **sumeru-topic** | 生成选题方案 | context pack（题材方向、创意引擎） | 选题方案（pitch + 类型混血 + 金手指变式、反套路策略） | 合并写入 `plan.md`、`.sumeru/topic/` |
+| **sumeru-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 章节细纲 JSON/Markdown + 状态标记 | 合并校验 → 写入 `outlines/chapters.json` → 刷新 cache |
+| **sumeru-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾剧情事实基准+人物/道具/伏笔状态） | 纯正文 + 状态标记 | 剧情统一校验 → 写入 `chapters/` → 备份 → 更新 status → 刷新 continuity cache |
+| **sumeru-review** | 审查与冲突检测 | context pack（章节正文+连续性规则+伏笔追踪表） | 审查报告 + 冲突清单 | 检测 → 写入 `.sumeru/issues.md` → 写重写项到 `fix-plan.json` |
+| **sumeru-polish** | 按标准润色章节 | context pack（正文 style-brief + creative-brief + 审查问题 + 具象标杆） | 润色后正文 + 状态标记 | 备份后直接写入最终正文，更新 status → polished |
+| **sumeru-finalize** | 脚本预处理 + 待定项判断 | 脚本扫描结果（待定项列表，最多 10 个） | 待定项处理建议 | 汇总建议 → 最终校验 → 写入 publish/ → build-manifest |
 
 ---
 

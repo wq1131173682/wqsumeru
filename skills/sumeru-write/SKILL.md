@@ -1,7 +1,7 @@
 ---
 name: sumeru-write
 description: 小说章节内容创作与创意落地
-version: 1.2.0
+version: 1.2.1
 type: skill
 argument-hint: '[章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]'
 disable-model-invocation: false
@@ -257,9 +257,17 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 > **详见 `sumeru-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"**
 
-父Agent在子Agent写入后必须执行：
-1. **剧情统一校验**：解析SUMERU_STATUS，与 consistency-rules.json 对比
-2. **反AI句式扫描**：检查句式重复、开场重复、结构重复等
+父Agent在子Agent写入**前**必须执行：
+
+1. **伏笔活跃度预检**：调用 `python skills/sumeru-review/scripts/foreshadowing-tracker.py .sumeru/continuity <current_chapter> --quiet`，把输出的逾期伏笔与近期伏笔建议注入 `shared-write.md` 头部（父 Agent 决定是否提示用户）
+2. **锚点临近检查**：读取 `.sumeru/creative-anchors.md`，找出 `targetChapter` 字段距当前章 ≤ 3 的「名场面种子」，在 `shared-write.md` 头部追加"⚠️ 锚点临近：本章或近 3 章需兑现 XX 锚点"
+
+父Agent在子Agent写入**后**必须执行：
+
+1. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比
+2. **foreshadowing 增量更新**：遍历 `plot_update.foreshadowing`，对每个提及的伏笔 ID 同步写入 `consistency-rules.json.foreshadowing.<id>.last_mentioned = current_chapter` 且 `mentionCount += 1`（新伏笔初始化 `{status: "active", last_mentioned: current_chapter, mentionCount: 1, first_appeared: current_chapter}`）
+3. **反AI句式扫描**：检查句式重复、开场重复、结构重复等
+4. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/sumeru-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`
 
 校验通过后才允许更新 `chapters/` 和状态文件。
 

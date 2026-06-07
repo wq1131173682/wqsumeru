@@ -1,7 +1,7 @@
 ---
 name: sumeru-review
 description: 小说逻辑/剧情审查、项目测试与创意疲劳检测
-version: 1.2.0
+version: 1.2.2
 type: skill
 argument-hint: "[章节范围] [仅检查...]"
 disable-model-invocation: false
@@ -113,7 +113,7 @@ agent: build
 | **格式问题** | 统一格式 | 章节标题格式统一为`第X章 标题`、首行缩进统一 |
 | **重复段落** | 标记 + 去重 | 连续两段内容高度相似时标记 |
 | **空格/换行异常** | 规范化 | 多余空行合并、首尾空格去掉 |
-| **字数不足** | 根据任务卡和上下文，在章节中插入 2-4 段感官细节、内心独白或场景描写 | 补足到`project.json` 的`chapterWordRange` 目标 |
+| **字数不足** | ⚠️ **不再自动注入描写段**（防止水文）。改用反 AI 扫描+ fix-plan 标记，触发 write 重写 | 调用 `python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir>` 报告问题；将 `word_count_short` 写入 `fix-plan.json`，由 write 阶段在当前场景中"自然展开"（让人物多一个反应、多一句停顿、多一段沉默）补足 |
 
 **自动修复流程**：
 1. 脚本扫描（错别字词典、正则标点、重复字检测）
@@ -151,6 +151,66 @@ agent: build
 - **创意疲劳**：套路重复、情绪重复、创意目标未落地
 - **情绪节点验证**（新增）：检查emotionalCurve 中的每个阶段是否在文本中有对应内容
 - **平台适配验证**（新增）：开篇钩子强度、叙事效率、对话叙述比例、章节信息密度，对标七猫/番茄免费阅读平台标准
+
+### 反 AI / 反水文扫描（v1.3.3+ 新增，v1.3.4 扩展）
+
+> **关键定位**：本节为反水文的**主防线**。父 Agent 在每批写作/重写/润色后**必须**调用反 AI 扫描脚本，**不能仅依赖人工/规则文字自检**。
+
+#### 扫描脚本
+
+```bash
+python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
+    [--outlines outlines/chapters.json] \
+    [--output .sumeru/review] \
+    [--quiet] [--strict]
+```
+
+输出：
+- `.sumeru/review/anti-ai-report.json`：结构化报告
+- `.sumeru/review/anti-ai-report.md`：人工可读报告
+
+#### 扫描项（共 17 项 + 8 维反 AI 句式，v1.3.4: 6→8 维，黑名单 40+ → 80+）
+
+| 类别 | 检查项 | 阈值 | 严重度 |
+|------|--------|------|--------|
+| 8 维反 AI | 句式重复 | 连续 ≥ 6 句主谓宾完整 | medium |
+| 8 维反 AI | 段内开场重复 | 同一段连续 3 句同主语 | low |
+| 8 维反 AI | 连续推进无缓冲 | 连续 ≥ 3 段都在推进剧情 | low |
+| 8 维反 AI | 批内开场雷同 | 相邻章首 8 字重复 | medium |
+| 8 维反 AI | 批内钩子雷同 | 相邻章末 8 字重复 | medium |
+| 8 维反 AI | 字数波动 | 偏离批均值 ±50% | low |
+| 8 维反 AI | **段间 micro-arc 模板**（v1.3.4 新增）| 4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次（章节 ≥ 8 段）| medium |
+| 8 维反 AI | **对话标记词集中**（v1.3.4 新增）| 单一标记词占全部 ≥ 80%（总标记 ≥ 5）| medium |
+| 水文硬指标 | 对话占比 | < 5% | medium |
+| 水文硬指标 | 内心独白占比 | > 10% | medium |
+| 水文硬指标 | 纯描写段落占比 | > 35% | **high（阻断）** |
+| 水文硬指标 | 核心事件数 | < 1 | **high（阻断）** |
+| 水文硬指标 | 时间/场景切换 | 0 | medium |
+| 水文硬指标 | **Cliché 套路短语**（v1.3.4 黑名单扩展：+ 战斗套路 + 转折模板 + 情绪标签）| ≥ 3 个不同短语 | **high（阻断）** |
+| 节奏拖沓 | 场景类型占比 | 日常/过渡 > 30% | medium |
+| 节奏拖沓 | 字数不足（不再自动修复） | < `chapterWordRange[0]` | medium（写 fix-plan） |
+| 节奏拖沓 | 字数过多 | > `chapterWordRange[1]` | low |
+
+#### 阻断规则
+
+以下任一命中触发**重写**而非自动修复（由父 Agent 决定是否中断批次）：
+- `narrative_high_description`（high）
+- `narrative_low_event_density`（high）
+- `water_text_cliche_density`（high）
+
+**v1.3.4 灰度说明**：`anti_ai_micro_arc_repeat` / `anti_ai_dialog_marker_dominant` 暂留 medium 不进阻断，先观察一轮后视情况升级为 high（避免对既有合规文风误伤）。
+
+父 Agent 处理：
+1. 将 `blocking=true` 的章节写入 `fix-plan.json`，`type=anti_ai_blocked`
+2. 调用 sumeru-write 走重写流程，强制 context pack 中携带反 AI 扫描报告
+3. 严禁用"插入 2-4 段感官细节/内心独白/场景描写"方式补字数（v1.3.2 及之前的错误做法，v1.3.3 已删除）
+4. v1.3.4 新增：micro_arc 命中时优先用"重排段落顺序"或"调换段间衔接"修复，而非简单插入内容
+
+#### quiet 模式输出约定
+
+- 无问题：`✅ 反 AI 扫描通过 (N 章无问题)`
+- 有问题：`⚠️ 反 AI 扫描发现 X 项问题 (critical=… high=… medium=… low=…)` + 报告路径
+- 阻断：`🚨 含阻断规则，建议重写`
 
 ### 平台适配审查规则
 

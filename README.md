@@ -1,6 +1,6 @@
 # 须弥写作 (Sumeru Writing) - 二次开发版
 
-> **当前版本**: v1.3.2 · **更新日期**: 2026-06-05 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.3.4 · **更新日期**: 2026-06-05 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
 基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
@@ -10,6 +10,8 @@
 
 ## 🆕 最新更新
 
+- **v1.3.4** (2026-06-05) — 反 AI 扫描闭环套用模板：新增 2 项检查（`micro_arc_template_repeat` 段间结构指纹 + `dialog_marker_dominant` 对话标记集中度）+ Cliché 黑名单 40+ → 80+（战斗套路 + 转折模板 + 情绪标签）+ 6 维 → 8 维反 AI 句式
+- **v1.3.3** (2026-06-05) — 反水文扫描脚本（`anti-ai-scan.py`，560 行，15 项检查 + 6 维反 AI 句式 + 40+ Cliché 黑名单）+ 修复 `sumeru-review` L116 内部矛盾
 - **v1.3.2** (2026-06-05) — 清理 `scripts-lib` 死代码 + 9 个 SKILL.md 全面 OCR 错字校对
 - **v1.3.1** (2026-06-05) — 剧情一致性 + 文笔丰富优化包：medium 模式启用 continuity、anchor 加 `targetChapter`、user-style 自动分析
 - **v1.3.0** (2026-06-05) — sumeru-migrate 接续协议：迁移后自动补 anchor/intro/状态标记，worldbuilder 一键续作

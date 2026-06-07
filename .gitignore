@@ -3,6 +3,8 @@
 
 # Editor / IDE config
 .opencode/
+.omo/
+.qwen/
 
 .git-credentials
 

@@ -1,5 +1,136 @@
 # Changelog
 
+## 1.3.4 (2026-06-05)
+
+### 质量优化：反 AI 扫描闭环套用模板问题
+
+> **背景**：v1.3.3 修复了"水文"问题（套用低质量填充），但仍有 7 类"套用模板"维度未覆盖：段间 micro-arc 模板、中观结构指纹、对话标记词重复、情绪标签定语、战斗模板、转折模板、推进行为序列。本版本终结模板化套用。
+
+**改动**：
+
+- **A. 扩展 `skills/sumeru-review/scripts/anti-ai-scan.py`（570 → 660 行）**
+  - **新增检查 7：段间 micro-arc 模板**
+    - 段落四象限分类：A=推进 / B=心理 / C=描写 / D=对话
+    - 滑动窗口 4 段生成结构指纹（如 "ABCD"）
+    - 同一指纹在 8+ 段章节中出现 ≥ 2 次即命中（medium）
+    - 典型命中："动作-心理-环境-对话"机械循环、对话段连用（DDDD）
+  - **新增检查 8：对话标记词集中度**
+    - 统计 30+ 对话标记动词（说/道/问/答/喝道/笑道/叹道/低声道/沉声道…）
+    - 最高频标记词占比 > 80% 且总标记 ≥ 5 即命中（medium）
+    - 典型命中：全章"XX说："机械重复（"说" 100% 集中度）
+  - **Cliché 黑名单扩展（40+ → 80+ 词条）**
+    - 战斗套路：数百回合 / 数十回合 / 你来我往 / 不分胜负 / 势均力敌 / 棋逢对手…
+    - 转折模板：然而就在这时 / 说时迟那时快 / 话音未落 / 不料 / 岂料 / 刹那间…
+    - 情绪标签：愤怒的他 / 温柔的眼眸 / 紧握的拳头 / 心中充满了 / 不禁感到…
+  - markdown 报告表头加 `micro-arc` + `dialog_marker` 两列
+  - 阻断规则**不变**（micro_arc / dialog_marker 留 medium 灰度观察一轮）
+
+- **B. `sumeru-rules/SKILL.md` 第十部分·三 同步**（v1.2.2 → v1.2.3）
+  - 6 维反 AI → 8 维反 AI（B 表加 7/8 两行）
+  - 9 项水文硬指标 → 11 项（编号顺延 2，加 micro_arc + dialog_marker）
+  - 处理策略 D 节加 v1.2.3 灰度说明：新检查留 medium 不进阻断
+  - cliché 黑名单行加 "v1.2.3 增战斗套路 + 转折模板 + 情绪标签" 注释
+
+- **C. `sumeru-review/SKILL.md` 反 AI 扫描节同步**（v1.2.1 → v1.2.2）
+  - 扫描项表 15 → 17 项（加 micro_arc / dialog_marker）
+  - 维度声明「6 维」→「8 维」
+  - 阻断规则下加 v1.3.4 灰度说明 + 第 4 条父 Agent 处理（micro_arc 修复方式：重排段落顺序或调换段间衔接，非插入内容）
+
+**验证**（4 章测试样例 + v1.3.3 旧样例 5 章）：
+
+| 测试章节 | 命中项 |
+|----------|--------|
+| ch020 (micro_arc test) | `anti_ai_micro_arc_repeat` × 3（DDDD 指纹）+ cliché × 9 |
+| ch021 (dialog_marker test) | `anti_ai_dialog_marker_dominant`（"说" 100% 集中度 20/20）|
+| ch022 (cliche 扩展 test) | `water_text_cliche_density` × 18（新增：你来我往/不分胜负/数百回合/数十回合/愤怒的他/然而就在这时…）|
+| ch023 (干净) | 仅 2 LOW + 1 MEDIUM 短章主谓宾阈值误判（v1.3.4.1 候选）|
+
+总计 9 章 / 31 项问题 / 4 high 阻断 / 退出码 2。
+
+**未破坏项**：
+- 9 个 skill 的协议层（接续协议、targetChapter、protectedTag、风格样本自动分析）未动
+- Python 脚本（`continuity-check.py` / `foreshadowing-tracker.py` / `chapter-word-counter.py`）未动
+- sumeru-topic / sumeru-worldbuilder / sumeru-outline / sumeru-migrate / sumeru-polish / sumeru-finalize 未动
+- v1.3.3 引入的 anti-ai-scan.py 主框架 + 阻断规则（11/12/14 旧编号 → 现 12/14/17）未动
+
+**遗留**（建议后续清理）：
+- 项目级 `cliche-blacklist.json` 扩展机制（v1.3.5 候选）
+- 内心独白识别为粗略正则，复杂句式可能误判
+- 短章（< 800 字）主谓宾阈值 6 略严，建议加字数门控（v1.3.4.1 候选）
+- micro_arc / dialog_marker 灰度观察一轮后决定是否升级为 high 阻断
+
+### 元数据同步：README.md 同步到 v1.3.4
+
+**改动**：
+- 顶部加版本状态行：`v1.3.4 · 2026-06-05 · 完整变更: CHANGELOG.md`
+- 🆕 最新更新 段补 v1.3.4 条目
+
+---
+
+## 1.3.3 (2026-06-05)
+
+### 质量优化：反水文扫描脚本 + 内部矛盾修复
+
+> **背景**：审计发现仓库中"反 AI 句式扫描"在 `sumeru-rules/SKILL.md` 第十部分有完整规范但**无任何脚本实现**；`sumeru-review/SKILL.md` L116 字数自动修复逻辑直接"插入 2-4 段感官细节/内心独白/场景描写"，与 `sumeru-write/SKILL.md` L154「自然展开」原则直接矛盾，是**唯一主动生产水文的 skill 条款**。本版本终结"文档规范 vs. 实际行为"两层皮。
+
+**改动**：
+
+- **A. 新增 `skills/sumeru-review/scripts/anti-ai-scan.py`（560 行）**
+  - 实现 sumeru-rules/SKILL.md 第十部分·三 的 6 维反 AI 句式扫描
+    - 句式重复（连续 6+ 句主谓宾完整）
+    - 段内开场重复（连续 3 句同主语）
+    - 连续推进无缓冲（连续 3 段无描写/无动作）
+    - 批内开场雷同（相邻章首 8 字重复）
+    - 批内钩子雷同（相邻章末 8 字重复）
+    - 字数波动（批均值 ±50%）
+  - 扩展 sumeru-write/SKILL.md §叙事效率通用自检 的 5 项硬指标
+    - 对话占比 < 5%（medium）
+    - 内心独白占比 > 10%（medium）
+    - **纯描写段落占比 > 35%（high 阻断）**
+    - **核心事件数 < 1（high 阻断）**
+    - 时间/场景切换 = 0（medium）
+  - 新增 Cliché 黑名单 40+ 短语（景色/表情/外貌/动作/句式 5 大类）
+  - 新增场景类型占比检查（日常/过渡 > 30% flag）
+  - 输出 `.sumeru/review/anti-ai-report.json` + `.md`
+  - 退出码：`0`=无问题 / `1`=warning / `2`=critical 或含阻断
+  - 支持 `--quiet` / `--strict` / `--outlines` / `--filter`
+  - 纯标准库，零外部依赖
+
+- **B. 修复 `sumeru-review/SKILL.md` L116 内部矛盾**（v1.2.0 → v1.2.1）
+  - 删除「字数不足 → 插入 2-4 段感官细节/内心独白/场景描写」自动修复逻辑
+  - 改为：调用 `anti-ai-scan.py` 量化报告 + 将 `word_count_short` 写入 `fix-plan.json`，由 write 阶段在当前场景中"自然展开"补足
+  - 新增「反 AI / 反水文扫描」整节：扫描入口、扫描项表、阻断规则、quiet 模式输出约定
+
+- **C. `sumeru-rules/SKILL.md` 第十部分·三 处理策略升级**（v1.2.1 → v1.2.2）
+  - 旧策略："`anti-ai-flagged` 章节 → 记录到 changelog，不阻塞"
+  - 新策略：**分层处理**
+    - high 阻断（9/10/12 任一）→ 写 fix-plan `type=anti_ai_blocked`，触发 write 重写
+    - medium（1/2/5/7/8/11/13 任一）→ **自动触发 polish 轻量级**（不再仅 changelog）
+    - low（3/4/6 任一）→ 写 changelog，留待 polish 中度
+  - 新增「水文硬指标」表（7 项），与脚本阈值完全对齐
+  - 旧路径 `.sumeru/write/anti-ai-report.json` 已废弃，新路径 `.sumeru/review/anti-ai-report.json`
+
+- **D. `sumeru-write/SKILL.md` 写后自检强化**（v1.2.1 → v1.2.2）
+  - 「叙事效率通用自检」加 v1.2.2 强约束声明：5 项检查**必须**通过 `anti-ai-scan.py` 量化执行，子 Agent 不可仅凭经验主观判断
+  - 「父Agent在子Agent写入**后**必须执行」第 3 步：明确调用命令、退出码语义、阻断时父 Agent 行为契约
+  - 明确禁止父 Agent 用"插入 2-4 段描写"方式补字数或绕过阻断
+
+**未破坏项**：
+- 9 个 skill 的协议层（接续协议、targetChapter、protectedTag、风格样本自动分析）已就位，未动
+- Python 脚本（`continuity-check.py` / `foreshadowing-tracker.py` / `chapter-word-counter.py`）未动
+- sumeru-topic / sumeru-worldbuilder / sumeru-outline / sumeru-migrate / sumeru-polish / sumeru-finalize 未动
+
+**遗留**（建议后续清理）：
+- Cliché 黑名单为静态内置，v1.3.4 计划支持项目级 `cliche-blacklist.json` 扩展
+- 内心独白识别为粗略正则，复杂句式可能误判（影响极小，不阻塞）
+- 场景类型识别依赖 `outlines/chapters.json` 的 `sceneType`/`rhythm` 字段；缺失时跳过该检查
+
+### 元数据同步：README.md 同步到 v1.3.3
+
+**改动**：
+- 顶部加版本状态行：`v1.3.3 · 2026-06-05 · 完整变更: CHANGELOG.md`
+- 🆕 最新更新 段补 v1.3.3 条目
+
 ## 1.3.2 (2026-06-05)
 
 ### 质量优化：OCR 错别字全面校对 + scripts-lib 死代码清理

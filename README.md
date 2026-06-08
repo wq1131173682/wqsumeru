@@ -1,6 +1,6 @@
 # 须弥写作 (Sumeru Writing) - 二次开发版
 
-> **当前版本**: v1.3.4 · **更新日期**: 2026-06-05 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.3.6 · **更新日期**: 2026-06-08 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
 基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
@@ -10,6 +10,8 @@
 
 ## 🆕 最新更新
 
+- **v1.3.6** (2026-06-08) — 反 AI 扫描第 9 维：新增「对话后旁白解说」检测（`anti_ai_dialog_emotion_commentary`）—— 对话已表达情绪后叙述用散文"翻译"同一情绪，AI 最典型行为模式之一；阈值 ≥ 3 处触发 medium 级 polish；8 维 → 9 维反 AI 句式扫描；水文硬指标编号顺延 9-15 → 10-16
+- **v1.3.5** (2026-06-08) — 技能生态优化：Token 精简（删除 sumeru-rules 冗余章节 ~120 行）+ OCR 错字根除（20+ 处覆盖 3 个文件）+ JSON 配置外置（anti-ai-thresholds.json / cliche-blacklist.json / spell-dict.json / sensitive-words.json）+ migrationHandoff 状态简化（inferred→pending, failed→skipped, 校对完成→confirmed）+ 6 项技能版本统一至 v1.2.1
 - **v1.3.4** (2026-06-05) — 反 AI 扫描闭环套用模板：新增 2 项检查（`micro_arc_template_repeat` 段间结构指纹 + `dialog_marker_dominant` 对话标记集中度）+ Cliché 黑名单 40+ → 80+（战斗套路 + 转折模板 + 情绪标签）+ 6 维 → 8 维反 AI 句式
 - **v1.3.3** (2026-06-05) — 反水文扫描脚本（`anti-ai-scan.py`，560 行，15 项检查 + 6 维反 AI 句式 + 40+ Cliché 黑名单）+ 修复 `sumeru-review` L116 内部矛盾
 - **v1.3.2** (2026-06-05) — 清理 `scripts-lib` 死代码 + 9 个 SKILL.md 全面 OCR 错字校对

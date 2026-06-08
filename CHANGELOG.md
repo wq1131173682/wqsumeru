@@ -1,5 +1,74 @@
 # Changelog
 
+## 1.3.5 (2026-06-08)
+
+### 技能生态优化：Token 精简 + OCR 错字根除 + JSON 配置外置
+
+> **背景**：v1.3.4 修复了模板化套用问题，但技能体系仍有冗余章节、残余 OCR 错字和硬编码配置。本次集中清理存量技术债，将可配置参数外置为零外部依赖的 JSON 文件，降低维护成本。
+
+**改动**（17 个文件，+397 −382 行）：
+
+- **A. `sumeru-rules/SKILL.md` 精简冗余章节**（−120 行）
+  - 删除 §四·三「Context Pack 通用模板」（各技能格式已在对应 SKILL.md 中定义）
+  - 删除 §八「各 Skill 子Agent职责明细」（与 §一·技能清单重复，子Agent I/O 见各 SKILL.md）
+  - 删除 §十五「脚本索引」（脚本注册信息已在各 SKILL.md 中内联）
+  - 同步修复 OCR 残存错字 15+ 处：`相全→相关`、`目当→目录`、`人物单→人物卡`、`内定→内容`、`简从→简介`、`世界规→世界观`、`机时→无`、`汇态→汇总`、`生或→生成`、`边略→边界`、`备从→备份`、`课自→一致`、`结就→结局`、`确设→确认`
+  - 调用链路图从 ASCII 方块简化为纯文本箭头链
+  - 删除「用户可见文件」表（信息冗余）
+  - `migrationHandoff` 取值注释同步：`inferred`→`pending`、`failed`→`skipped`
+
+- **B. 反 AI 检测配置外置 JSON**（2 个新文件）
+  - 新增 `skills/sumeru-review/config/anti-ai-thresholds.json`：20 项阈值集中定义，`anti-ai-scan.py` 启动时自动加载，无此文件时使用代码内置默认值
+  - 新增 `skills/sumeru-review/config/cliche-blacklist.json`：8 分类 80+ 词条，`anti-ai-scan.py` 启动时自动加载，无此文件时使用内置黑名单
+  - `anti-ai-scan.py`（−163/+163 行）：移除硬编码的全局阈值和 CLICHE_BLACKLIST 列表，改为 `_load_thresholds()` / `_load_cliches()` 动态加载
+  - 参数示例：章节目录参数从 `./chapters/` 更新为 `.sumeru/chapters/`（与规范路径对齐）
+  - `chapter-word-counter.py`：`--dir` 默认值同步为 `.sumeru/chapters/`
+
+- **C. 拼写词典外置 JSON**（2 个新文件）
+  - 新增 `skills/sumeru-finalize/config/spell-dict.json`：拼写检查词典（~30 条目），`spell-check.py` 启动时加载
+  - 新增 `skills/sumeru-finalize/config/sensitive-words.json`：敏感词库（~7 条目），`sensitive-word-filter.py` 启动时加载
+  - `spell-check.py`（−169/+169 行）：重写加载逻辑，从硬编码内置词典改为 JSON 配置 + 内置后备
+  - `sensitive-word-filter.py`：敏感词加载逻辑同步外置
+  - `format-validator.py`：修复硬编码单引号语法错误
+
+- **D. `sumeru-migrate/SKILL.md` 接续协议状态简化**（−70/+70 行）
+  - `inferred` → `pending`：更清晰表达"待处理"语义
+  - `failed` → `skipped`：消除"错误"歧义，反映用户主动跳过的本质
+  - `校对完成` → `confirmed`：与 anchorStatus 统一命名
+  - 同步更新 worldbuilder 中的字段处理细则（`failed` 状态处理行移除）
+  - 同步更新 sumeru-rules 中的字段状态表
+
+- **E. `sumeru-worldbuilder/SKILL.md` 流程增强**
+  - 阶段顺序增加 `migrate?` 前缀标记：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → finalize → build/release`
+  - Skill 协调流程同步增加 `[migrate? →]` 前缀
+  - 删除 `failed` 状态处理行（接续状态已简化为三态：pending/confirmed/skipped）
+
+- **F. 技能版本统一**（新增 + 关联同步）
+  - `sumeru-topic`：1.2.0 → **1.2.1**（触发：部分 rules 引用路径修正）
+  - `sumeru-polish`：1.2.0 → **1.2.1**（触发：反 AI 引用路径修正 + context pack 引用同步）
+  - `sumeru-finalize`：1.2.0 → **1.2.1**（触发：spell-check.py / sensitive-word-filter.py 重构）
+  - 其他已为 v1.2.1+ 的 skill 未动
+
+**未破坏项**：
+- 9 个 skill 的协议层（接续协议、targetChapter、protectedTag、风格样本自动分析）均保留
+- 所有 Python 脚本编译通过（6 个脚本全部验证）
+- 内置默认值与旧硬编码阈值一致，无 JSON 配置时行为不变
+- 无外部依赖引入（配置加载使用 `json.loads()` 标准库）
+
+**遗留**（建议后续清理）：
+- `format-validator.py` `--chapter-dir` 默认值仍指向 `./chapters/`（需与 other 脚本对齐）
+- `anti-ai-scan.py` `cliche_hit_threshold` 在阈值 JSON 中配置但未被 Python 脚本实际使用（stub 预留）
+- `platform-export.py` 仍有零散调试注释待清理
+- long/full 模式的 context-packs 和 continuity 自动补齐仍有未覆盖场景（见 migrate §未覆盖场景）
+
+### 元数据同步：README.md 同步到 v1.3.5
+
+**改动**：
+- 顶部版本状态行：`v1.3.4` → `v1.3.5`，日期 `2026-06-05` → `2026-06-08`
+- 🆕 最新更新 段补 v1.3.5 条目
+
+---
+
 ## 1.3.4 (2026-06-05)
 
 ### 质量优化：反 AI 扫描闭环套用模板问题

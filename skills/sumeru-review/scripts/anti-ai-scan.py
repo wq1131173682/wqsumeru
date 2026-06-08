@@ -57,13 +57,14 @@ def _load_thresholds() -> dict:
         "MICRO_ARC_WINDOW": 4, "MICRO_ARC_MIN_REPEAT": 2,
         "MICRO_ARC_MIN_PARAGRAPHS": 8,
         "DIALOG_MARKER_DOMINANCE": 0.80, "DIALOG_MARKER_MIN_TOTAL": 5,
+        "DIALOG_EMOTION_COMMENTARY_MIN_HITS": 3,
         "CLICHE_HIT_THRESHOLD": 3, "DESCRIPTION_PARAGRAPH_MIN_LEN": 80,
     }
     try:
         cfg_file = _CONFIG_DIR / "anti-ai-thresholds.json"
         if cfg_file.exists():
             data = json.loads(cfg_file.read_text("utf-8"))
-            key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN"}
+            key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "dialog_emotion_commentary_min_hits": "DIALOG_EMOTION_COMMENTARY_MIN_HITS", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN"}
             for jk, ck in key_map.items():
                 if jk in data:
                     defaults[ck] = data[jk]
@@ -90,6 +91,7 @@ MICRO_ARC_MIN_REPEAT = _th["MICRO_ARC_MIN_REPEAT"]
 MICRO_ARC_MIN_PARAGRAPHS = _th["MICRO_ARC_MIN_PARAGRAPHS"]
 DIALOG_MARKER_DOMINANCE = _th["DIALOG_MARKER_DOMINANCE"]
 DIALOG_MARKER_MIN_TOTAL = _th["DIALOG_MARKER_MIN_TOTAL"]
+DIALOG_EMOTION_COMMENTARY_MIN_HITS = _th["DIALOG_EMOTION_COMMENTARY_MIN_HITS"]
 CLICHE_HIT_THRESHOLD = _th["CLICHE_HIT_THRESHOLD"]
 DESCRIPTION_PARAGRAPH_MIN_LEN = _th["DESCRIPTION_PARAGRAPH_MIN_LEN"]
 
@@ -359,6 +361,51 @@ def detect_dialog_marker_dominance(text: str) -> Tuple[Optional[str], int, int, 
     return top_verb, top_n, total, top_n / total
 
 
+# v1.2.4 对话后旁白解说情绪词（与 DIALOG_EMOTION_COMMENTARY_MIN_HITS 配合使用）
+# 对话已表达情绪后，叙述用散文"翻译"同一情绪 → AI 最典型行为模式之一
+EMOTION_COMMENTARY_KEYWORDS: List[str] = [
+    # "语气中/里 + 带着/透着/满是/尽是" 模式（几乎总是冗余）
+    "语气中带着", "语气里带着", "语气中透着", "语气里透着",
+    "语气中满是", "语气里满是", "语气中尽是", "语气里尽是",
+    # "话语中/里 + 带着/透着/满是/尽是" 模式（几乎总是冗余）
+    "话语中带着", "话语里带着", "话语中透着", "话语里透着",
+    "话语中满是", "话语里满是", "话语中尽是", "话语里尽是",
+    # "眼中/底/里 + 闪过一丝" 模式（对话后紧跟时冗余）
+    "眼中闪过一丝", "眼底闪过一丝", "眸中闪过一丝",
+    "眼中闪过", "眼底闪过", "眸中闪过",
+    # "心中/里 + 充满了" 模式（对话后紧跟时冗余）
+    "心中充满了", "心里充满了", "内心充满了",
+    "心中满是", "心里满是", "内心满是",
+    # "语气 + 情绪形容词" 模式（对话后紧跟时冗余）
+    "语气冰冷", "语气冷淡", "语气严厉", "语气柔和",
+    "语气温柔", "语气激动", "语气愤怒", "语气悲伤",
+]
+
+
+def detect_post_dialog_emotion_commentary(text: str) -> Tuple[int, List[str]]:
+    """v1.2.4 对话后旁白解说检测。
+
+    模式：对话引号结束后，紧跟的叙述中包含情绪解说词。
+    典型形式：
+    - "对话内容。"他/她的语气中带着几分不悦。
+    - "对话内容。"他/她愤怒地说。
+    - "对话内容。"他/她的话语里满是无奈。
+
+    返回 (命中数, 命中详情列表)。
+    """
+    hits: List[str] = []
+    # 匹配对话后的叙述（引号后50字内）
+    # 支持中文引号「」和英文引号""
+    for quote_pattern in [r'[」"][\s，。！？]?[\s]*.{0,50}', r'"[\s，。！？]?[\s]*.{0,50}']:
+        for match in re.finditer(quote_pattern, text):
+            narration = match.group()
+            for keyword in EMOTION_COMMENTARY_KEYWORDS:
+                if keyword in narration:
+                    hits.append(f"对话后旁白解说: '{keyword}' in '{narration[:40]}'")
+                    break
+    return len(hits), hits
+
+
 def load_outline_meta(outlines_path: Optional[Path]) -> Dict[str, Dict[str, Any]]:
     """读取 outlines/chapters.json，返回 {chapter_no: card}。"""
     meta: Dict[str, Dict[str, Any]] = {}
@@ -584,6 +631,21 @@ def scan_chapter(
             ),
         })
 
+    # 10.7) v1.2.4 对话后旁白解说（防对话已表达情绪后叙述"翻译"同一情绪）
+    emotion_hits, emotion_details = detect_post_dialog_emotion_commentary(text)
+    metrics["dialog_emotion_commentary_hits"] = emotion_hits
+    metrics["dialog_emotion_commentary_details"] = emotion_details
+    if emotion_hits >= DIALOG_EMOTION_COMMENTARY_MIN_HITS:
+        issues.append({
+            "code": "anti_ai_dialog_emotion_commentary",
+            "severity": "medium",
+            "scope": f"chapter {chapter_no}",
+            "detail": (
+                f"对话后旁白解说命中 {emotion_hits} 处 ≥ {DIALOG_EMOTION_COMMENTARY_MIN_HITS}："
+                f"{'; '.join(emotion_details[:3])}"
+            ),
+        })
+
     # 11) 场景类型
     scene_type = (outline_card or {}).get("sceneType") or (outline_card or {}).get("rhythm") or "unknown"
     metrics["scene_type"] = scene_type
@@ -747,8 +809,8 @@ def write_markdown_report(report: Dict[str, Any], md_path: Path) -> None:
         lines.append("")
 
     lines.append("## 各章指标")
-    lines.append("| 章节 | 字数 | 对话% | 独白% | 描写% | 核心事件 | 主谓宾连击 | 开场重复段 | 套路命中 | micro-arc | 对话标记 |")
-    lines.append("|------|------|-------|-------|-------|----------|------------|------------|----------|-----------|----------|")
+    lines.append("| 章节 | 字数 | 对话% | 独白% | 描写% | 核心事件 | 主谓宾连击 | 开场重复段 | 套路命中 | micro-arc | 对话标记 | 旁白解说 |")
+    lines.append("|------|------|-------|-------|-------|----------|------------|------------|----------|-----------|----------|----------|")
     for c in report["chapters"]:
         m = c["metrics"]
         lines.append(
@@ -759,6 +821,7 @@ def write_markdown_report(report: Dict[str, Any], md_path: Path) -> None:
             f"{m['paragraphs_with_repeated_opening']} | {m['cliche_hits']} |"
             f" {m.get('micro_arc_repeat', 0)}×{m.get('micro_arc_fingerprint') or '-'} |"
             f" {m.get('dialog_marker_top', '-')}({m.get('dialog_marker_top_n', 0)}/{m.get('dialog_marker_total', 0)}) |"
+            f" {m.get('dialog_emotion_commentary_hits', 0)} |"
         )
     lines.append("")
 

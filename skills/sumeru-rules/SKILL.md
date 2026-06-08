@@ -1,7 +1,7 @@
 ---
 name: sumeru-rules
 description: 须弥写作全局约束规则（唯一来源）
-version: 1.2.3
+version: 1.2.4
 type: skill
 argument-hint: ""
 disable-model-invocation: true
@@ -420,9 +420,9 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
     [--quiet]
 ```
 
-脚本实现 sumeru-review/SKILL.md §反 AI / 反水文扫描 中定义的 17 项检查 + 8 维反 AI 句式扫描（v1.2.3 新增 2 维：micro_arc + dialog_marker）。
+脚本实现 sumeru-review/SKILL.md §反 AI / 反水文扫描 中定义的 17 项检查 + 9 维反 AI 句式扫描（v1.2.3 新增 2 维：micro_arc + dialog_marker；v1.2.4 新增 1 维：dialog_emotion_commentary）。
 
-### B. 8 维反 AI 句式扫描（v1.2.3 扩展，6→8 维；与脚本阈值同步）
+### B. 9 维反 AI 句式扫描（v1.2.4 扩展，8→9 维；与脚本阈值同步）
 
 | # | 扫描项| 阈值| 严重度 | 处理方式 |
 |---|--------|------|--------|----------|
@@ -434,28 +434,29 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 | 6 | **字数波动**：本批各章字数偏差超过±50% | 超出 | low | 标记补充 |
 | 7 | **段间 micro-arc 模板**（v1.2.3 新增）：4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次| 8+ 段章节 | medium | polish 中度 + 重排段落 |
 | 8 | **对话标记词集中**（v1.2.3 新增）：单一标记词（"说"/"道"/"问道"等）占全部对话标记 ≥ 80% | 总标记 ≥ 5 | medium | polish 中度 + 替换标记词 |
+| 9 | **对话后旁白解说**（v1.2.4 新增）：对话已表达情绪（愤怒/悲伤/冷漠等），紧接的叙述又用散文"翻译"同一情绪——如"你给我滚！"他愤怒地说 / "我不知道怎么办……"她的话语里满是无奈 | ≥ 3 处 | medium | polish 中度：删除情绪旁白解说，保留对话本身；若情绪暗示不足则改为动作细节 |
 
-### C. 水文硬指标（v1.2.2 新增，v1.2.3 扩展黑名单；与脚本同步）
+### C. 水文硬指标（v1.2.2 新增，v1.2.3 扩展黑名单，v1.2.4 编号顺延；与脚本同步）
 
 | # | 扫描项 | 阈值 | 严重度 | 处理方式 |
 |---|--------|------|--------|----------|
-| 9 | 对话占比 | < 5% | medium | polish 中度 + 补对话 |
-| 10 | 内心独白占比 | > 10% | medium | polish 中度 + 改动作暗示 |
-| 11 | **纯描写段落占比** | > 35% | **high 阻断** | 触发子Agent重写，**禁止自动注入描写** |
-| 12 | **核心事件数** | < 1 | **high 阻断** | 触发子Agent重写 |
-| 13 | 时间/场景切换 | 0 | medium | polish 中度 |
-| 14 | **Cliché 套路短语**（v1.2.3 黑名单 40+ → 80+ 词条：增"战斗套路"+"转折模板"+"情绪标签"三类）| ≥ 3 个不同短语 | **high 阻断** | 触发子Agent重写 |
-| 15 | 场景类型占比 | 日常/过渡 > 30% | medium | 调整 rhythm 规划 |
+| 10 | 对话占比 | < 5% | medium | polish 中度 + 补对话 |
+| 11 | 内心独白占比 | > 10% | medium | polish 中度 + 改动作暗示 |
+| 12 | **纯描写段落占比** | > 35% | **high 阻断** | 触发子Agent重写，**禁止自动注入描写** |
+| 13 | **核心事件数** | < 1 | **high 阻断** | 触发子Agent重写 |
+| 14 | 时间/场景切换 | 0 | medium | polish 中度 |
+| 15 | **Cliché 套路短语**（v1.2.3 黑名单 40+ → 80+ 词条：增"战斗套路"+"转折模板"+"情绪标签"三类）| ≥ 3 个不同短语 | **high 阻断** | 触发子Agent重写 |
+| 16 | 场景类型占比 | 日常/过渡 > 30% | medium | 调整 rhythm 规划 |
 
-> **编号说明**：v1.2.2 → v1.2.3 编号顺延 2（新增项占 7/8 位），原 7-13 号顺延为 9-15。
+> **编号说明**：v1.2.2 → v1.2.3 编号顺延 2（新增项占 7/8 位），原 7-13 号顺延为 9-15；v1.2.3 → v1.2.4 新增第 9 项（dialog_emotion_commentary），原 9-15 号不变。
 
 ### D. 扫描结果处理（v1.2.3 修订）
 
 - **critical 命中**（无 —— 当前规则无 critical 级，保留扩展位）→ 立即暂停批次
-- **high 阻断命中**（11/12/14 任一）→ **写 fix-plan.json `type=anti_ai_blocked`**，触发 write 重写流程；父 Agent 不得用"插入 2-4 段描写"方式补字数
-- **medium 命中**（1/2/5/7/8/9/10/13/15 任一）→ **自动触发 polish 轻量级**（不再仅写 changelog 提醒用户）；连续 2 批同章节同问题升级为 high
+- **high 阻断命中**（12/13/15 任一）→ **写 fix-plan.json `type=anti_ai_blocked`**，触发 write 重写流程；父 Agent 不得用"插入 2-4 段描写"方式补字数
+- **medium 命中**（1/2/5/7/8/9/10/11/14/16 任一）→ **自动触发 polish 轻量级**（不再仅写 changelog 提醒用户）；连续 2 批同章节同问题升级为 high
 - **low 命中**（3/4/6 任一）→ 写 changelog，留待 polish 中度时处理
-- **7/8 号新检查说明**：micro_arc / dialog_marker 留 medium 不进阻断，先观察一轮后视情况升级（v1.2.3 灰度策略）
+- **7/8/9 号新检查说明**：micro_arc / dialog_marker / dialog_emotion_commentary 留 medium 不进阻断，先观察一轮后视情况升级（v1.2.3/v1.2.4 灰度策略）
 
 **历史兼容性**：v1.2.1 及之前的"`anti-ai-flagged` 章节 → 记录到 changelog，不阻塞"已废弃。新行为：从 passive 提醒升级为 active 联动。
 

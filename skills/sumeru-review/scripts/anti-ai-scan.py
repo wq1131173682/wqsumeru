@@ -43,77 +43,97 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# ---------------------------------------------------------------------------
-# 阈值（与 sumeru-rules/SKILL.md 第十部分·三 + sumeru-write/SKILL.md §叙事效率 同步）
-# ---------------------------------------------------------------------------
+_CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
 
-# 6 维反 AI 句式扫描
-SENTENCE_PATTERN_REPEAT = 6   # 连续 N 句全部主谓宾完整 → flag
-SENTENCE_OPENING_REPEAT = 3  # 同一段内连续 N 句以同一主语开头 → flag
-OPENING_SIMILAR_WINDOW = 2   # 同批相邻 N 章开场相似 → flag
-HOOK_SIMILAR_WINDOW = 2      # 同批相邻 N 章结尾钩子句式相似 → flag
-PARAGRAPH_BUFFER_MIN = 1     # 连续 N 段都推进剧情（无缓冲）→ flag
-PARAGRAPH_BUFFER_MAX = 3     # 阈值
-WORD_COUNT_DEVIATION = 0.5   # 字数偏差阈值 ±50%
+def _load_thresholds() -> dict:
+    defaults = {
+        "SENTENCE_PATTERN_REPEAT": 6, "SENTENCE_OPENING_REPEAT": 3,
+        "OPENING_SIMILAR_WINDOW": 2, "HOOK_SIMILAR_WINDOW": 2,
+        "PARAGRAPH_BUFFER_MIN": 1, "PARAGRAPH_BUFFER_MAX": 3,
+        "WORD_COUNT_DEVIATION": 0.5,
+        "DIALOGUE_RATIO_MIN": 0.05, "MONOLOGUE_RATIO_MAX": 0.10,
+        "DESCRIPTION_RATIO_MAX": 0.35, "CORE_EVENTS_MIN": 1,
+        "TIME_SCENE_SWITCH_MIN": 1, "TRANSITION_SCENE_MAX_RATIO": 0.30,
+        "MICRO_ARC_WINDOW": 4, "MICRO_ARC_MIN_REPEAT": 2,
+        "MICRO_ARC_MIN_PARAGRAPHS": 8,
+        "DIALOG_MARKER_DOMINANCE": 0.80, "DIALOG_MARKER_MIN_TOTAL": 5,
+        "CLICHE_HIT_THRESHOLD": 3, "DESCRIPTION_PARAGRAPH_MIN_LEN": 80,
+    }
+    try:
+        cfg_file = _CONFIG_DIR / "anti-ai-thresholds.json"
+        if cfg_file.exists():
+            data = json.loads(cfg_file.read_text("utf-8"))
+            key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN"}
+            for jk, ck in key_map.items():
+                if jk in data:
+                    defaults[ck] = data[jk]
+    except Exception:
+        pass
+    return defaults
 
-# 水文硬指标（sumeru-write/SKILL.md §叙事效率通用自检）
-DIALOGUE_RATIO_MIN = 0.05     # 对话占比下限
-MONOLOGUE_RATIO_MAX = 0.10    # 内心独白占比上限
-DESCRIPTION_RATIO_MAX = 0.35  # 纯描写段落占比上限
-CORE_EVENTS_MIN = 1           # 核心事件数下限
-TIME_SCENE_SWITCH_MIN = 1     # 时间/场景切换数下限
+_th = _load_thresholds()
+SENTENCE_PATTERN_REPEAT = _th["SENTENCE_PATTERN_REPEAT"]
+SENTENCE_OPENING_REPEAT = _th["SENTENCE_OPENING_REPEAT"]
+OPENING_SIMILAR_WINDOW = _th["OPENING_SIMILAR_WINDOW"]
+HOOK_SIMILAR_WINDOW = _th["HOOK_SIMILAR_WINDOW"]
+PARAGRAPH_BUFFER_MIN = _th["PARAGRAPH_BUFFER_MIN"]
+PARAGRAPH_BUFFER_MAX = _th["PARAGRAPH_BUFFER_MAX"]
+WORD_COUNT_DEVIATION = _th["WORD_COUNT_DEVIATION"]
+DIALOGUE_RATIO_MIN = _th["DIALOGUE_RATIO_MIN"]
+MONOLOGUE_RATIO_MAX = _th["MONOLOGUE_RATIO_MAX"]
+DESCRIPTION_RATIO_MAX = _th["DESCRIPTION_RATIO_MAX"]
+CORE_EVENTS_MIN = _th["CORE_EVENTS_MIN"]
+TIME_SCENE_SWITCH_MIN = _th["TIME_SCENE_SWITCH_MIN"]
+TRANSITION_SCENE_MAX_RATIO = _th["TRANSITION_SCENE_MAX_RATIO"]
+MICRO_ARC_WINDOW = _th["MICRO_ARC_WINDOW"]
+MICRO_ARC_MIN_REPEAT = _th["MICRO_ARC_MIN_REPEAT"]
+MICRO_ARC_MIN_PARAGRAPHS = _th["MICRO_ARC_MIN_PARAGRAPHS"]
+DIALOG_MARKER_DOMINANCE = _th["DIALOG_MARKER_DOMINANCE"]
+DIALOG_MARKER_MIN_TOTAL = _th["DIALOG_MARKER_MIN_TOTAL"]
+CLICHE_HIT_THRESHOLD = _th["CLICHE_HIT_THRESHOLD"]
+DESCRIPTION_PARAGRAPH_MIN_LEN = _th["DESCRIPTION_PARAGRAPH_MIN_LEN"]
 
-# 场景类型占比（防止日常/过渡拖剧情）
-TRANSITION_SCENE_MAX_RATIO = 0.30
+def _load_cliches() -> list:
+    defaults = [
+        "夕阳西下", "夜色渐浓", "夜幕降临", "晨曦初露", "月光如水",
+        "微风拂面", "微风徐来", "清风徐来", "寒风凛冽", "阳光明媚",
+        "星光点点", "繁星满天", "雪花飘飘", "细雨绵绵",
+        "眼中闪过一抹", "眼底闪过", "眸中闪过",
+        "心头一震", "心中一凛", "心中暗道", "不禁感叹",
+        "让人不禁", "不由得心中", "让人忍不住",
+        "剑眉星目", "身材高挑", "亭亭玉立", "风华绝代",
+        "国色天香", "倾国倾城", "貌美如花",
+        "他沉默了片刻", "她沉默了片刻", "沉默片刻后",
+        "他深吸一口气", "她深吸一口气", "深深地吸了一口气",
+        "缓缓开口", "缓缓说道", "缓缓地开口",
+        "新的一天开始了", "又是一天", "不知不觉间",
+        "你来我往", "不分胜负", "不相上下", "棋逢对手", "难分难解",
+        "数百回合", "数十回合", "数招之后", "数合之后",
+        "势均力敌", "旗鼓相当", "不相伯仲",
+        "身形一闪", "身形一晃", "身形暴退", "身形一滞",
+        "然而就在这时", "就在这时", "就在此时", "就在此刻",
+        "不料", "岂料", "哪知", "哪想到", "却不想",
+        "忽然之间", "猛然间", "刹那间", "电光火石间",
+        "说时迟那时快", "话音未落", "话音刚落",
+        "愤怒的他", "愤怒的她", "激动的他", "激动的她",
+        "温柔的眼眸", "冰冷的眼神", "深邃的眼眸", "锐利的目光",
+        "紧握的拳头", "颤抖的双手", "冰冷的双手",
+        "心中充满了", "心里充满了", "内心充满了",
+        "不由得感到", "不禁感到", "让人感到",
+    ]
+    try:
+        cfg_file = _CONFIG_DIR / "cliche-blacklist.json"
+        if cfg_file.exists():
+            data = json.loads(cfg_file.read_text("utf-8"))
+            if isinstance(data, dict) and "cliches" in data:
+                items = [v for cat in data["cliches"].values() for v in cat]
+                if items:
+                    return items
+    except Exception:
+        pass
+    return defaults
 
-# v1.3.4 段间 micro-arc 结构指纹（防止套用"动作-心理-环境-对话"等固定循环）
-MICRO_ARC_WINDOW = 4           # 滑动窗口长度（段）
-MICRO_ARC_MIN_REPEAT = 2       # 同一指纹出现 ≥ 2 次即视为模板
-MICRO_ARC_MIN_PARAGRAPHS = 8   # 章节至少 N 段才检查（短章跳过）
-
-# v1.3.4 对话标记词集中度（防止整章只用"XX说"或只用"XX道"）
-DIALOG_MARKER_DOMINANCE = 0.80  # 最高频标记词占比阈值
-DIALOG_MARKER_MIN_TOTAL = 5     # 对话标记词总数下限
-
-# Cliché 黑名单（高密度命中即视为水文信号）
-CLICHE_BLACKLIST: List[str] = [
-    # 景色 / 时间 / 环境填充
-    "夕阳西下", "夜色渐浓", "夜幕降临", "晨曦初露", "月光如水",
-    "微风拂面", "微风徐来", "清风徐来", "寒风凛冽", "阳光明媚",
-    "星光点点", "繁星满天", "雪花飘飘", "细雨绵绵",
-    # 表情 / 眼神（高度套路化）
-    "眼中闪过一抹", "眼底闪过", "眸中闪过",
-    "心头一震", "心中一凛", "心中暗道", "不禁感叹",
-    "让人不禁", "不由得心中", "让人忍不住",
-    # 外貌（千人一面）
-    "剑眉星目", "身材高挑", "亭亭玉立", "风华绝代",
-    "国色天香", "倾国倾城", "貌美如花",
-    # 动作（机械重复）
-    "他沉默了片刻", "她沉默了片刻", "沉默片刻后",
-    "他深吸一口气", "她深吸一口气", "深深地吸了一口气",
-    "缓缓开口", "缓缓说道", "缓缓地开口",
-    # 句式（开场 + 结尾填充）
-    "新的一天开始了", "又是一天", "不知不觉间",
-    # v1.3.4 扩展：战斗套路（网文专属）
-    "你来我往", "不分胜负", "不相上下", "棋逢对手", "难分难解",
-    "数百回合", "数十回合", "数招之后", "数合之后",
-    "势均力敌", "旗鼓相当", "不相伯仲",
-    "身形一闪", "身形一晃", "身形暴退", "身形一滞",
-    # v1.3.4 扩展：转折模板（连接词机械重复）
-    "然而就在这时", "就在这时", "就在此时", "就在此刻",
-    "不料", "岂料", "哪知", "哪想到", "却不想",
-    "忽然之间", "猛然间", "刹那间", "电光火石间",
-    "说时迟那时快", "话音未落", "话音刚落",
-    # v1.3.4 扩展：情绪标签（形容词+名词定语机械搭配）
-    "愤怒的他", "愤怒的她", "激动的他", "激动的她",
-    "温柔的眼眸", "冰冷的眼神", "深邃的眼眸", "锐利的目光",
-    "紧握的拳头", "颤抖的双手", "冰冷的双手",
-    "心中充满了", "心里充满了", "内心充满了",
-    "不由得感到", "不禁感到", "让人感到",
-]
-
-# Cliché 命中阈值：单章命中 ≥ 3 次不同短语 → flag
-CLICHE_HIT_THRESHOLD = 3
+CLICHE_BLACKLIST: List[str] = _load_cliches()
 
 # 内心独白识别模式（粗略启发式，准确性可接受）
 MONOLOGUE_PATTERNS: List[str] = [
@@ -127,7 +147,6 @@ MONOLOGUE_PATTERNS: List[str] = [
 ]
 
 # 纯描写段落识别（无对话/无动作/无角色提及 + 长度≥80 字 + 句末无引号）
-DESCRIPTION_PARAGRAPH_MIN_LEN = 80
 DESCRIPTION_NARRATIVE_KEYWORDS = [
     "天空", "云", "风", "阳光", "月光", "夜色", "星辰",
     "山", "水", "河", "湖", "海", "林", "树", "草",
@@ -752,7 +771,7 @@ def write_markdown_report(report: Dict[str, Any], md_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="sumeru-review 反 AI / 反水文扫描")
-    parser.add_argument("chapters_dir", help="章节目录，例如 ./chapters/")
+    parser.add_argument("chapters_dir", help="章节目录，例如 .sumeru/chapters/")
     parser.add_argument("--outlines", default=None, help="outlines/chapters.json 路径（可选，用于补充场景类型）")
     parser.add_argument("--output", default=".sumeru/review", help="报告输出目录")
     parser.add_argument("--quiet", action="store_true", help="静默模式：只在有问题时输出摘要")

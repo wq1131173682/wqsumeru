@@ -1,0 +1,7 @@
+{
+  "version": "1.2.1",
+  "level1": {"categories": {"political": ["分裂国家", "颠覆国家", "反动", "反革命"], "pornographic": ["淫秽", "色情", "裸体", "性交", "性器官"], "violence_terror": ["恐怖主义", "极端主义", "自杀", "自焚"], "drugs": ["毒品", "贩毒", "吸毒", "海洛因", "冰毒", "大麻"], "gambling": ["赌博", "赌钱", "赌场"]}},
+  "level2": {"categories": {"gore": ["血腥", "残杀", "肢解", "碎尸", "虐杀"], "vulgar": ["傻逼", "屌丝", "绿茶婊", "脑残"], "medical": ["手术台", "解剖", "尸检"], "minors": ["未成年", "幼女", "萝莉"]}},
+  "level3": {"categories": {"internet_slang": ["yyds", "绝绝子", "破防", "emo"], "controversial": ["女权", "男权", "性别对立"], "redundancy": ["真的真的", "非常非常", "特别特别"]}},
+  "context_sensitive": {"words": ["杀人灭口", "血腥场面", "尸体遍地", "血流成河", "自杀身亡", "性暗示"]}
+}

@@ -231,8 +231,8 @@ def generate_report(analysis_result: Dict, output_dir: str = ".sumeru/review") -
 
 def main():
     parser = argparse.ArgumentParser(description='网文章节字数统计工具')
-    parser.add_argument('--dir', '-d', default='./chapters/',
-                        help='章节文件所在目录 (默认: ./chapters/)')
+    parser.add_argument('--dir', '-d', default='.sumeru/chapters/',
+                        help='章节文件所在目录 (默认: .sumeru/chapters/)')
     parser.add_argument('--pattern', '-p', default=DEFAULT_CHAPTER_PATTERN,
                         help=f'章节文件名匹配正则 (默认: {DEFAULT_CHAPTER_PATTERN})')
     parser.add_argument('--min', type=int, default=DEFAULT_WORD_RANGE[0],

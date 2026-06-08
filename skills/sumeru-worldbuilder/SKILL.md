@@ -92,13 +92,12 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 #### 字段处理细则（接续模式）
 | handoff 字段 | worldbuilder 行为 |
 |--------------|------------------|
-| `anchorStatus = inferred` | 进入 anchor 确认流程；要求用户逐条标 `confirmed` / `user_modified` / `user_added`；全部确认后写回 `.sumeru/creative-anchors.md` 并把字段升级为 `confirmed` |
+| `anchorStatus = pending` | 进入 anchor 确认流程；要求用户逐条标 `confirmed` / `user_modified` / `user_added`；全部确认后写回 `.sumeru/creative-anchors.md` 并把字段升级为 `confirmed` |
 | `anchorStatus = confirmed` | 跳过 anchor 阶段，直接进入 write |
 | `anchorStatus = skipped` | 写一条 warning 到 `.sumeru/issues.md`（"迁移时跳过 anchor，建议补做"），允许用户继续但不弹窗 |
-| `anchorStatus = failed` | **阻断**写阶段，要求补做 anchor；若用户坚持继续则记入 `.sumeru/decisions.md` |
-| `introStatus = inferred` | 引导用户校对 `.sumeru/intro.md`（300-500 字，四要素：困境→转折→冲突→悬念），校对完成标 `校对完成` |
-| `introStatus = 校对完成` | 跳过 intro 阶段 |
-| `introStatus = skipped` / `failed` | 与 anchor 同等级处理 |
+| `introStatus = pending` | 引导用户校对 `.sumeru/intro.md`（300-500 字，四要素：困境→转折→冲突→悬念），校对完成标 `confirmed` |
+| `introStatus = confirmed` | 跳过 intro 阶段 |
+| `introStatus = skipped` | 写一条 warning（"迁移时跳过 intro，建议补做"），允许用户继续 |
 
 #### recommendedNext 字段
 - 读 `recommendedNext`，若为 `/sumeru-worldbuilder 恢复上次创作`，按上表三态处理
@@ -112,7 +111,9 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - 每次接续动作追加一条到 `.sumeru/changelog.md`（时间戳 + 接续状态 + 实际走的分支）
 
 ### 项目状态机
-**阶段顺序**：`init -> topic -> outline -> intro -> anchor -> write -> review -> fix -> polish -> finalize -> build/release`
+**阶段顺序**：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → finalize → build/release`
+
+> **migrate 前缀**：对于已有旧项目（存在 `chapters/` 但缺少 `.sumeru/` 规范目录的项目），第一阶段应为调用 `sumeru-migrate` 完成旧项目迁移规整，再进入 `init`。新项目直接跳过此步。
 
 **章节状态流转**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
 
@@ -176,7 +177,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求→收集需求→topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →review →[fix] →polish →finalize →build/release
+用户需求→收集需求→[migrate? →] topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →review →[fix] →polish →finalize →build/release
                                       →
                               阶段检查点验证
 ```

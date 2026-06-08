@@ -32,25 +32,25 @@ agent: build
 | `sumeru-rules` | 全局约束规则（不直接调用）| —| ❌|
 
 ## 调用链路
-
 ```
-用户需求    │    █┌─────────────────────────────────────────────────────────────││ sumeru-worldbuilder（全流程统筹）                           ││ 负责：项目初始化、阶段推进、状态管理、结果汇总                   │└─────────────────────────────────────────────────────────────│    │    ├─→sumeru-topic        选题策划 →plan.md
-    │    ├─→sumeru-outline      大纲设计 →outline.md, chapters.json, characters/
-    │    ├─→.sumeru/intro.md    简介生成（worldbuilder 内置）    │    ├─→.sumeru/creative-anchors.md  创意锚点确认（worldbuilder 内置）    │    ├─→sumeru-write        章节写作 →chapters/*.md
-    │      │    │      └─ 子Agent并行（最大个，每个≥章）
-    │    ├─→sumeru-review       逻辑审查 →issues.md, fix-plan.json
-    │      │    │      └─ 子Agent并行审查 + 反审验证
-    │    ├─→sumeru-write        修复重写（读取 fix-plan.json）    │    ├─→sumeru-polish       文笔润色 →chapters/*.md（替换原文）
-    │      │    │      └─ 子Agent并行润色
-    │    └─→sumeru-finalize     完稿校验 + 发布导出 →publish/
+用户需求 → worldbuilder → topic(→plan.md)
+                        → outline(→outline.md + chapters.json + characters/)
+                        → intro.md + creative-anchors.md (worldbuilder 内置)
+                        → write(→chapters/*.md, 子Agent并行)
+                        → review(→issues.md + fix-plan.json, 子Agent并行审查)
+                        → write(修复重写, 读 fix-plan.json)
+                        → polish(→chapters/*.md, 子Agent并行润色)
+                        → finalize(→publish/)
 ```
 
-**独立调用**：每为skill 都可以脱福worldbuilder 单独启动，执行自举协议。
+**独立调用**：每个 skill 都可以脱离 worldbuilder 单独启动，执行自举协议。
 ## 状态机
 
 ### 项目状态流转
 ```
 init →topic →outline →intro →anchor →write →review →fix →polish →finalize →build/release
+
+> 旧项目需先执行 `sumeru-migrate` 完成迁移规整（参见 `sumeru-migrate/SKILL.md`），再进入 `init` 阶段。
 ```
 
 ### 章节状态流转
@@ -66,7 +66,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |-------------|------|
 | `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平可|
 | `outline` →`anchor` | `outline.md`、`chapters.json`、`.sumeru/intro.md` 存在 |
-| `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确设|
+| `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确认|
 | `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章 |
 | `review` →`fix` | 问题写入 `issues.md`，重写项写入 `fix-plan.json` |
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
@@ -79,29 +79,16 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |------|------|------|------|
 | `currentStage` | `status.json` | 单向推进 | 项目主流程阶段，参见§项目状态流转 |
 | `chapterStatus.<n>` | `status.json` | 可回退 | 单章状态，参见§章节状态流转 |
-| `migrationHandoff` | `status.json` | **只增不改** | 迁移接续标记；`sumeru-migrate` v1.3.0+ 写入，`sumeru-worldbuilder` 读取。Schema 详见 `sumeru-migrate/SKILL.md` §11.5；接续读取逻辑详见 `sumeru-worldbuilder/SKILL.md` §项目恢复与迁移接续协议 |
+| `migrationHandoff` | `status.json` | **只增不改** | 迁移接续标记（取值：`pending`/`confirmed`/`skipped`）；`sumeru-migrate` v1.3.0+ 写入，`sumeru-worldbuilder` 读取。Schema 详见 `sumeru-migrate/SKILL.md` §11.5；接续读取逻辑详见 `sumeru-worldbuilder/SKILL.md` §项目恢复与迁移接续协议 |
 
 ## 文件索引
 
-### 用户可见文件
-
-| 文件 | 内容 | 生成阶段 |
-|------|------|----------|
-| `plan.md` | 需求、设定、人物、风格、创意策略、术读| topic |
-| `outline.md` | 故事结构、主线、伏笔、分卷与章节规划 | outline |
-| `outlines/chapters.json` | 章节任务单| outline |
-| `characters/*.md` | 人物单| outline |
-| `world.md` | 世界观手写| outline (long/full) |
-| `chapters/*.md` | 正文 | write / polish |
-| `reviews/review-report.md` | 审查报告 | review |
-| `publish/` | 发布产物 | finalize |
-
-### 中间数据（`.sumeru/`）
+### `.sumeru/`（中间数据）
 | 文件/目录 | 内容 |
 |-----------|------|
 | `.sumeru/project.json` | 项目配置 |
 | `.sumeru/status.json` | 阶段和章节状态|
-| `.sumeru/intro.md` | 小说简从|
+| `.sumeru/intro.md` | 小说简介 |
 | `.sumeru/creative-anchors.md` | 创意锚点 |
 | `.sumeru/issues.md` | 问题清单 |
 | `.sumeru/changelog.md` | 变更日志 |
@@ -116,11 +103,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `.sumeru/finalize/` | 完稿阶段数据 |
 
 ### 旧路径兼容（只读）
-| 旧路徎| 新路徎| 说明 |
+| 旧路径 | 新路径 | 说明 |
 |--------|--------|------|
 | `.sumeru/outline/chapter-outlines.json` | `outlines/chapters.json` | 章节任务单|
 | `.sumeru/issues/index.json` | `.sumeru/issues.md` | 问题清单 |
-| `docs/*`、`ideas/*` | `plan.md` | 需汇设定 |
+| `docs/*`、`ideas/*` | `plan.md` | 需求设定 |
 
 ---
 
@@ -128,16 +115,16 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 | 规则 | 说明 |
 |------|------|
-| **适用范围** | 章节写作、章节重写、剧情审查、轻量修复、内容润色、完稿校验、平台导出、章节细纲生或|
+| **适用范围** | 章节写作、章节重写、剧情审查、轻量修复、内容润色、完稿校验、平台导出、章节细纲生成 |
 | **核心原则** | 写正文必须走子agent，单章续写也必须走子agent，父agent绝不写正文|
 | **并行上限** | 最大5 个子agent同时运行 |
 | **分片约束** | 每个子Agent最多负责3 个连续章节|
 | **计算公式** | 所需Agent数= `min(ceil(总章节数 / 3), 5)` |
 | **分配策略** | 按章节顺序连续分组（1-3。-6。-9...）|
-| **上下文约材* | 每个子Agent只接收完成任务所需的精简上下文|
+| **上下文约束** | 每个子Agent只接收完成任务所需的精简上下文|
 
 ## 批次间串行摘要
-每批子Agent完成后，父Agent生成"实际摘要"（≤300字），作为下一执context pack 的输入。context pack 中只保留最过3 批摘要，更早的合并为一行概述。
+每批子Agent完成后，父Agent生成"实际摘要"（≤300字），作为下一批 context pack 的输入。context pack 中只保留最近3 批摘要，更早的合并为一行概述。
 **摘要格式**（纯事实列表）：
 ```
 ## 批次摘要: 第-6章- 事件：主角觉醒系统001)、通过宗门考核(003)、击败外门弟存005)
@@ -150,13 +137,13 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 # 第三部分：子Agent职责边界
 
-**核心原则：子Agent直接写入本组正文章节文件，返回精简状态标记；父Agent负责备份、状态同步、缓存刷新和汇总、*
+**核心原则**：子Agent直接写入本组正文章节文件，返回精简状态标记；父Agent负责备份、状态同步、缓存刷新和汇总。
 
 ## 父Agent职责
 
 | 职责 | 说明 |
 |------|------|
-| 自举 & 环境准备 | 定位项目、读/生成 project.json、status.json、补齐目当|
+| 自举 & 环境准备 | 定位项目、读/生成 project.json、status.json、补齐目录 |
 | Context pack 生成 | 集中生成 context pack，控制 1500-3000 中文字，分发给各子Agent |
 | Cache 摘要读取 | 集中读取 L1 cache 摘要 |
 | 任务卡读取 | 集中读取目标章节任务卡，仅提取本组章节所需字段 |
@@ -197,7 +184,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 题材、平台、字数范围、整体风格。
 ## Current Volume (1-2行
 本卷目标、当前冲突、卷级反转、阶段情绪。
-## Relevant Characters (仅本卷相全
+## Relevant Characters (仅本卷相关
 相关人物的当前状态、目标、关系、语言风格。
 ## Relevant World & Glossary (仅本卷会用到的
 地点、组织、功法、道具、禁用变体。
@@ -229,75 +216,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 具体可执行的过程提醒、```
 
 ## 三、各技能专用部则
-### write 专用
-
-**共享上下文增加*）- Output Requirements 中明确：每章首行 SUMERU_STATUS，多章间 --- 分隔
-
-**任务卡增加*）- 完整的章节任务卡字段（purpose、events、openingHook、outputs、acceptanceCriteria、creativeGoal、freshnessHook、emotionalBeat、readerMemoryPoint、tropeToAvoid、protectedElements、rhythm）
-### review 专用
-
-**共享上下文增加*）- 审查标准（检查类型、严重程度定义）
-- consistency-rules.json 摘要
-
-**任务卡格式*）```markdown
-# Review Cards: {范围}
-
-## Chapter Review Cards
-### 第{N}章「标题。- 检查类型：剧情统一/字数/时间级人物OOC/伏笔/常识
-- 重点检查：{根据章节特点指定}
-- 已知问题：{如有}
-
-## 审查执行提醒
-- 轻量问题直接修复
-- 严重问题写入 fix-plan.json
-```
-
-### polish 专用
-
-**共享上下文增加*）- 风格标杆（具象标杆，300字以内）
-- 润色等级（轻库中度/深度）- 场景类型分布提示
-
-**任务卡格式*）```markdown
-# Polish Cards: {范围}
-
-## Chapter Polish Cards
-### 第{N}章「标题。- 润色等级：{轻度|中度|深度}
-- 场景类型：{打斗/对话/心理/日常/高潮}
-- 重点优化：{如强化爽点"、优化对话"}
-
-## 润色执行提醒
-- 场景类型规则 > 禁止项规则- 副词处理：个人化保留，AI式隔一清一- 标点符号：角色对话用双引号""，微信/信件/大屏等媒介内容用直角引号「」，该规则所有润色等级均执行
-```
-
-**具象标杆格式**）```
-【风格标杆。--场景标杆(第03章--
-[原文段落）00字以内]
-
---对话标杆(第05章--
-[原文段落）00字以内]
-
---情绪标杆(第08章--
-[原文段落）00字以内]
-```
-
-### finalize 专用
-
-**共享上下文增加*）- 待定项列表（最大0个）
-- 待定项上下文（前同00字符）
-**任务卡格式*）```markdown
-# Finalize Cards: {范围}
-
-## Pending Items
-### 待定项1
-- 章节：{N}
-- 词语：{敏感词}
-- 位置：{position}
-- 上下文：{前后100字符}
-- 初步判断：{safe|remove|replace}
-
-## 处理建议
-- 根据上下文判断是否需要修改- 返回 verdict + reason + replacement
-```
+各技能上下文格式已在对应 `SKILL.md` 中定义。父Agent生成 context pack 时按目标技能 `SKILL.md` 中的格式要求写入。
 
 ## 四、文件位置
 所本context pack 写入 `.sumeru/context-packs/`）- `shared-{task}.md`：共享上下文
@@ -339,7 +258,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 各分类键可选，只包含本章有变化的分类。`state_diff` 必须是合法JSON 单行。
 ## 关键约束
 
-- 状态标记必须在输出**第一行*
+- 状态标记必须在输出**第一行**
 - 标记缺失、JSON 不合法、章节号不匹配时，不得更新状态文从
 ## 父Agent处理流程
 
@@ -349,38 +268,41 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 5. 重启后扫提`chapters/*.md` 标记即可重建状态
 ---
 
-# 第六部分：独立调用自举协设
+# 第六部分：独立调用自举协议
 任何 Skill 单独启动时必须执行：
 
 1. **定位项目**：从当前目录向上查找 `.sumeru/project.json` / `plan.md` / `outline.md` / `chapters/` / `outlines/`
-2. **识别版本**：存在`.sumeru/project.json` 按新协议，否则进入兼容模式3. **最小初始化**：缺配置时根据已有文件生成最小配置4. **补齐目录**：按需创建 `.sumeru/cache/` / `context-packs/` / `continuity/` / `issues.md`
+2. **识别版本**：存在`.sumeru/project.json` 按新协议，否则进入兼容模式
+3. **最小初始化**：缺配置时根据已有文件生成最小配置
+4. **补齐目录**：按需创建 `.sumeru/cache/` / `context-packs/` / `continuity/` / `issues.md`
 5. **兼容输入**：旧版`.sumeru/outline/chapter-outlines.json` 只读兼容
-6. **刷新缓存**：相全cache 缺失或过期时生成最小摘要7. **生成 context pack**：缺 context pack 时生成临时pack
+6. **刷新缓存**：相关 cache 缺失或过期时生成最小摘要
+7. **生成 context pack**：缺 context pack 时生成临时 pack
 8. **执行并回写**：更新 `.sumeru/status.json`、cache、issue 文件
 9. **记录变更**：追加到 `.sumeru/changelog.md` 和`.sumeru/decisions.md`
 
 ## Canonical 路径
 
-| 类型 | 新写入路徎| 旧路径处理|
+| 类型 | 新写入路径 | 旧路径处理|
 |------|------------|------------|
-| 项目配置 | `.sumeru/project.json`、`.sumeru/status.json` | 时|
-| 需汇设定/创意 | `plan.md` | `docs/*`、`ideas/*` 只读兼容 |
+| 项目配置 | `.sumeru/project.json`、`.sumeru/status.json` | 无|
+| 需求设定/创意 | `plan.md` | `docs/*`、`ideas/*` 只读兼容 |
 | 大纲/任务单| `outline.md`、`outlines/chapters.json` | `.sumeru/outline/chapter-outlines.json` 只读兼容 |
-| 简从| `.sumeru/intro.md` | 时|
-| 正文 | `chapters/` 或短篇`story.md` | 时|
-| 人物单| `characters/` 目录 | 时|
-| 世界规| `world.md` | 时|
+| 简介 | `.sumeru/intro.md` | 无|
+| 正文 | `chapters/` 或短篇 `story.md` | 无|
+| 人物卡 | `characters/` 目录 | 无|
+| 世界观 | `world.md` | 无|
 | 问题清单 | `.sumeru/issues.md` | `.sumeru/issues/index.json` 只读兼容 |
 | 审查摘要 | `reviews/review-report.md` | 按需生成 |
 | 测试报告 | `tests/` | 按需生成 |
-| 发布产物 | `publish/` | 时|
+| 发布产物 | `publish/` | 无|
 
 ## 旧路径兼容策略
 **原则**：旧路径只读兼容，新写入一律使用canonical 路径。
-| 旧路徎| 兼容方式 | 迁移时机 |
+| 旧路径 | 兼容方式 | 迁移时机 |
 |--------|----------|----------|
-| `.sumeru/outline/chapter-outlines.json` | 读取时自动映射到 `outlines/chapters.json` | 下次写入时迁种|
-| `.sumeru/issues/index.json` | 读取时自动映射到 `.sumeru/issues.md` | 下次写入时迁种|
+| `.sumeru/outline/chapter-outlines.json` | 读取时自动映射到 `outlines/chapters.json` | 下次写入时迁移|
+| `.sumeru/issues/index.json` | 读取时自动映射到 `.sumeru/issues.md` | 下次写入时迁移|
 | `docs/*`、`ideas/*` | 只读引用，不自动迁移 | 用户手动整理 |
 | `docs/glossary.md` | 只读引用，映射到 `plan.md` 术语行| 用户手动整理 |
 | `docs/style-guide.md` | 只读引用，映射到 `.sumeru/cache/style-brief.md` | 用户手动整理 |
@@ -444,26 +366,18 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 }
 ```
 
-**更新规则）* 每批次完成后，父Agent汇总本批所有子Agent的state_diff/char_update/plot_update，合并写入该文件。持续累积，不重置。
+**更新规则** 每批次完成后，父Agent汇总本批所有子Agent的state_diff/char_update/plot_update，合并写入该文件。持续累积，不重置。
 ---
 
 # 第八部分：各 Skill 子Agent职责明细
-
-| Skill | 子Agent核心任务 | 子Agent输入 | 子Agent输出 | 父Agent后续处理 |
-|-------|----------------|------------|------------|----------------|
-| **sumeru-topic** | 生成选题方案 | context pack（题材方向、创意引擎） | 选题方案（pitch + 类型混血 + 金手指变式、反套路策略） | 合并写入 `plan.md`、`.sumeru/topic/` |
-| **sumeru-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 章节细纲 JSON/Markdown + 状态标记 | 合并校验 → 写入 `outlines/chapters.json` → 刷新 cache |
-| **sumeru-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾剧情事实基准+人物/道具/伏笔状态） | 纯正文 + 状态标记 | 剧情统一校验 → 写入 `chapters/` → 备份 → 更新 status → 刷新 continuity cache |
-| **sumeru-review** | 审查与冲突检测 | context pack（章节正文+连续性规则+伏笔追踪表） | 审查报告 + 冲突清单 | 检测 → 写入 `.sumeru/issues.md` → 写重写项到 `fix-plan.json` |
-| **sumeru-polish** | 按标准润色章节 | context pack（正文 style-brief + creative-brief + 审查问题 + 具象标杆） | 润色后正文 + 状态标记 | 备份后直接写入最终正文，更新 status → polished |
-| **sumeru-finalize** | 脚本预处理 + 待定项判断 | 脚本扫描结果（待定项列表，最多 10 个） | 待定项处理建议 | 汇总建议 → 最终校验 → 写入 publish/ → build-manifest |
+> 各技能核心职责见 §一·技能清单。子Agent I/O 详情见各 `SKILL.md`。
 
 ---
 
-# 第九部分：修改边略
+# 第九部分：修改边界
 - `sumeru-review` 直接修复错别字、轻微逻辑补丁、字数不足，不大量重写- `sumeru-polish` 优化文笔/节奏/对话/爽点，不改变主线事实和角色关系- `sumeru-finalize` 专注技术校验和发布格式，不承担剧情重构
 - 下游 Skill 不直接调用上游；需返工时输出结构化计划
-- 正文修改默认产出最终版，修改前保留最小备从
+- 正文修改默认产出最终版，修改前保留最小备份
 ---
 
 # 第十部分：剧情统一门禁与反AI扫描
@@ -473,19 +387,22 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 父Agent写入前检查：
 
-1. **承接检查*：本章必须承接上一章实际结就2. **人物检查*：位置、伤势、战力、关系与 consistency-rules.json 一自3. **道具检查*：归属、消耗、损坏状态一自4. **时间线检查*：事件顺序不倒置；回必梦境/插叙显式标记
-5. **伏笔检查*：已回收伏笔不重文active；新伏笔本ID/首次章节/预期回收方向
-6. **任务卡检查*：不违反 `protectedElements` 和`acceptanceCriteria`
+1. **承接检查**：本章必须承接上一章实际结局
+2. **人物检查**：位置、伤势、战力、关系与 consistency-rules.json 一致
+3. **道具检查**：归属、消耗、损坏状态一致
+4. **时间线检查**：事件顺序不倒置；回忆/梦境/插叙显式标记
+5. **伏笔检查**：已回收伏笔不重复激活；新伏笔记录 ID/首次章节/预期回收方向
+6. **任务卡检查**：不违反 `protectedElements` 和 `acceptanceCriteria`
 
-**处理规则）* critical/high 冲突→暂停写入，写issue 等待仲裁；medium→允许草稿但标记待修复；low→自动修复或记入 changelog
+**处理规则**：critical/high 冲突→暂停写入，写 issue 等待仲裁；medium→允许草稿但标记待修复；low→自动修复或记入 changelog
 
 ## 二、父Agent校验流程
 
 写作/润色完成后，父Agent必须执行以下校验）
 ```
 1. 提取 SUMERU_STATUS 中的 state_diff、char_update、plot_update
-2. 为consistency-rules.json、最过3 批摘要、上一章实际结尾对比3. 检查：
-   - 人物位置冲突（unique_location）   - 道具状态冲突（destroyed_item_used）   - 时间线倒置（timeline_order）   - 战力无因跳跃（power_level_consistency）   - 伤势无因恢复（character_state_regression）   - 已回收伏笔重复激活（foreshadowing_recycled）4. 发现 critical/high 冲突 →暂停写入，生或issue
+2. 比对 consistency-rules.json、最近3 批摘要、上一章实际结尾对比检查：
+   - 人物位置冲突（unique_location）   - 道具状态冲突（destroyed_item_used）   - 时间线倒置（timeline_order）   - 战力无因跳跃（power_level_consistency）   - 伤势无因恢复（character_state_regression）   - 已回收伏笔重复激活（foreshadowing_recycled）4. 发现 critical/high 冲突 →暂停写入，生成 issue
 5. 校验通过 →更新 chapters/、status.json、continuity cache
 ```
 
@@ -577,7 +494,7 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 
 - **过期提醒**：期望回收章节已过时提醒
 - **数量控制**：活跃超过0个时建议回收低优先级
-- **新伏笔规则*：近期设置多个新伏笔时规划回收时间
+- **新伏笔规则**：近期设置多个新伏笔时规划回收时间
 ---
 
 # 第十一部分：输出级别与安全约定
@@ -588,7 +505,7 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 |------|------|----------|
 | `quiet` | 只输出进度和关键节点 | **默认**，日常创作|
 | `normal` | 输出进度 + 阶段总结 + 问题提醒 | 用户明确要求 |
-| `verbose` | 完整输出所有中间报呼| 调试/审查 |
+| `verbose` | 完整输出所有中间报告 | 调试/审查 |
 
 **quiet 模式只输出：** 阶段开始完成通知、进度条、错误和警告。-2 行阶段总结。不输出脚本详细输出、中间报告、技术细节。
 ## 写作安全与原创性
@@ -646,7 +563,7 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 # 第十三部分：平台适配规则索引
 
 平台适配规则按阶段拆分，各阶段职责不重叠）
-| 阶段 | 负责 Skill | 检查内定| 输出 |
+| 阶段 | 负责 Skill | 检查内容| 输出 |
 |------|-----------|----------|------|
 | **选题阶段** | `sumeru-topic` | 风格-平台兼容性矩阵、章节字数平台匹配 | 警告 + `platform-fit.json` |
 | **审查阶段** | `sumeru-review` | 开篇钩子强度、叙事效率（对话/独白/描写占比）、信息密库| 审查报告 + fix-plan |
@@ -720,14 +637,4 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 
 ---
 
-# 第十五部分：脚本索引
 
-| 脚本 | 所屏Skill | 功能 |
-|------|-----------|------|
-| `sumeru-review/scripts/continuity-check.py` | review | 剧情一致性检查|
-| `sumeru-review/scripts/foreshadowing-tracker.py` | review | 伏笔生命周期追踪 |
-| `sumeru-review/scripts/chapter-word-counter.py` | review | 章节字数统计 |
-| `sumeru-finalize/scripts/spell-check.py` | finalize | 错别字检查|
-| `sumeru-finalize/scripts/sensitive-word-filter.py` | finalize | 敏感词检流|
-| `sumeru-finalize/scripts/format-validator.py` | finalize | 格式校验 |
-| `sumeru-finalize/scripts/platform-export.py` | finalize | 平台格式导出 |

@@ -1,0 +1,23 @@
+{
+  "version": "1.2.3",
+  "sentence_pattern_repeat": 6,
+  "sentence_opening_repeat": 3,
+  "opening_similar_window": 2,
+  "hook_similar_window": 2,
+  "paragraph_buffer_min": 1,
+  "paragraph_buffer_max": 3,
+  "word_count_deviation": 0.5,
+  "dialogue_ratio_min": 0.05,
+  "monologue_ratio_max": 0.10,
+  "description_ratio_max": 0.35,
+  "core_events_min": 1,
+  "time_scene_switch_min": 1,
+  "transition_scene_max_ratio": 0.30,
+  "micro_arc_window": 4,
+  "micro_arc_min_repeat": 2,
+  "micro_arc_min_paragraphs": 8,
+  "dialog_marker_dominance": 0.80,
+  "dialog_marker_min_total": 5,
+  "cliche_hit_threshold": 3,
+  "description_paragraph_min_len": 80
+}

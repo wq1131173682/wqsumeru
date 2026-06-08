@@ -7,7 +7,7 @@ sumeru-finalize 通用格式导出脚本
     python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>]
 
 格式: md, txt, clean (正本)
-repair: 按新规则重新导出 publish/
+repair: 按新规则重新导出 .sumeru/publish/
 
 按卷导出: 当 project 根目录下 outlines/chapters.json 包含 volume 字段时自动启用
 """
@@ -290,7 +290,7 @@ def export_all(
     if fmt not in ("md", "txt", "clean"):
         return {"error": f"不支持的格式: {fmt}，支持: md, txt, clean"}
 
-    out_path = Path(output_dir) if output_dir else Path("publish")
+    out_path = Path(output_dir) if output_dir else Path(".sumeru/publish")
     out_path.mkdir(parents=True, exist_ok=True)
 
     files = get_chapter_files(ch_path)
@@ -371,7 +371,7 @@ def export_all(
         return result
 
     # ── md / txt 格式 ──
-    # 格式子目录: publish/md/ 或 publish/txt/
+    # 格式子目录: .sumeru/publish/md/ 或 .sumeru/publish/txt/
     fmt_dir = out_path / fmt
     fmt_dir.mkdir(parents=True, exist_ok=True)
     result["output_dir"] = str(fmt_dir)
@@ -409,7 +409,7 @@ def export_all(
 
 def repair(chapters_dir: str, output_dir: str = None, project_root: str = None) -> Dict:
     """修复已有导出：按新技能规则重新导出（md + txt + clean）"""
-    out_path = Path(output_dir) if output_dir else Path("publish")
+    out_path = Path(output_dir) if output_dir else Path(".sumeru/publish")
     out_path.mkdir(parents=True, exist_ok=True)
 
     results = {}
@@ -456,18 +456,18 @@ def main():
         print("用法: python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>] [--quiet]")
         print()
         print("格式: md, txt, clean")
-        print("  md:    Markdown 格式导出（publish/md/）")
-        print("  txt:   纯文本格式导出（publish/txt/）")
-        print("  clean: 正本导出（publish/clean/，清理 SUMERU_STATUS 注释）")
+        print("  md:    Markdown 格式导出（.sumeru/publish/md/）")
+        print("  txt:   纯文本格式导出（.sumeru/publish/txt/）")
+        print("  clean: 正本导出（.sumeru/publish/clean/，清理 SUMERU_STATUS 注释）")
         print("  repair: 按新规则重新导出 md + txt + clean")
         print()
         print("示例:")
-        print("  python platform-export.py chapters/ md")
-        print("  python platform-export.py chapters/ txt --output publish")
-        print("  python platform-export.py chapters/ md --project .")
-        print("  python platform-export.py chapters/ clean")
-        print("  python platform-export.py chapters/ repair")
-        print("  python platform-export.py chapters/ repair --project .")
+        print("  python platform-export.py .sumeru/chapters/ md")
+        print("  python platform-export.py .sumeru/chapters/ txt --output .sumeru/publish")
+        print("  python platform-export.py .sumeru/chapters/ md --project .")
+        print("  python platform-export.py .sumeru/chapters/ clean")
+        print("  python platform-export.py .sumeru/chapters/ repair")
+        print("  python platform-export.py .sumeru/chapters/ repair --project .")
         sys.exit(1)
 
     chapters_dir = sys.argv[1]

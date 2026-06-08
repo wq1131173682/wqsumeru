@@ -29,7 +29,7 @@ agent: build
 /sumeru-migrate                    # 完整迁移检查与修复
 /sumeru-migrate 仅检查            # 只检查不修复
 /sumeru-migrate 仅迁移路径        # 只迁移旧路径
-/sumeru-migrate 补齐配置           # 只补齐配置文件/sumeru-migrate 补齐人物单        # 只生成缺失的人物单```
+/sumeru-migrate 补齐配置           # 只补齐配置文件/sumeru-migrate 补齐人物卡        # 只生成缺失的人物卡```
 
 ---
 
@@ -47,13 +47,13 @@ agent: build
 ### 1.2 目录结构检查
 | 检查项 | 修复方式 |
 |--------|----------|
-| `chapters/` 不存在| 创建空目当|
-| `characters/` 不存在| 创建空目当|
-| `outlines/` 不存在| 创建空目当|
-| `publish/` 不存在| 创建空目当|
-| `.sumeru/cache/` 不存在| 创建空目当|
-| `.sumeru/context-packs/` 不存在| 创建空目当|
-| `.sumeru/continuity/` 不存在| 创建空目当|
+| `chapters/` 不存在| 创建空目录|
+| `characters/` 不存在| 创建空目录|
+| `outlines/` 不存在| 创建空目录|
+| `publish/` 不存在| 创建空目录|
+| `.sumeru/cache/` 不存在| 创建空目录|
+| `.sumeru/context-packs/` 不存在| 创建空目录|
+| `.sumeru/continuity/` 不存在| 创建空目录|
 
 ### 1.3 旧路径迁移检查
 | 旧路径| 新路径| 迁移方式 |
@@ -117,8 +117,8 @@ agent: build
 
 | 检查项 | 模式 | 缺失时 |
 |--------|------|--------|
-| `.sumeru/creative-anchors.md` | 全部 | 进入 H1：从 plan.md + outline.md 推断 5-7 个锚点，标记 `inferred` |
-| `.sumeru/intro.md` | 全部 | 进入 H2：推断生成 300-500 字简介，标记 `inferred` |
+| `.sumeru/creative-anchors.md` | 全部 | 进入 H1：从 plan.md + outline.md 推断 5-7 个锚点，标记 `pending` |
+| `.sumeru/intro.md` | 全部 | 进入 H2：推断生成 300-500 字简介，标记 `pending` |
 | `.sumeru/status.json.migrationHandoff` | 全部 | 进入 H3：写入 handoff 字段 |
 | `.sumeru/context-packs/` | long/full | 进入 H4：初始化空目录 |
 | `.sumeru/continuity/consistency-rules.json` | long/full | 进入 H5：从章节 `SUMERU_STATUS.state_diff` 合并重建 |
@@ -190,7 +190,7 @@ agent: build
 | `chapters/` 已有文件 | `currentStage` |
 | 章节平均字数 | `chapterWordRange` |
 
-**推断不出的字段*：使用默认值，标记不`inferred`。
+**推断不出的字段*：使用默认值，标记不`pending`。
 ---
 
 ## 四、status.json 推断规则
@@ -322,7 +322,7 @@ agent: build
 | 001 | 旧| ✅完整 |
 | 002 | openingHook, freshnessHook | 🔧 已补关/ ⚠️ 待补关|
 
-### 人物单| 人物 | 状态|
+### 人物卡| 人物 | 状态|
 |------|------|
 | 主角 | ✅已生成|
 | 反派 | ⚠️ 待补充详情|
@@ -330,7 +330,7 @@ agent: build
 ### 接续准备（v1.3.0 新增）
 | 步骤 | 文件 | 状态 | 备注 |
 |------|------|------|------|
-| H1 anchor | `.sumeru/creative-anchors.md` | ✅已推断 / ⏭️skipped / ❌失败 | {n} 个锚点,全部 `inferred` |
+| H1 anchor | `.sumeru/creative-anchors.md` | ✅已推断 / ⏭️skipped / ❌失败 | {n} 个锚点,全部 `pending` |
 | H2 intro | `.sumeru/intro.md` | ✅已推断 / ⏭️skipped / ❌失败 | 字数 {n} |
 | H3 handoff | `status.json.migrationHandoff` | ✅已写入 / ❌失败 | 写入 `recommendedNext` |
 | H4 context-packs | `.sumeru/context-packs/` | ✅已初始化 / ⏭️非 long/full / ❌失败 | — |
@@ -361,7 +361,7 @@ cat .sumeru/intro.md      # 校对
 /sumeru-worldbuilder 恢复上次创作
 # 系统会按 migrationHandoff 字段：
 #   - 跳过 topic / outline 阶段
-#   - 进入"锚点确认"流程（inferred 锚点逐条确认）
+#   - 进入"锚点确认"流程（pending 锚点逐条确认）
 #   - 确认后自动进入 write 续作
 ```
 
@@ -397,8 +397,8 @@ cat .sumeru/intro.md      # 校对
 |------|-----|
 | 已完成章节 | {n} / {plannedChapters} |
 | 字段补齐 | {a} / {b} 章 |
-| 锚点状态 | {inferred / confirmed / skipped} |
-| 简介状态 | {inferred / 校对完成 / skipped} |
+| 锚点状态 | {pending / confirmed / skipped} |
+| 简介状态 | {pending / confirmed / skipped} |
 | 下一可写章节 | {next_chapter} |
 | 接续状态 | {ready / partial / failed} |
 ```
@@ -418,8 +418,8 @@ cat .sumeru/intro.md      # 校对
 
 ---
 
-## 十、独立调用自不
-1. 定位项目根目当2. 执行项目扫描
+## 十、独立调用说明
+1. 定位项目根目录2. 执行项目扫描
 3. 生成迁移计划
 4. 询问用户确认
 5. 执行迁移
@@ -449,8 +449,8 @@ cat .sumeru/intro.md      # 校对
 
 | 步骤 | 检查项 | 缺失时的处理 |
 |------|--------|--------------|
-| **H1** | `.sumeru/creative-anchors.md` 是否存在 | 从 `plan.md` + `outline.md` 推断 5-7 个候选锚点，写入文件，全部标记 `inferred`（待用户确认） |
-| **H2** | `.sumeru/intro.md` 是否存在 | 从 `plan.md` 提取标题/受众/主角名，从 `outline.md` 提取主线冲突，生成 300-500 字简介，标记 `inferred` |
+| **H1** | `.sumeru/creative-anchors.md` 是否存在 | 从 `plan.md` + `outline.md` 推断 5-7 个候选锚点，写入文件，全部标记 `pending`（待用户确认） |
+| **H2** | `.sumeru/intro.md` 是否存在 | 从 `plan.md` 提取标题/受众/主角名，从 `outline.md` 提取主线冲突，生成 300-500 字简介，标记 `pending` |
 | **H3** | `.sumeru/status.json` 是否含 `migrationHandoff` 字段 | 写入 `{version, migratedAt, fromVersion, recommendedNext}` |
 | **H4** | `.sumeru/context-packs/` 是否存在（仅 long/full 模式） | 按 `sumeru-rules` 第七部分 Schema 初始化空目录 |
 | **H5** | `.sumeru/continuity/consistency-rules.json` 是否存在（仅 long/full 模式） | 扫描所有章节 `SUMERU_STATUS` 的 `state_diff` 合并生成 |
@@ -480,19 +480,19 @@ cat .sumeru/intro.md      # 校对
 ```markdown
 # 创意锚点（Creative Anchors）
 
-> 状态：⚠️ **inferred**（迁移推断，待用户确认）
+> 状态：⚠️ **pending**（迁移推断，待用户确认）
 > 生成时间：{timestamp}
 > 推断来源：plan.md, outline.md, chapters/*.md
 
 | # | 类型 | 锚点 | 来源 | 状态 |
 |---|------|------|------|------|
-| 1 | 核心反差 | {推断的锚点} | plan.md §核心设定 | inferred |
-| 2 | 情感锚 | {推断的锚点} | outline.md §主线 | inferred |
-| 3 | 设定钩子 | {推断的锚点} | plan.md §世界观 | inferred |
+| 1 | 核心反差 | {推断的锚点} | plan.md §核心设定 | pending |
+| 2 | 情感锚 | {推断的锚点} | outline.md §主线 | pending |
+| 3 | 设定钩子 | {推断的锚点} | plan.md §世界观 | pending |
 | ... | | | | |
 
 ## 确认提示
-请用 `/sumeru-worldbuilder {原题材} 锚点确认` 逐条确认、修改或新增，确认后状态从 `inferred` 改为 `confirmed` / `user_modified` / `user_added`。
+请用 `/sumeru-worldbuilder {原题材} 锚点确认` 逐条确认、修改或新增，确认后状态从 `pending` 改为 `confirmed` / `user_modified` / `user_added`。
 ```
 
 ### 11.4 intro.md 补做规则（H2 详细）
@@ -502,7 +502,7 @@ cat .sumeru/intro.md      # 校对
 ```markdown
 # {作品名}
 
-> 状态：⚠️ inferred（迁移推断，待用户校对）
+> 状态：⚠️ pending（迁移推断，待用户校对）
 > 字数：{实际字数}（建议 300-500 字）
 
 ## 基本信息
@@ -533,8 +533,8 @@ cat .sumeru/intro.md      # 校对
     "migratedAt": "2026-06-05T12:00:00Z",
     "fromVersion": "1.0.0",
     "migratedBy": "sumeru-migrate",
-    "anchorStatus": "inferred",
-    "introStatus": "inferred",
+    "anchorStatus": "pending",
+    "introStatus": "pending",
     "continuityRebuilt": true,
     "recommendedNext": "/sumeru-worldbuilder 恢复上次创作"
   }
@@ -543,8 +543,8 @@ cat .sumeru/intro.md      # 校对
 
 `worldbuilder 恢复` 检测到 `migrationHandoff` 字段时：
 - 跳过 topic / outline 阶段（已完成）
-- 跳到 intro 校对（如果 anchorStatus / introStatus 为 inferred）
-- 然后到 anchor 确认（`inferred` 锚点逐条确认）
+- 跳到 intro 校对（如果 anchorStatus / introStatus 为 pending）
+- 然后到 anchor 确认（`pending` 锚点逐条确认）
 - 最后到当前实际章节续作
 
 ### 11.6 续作建议输出格式
@@ -570,7 +570,7 @@ cat .sumeru/intro.md
 ```bash
 /sumeru-worldbuilder 恢复上次创作
 # → 系统会自动进入"锚点确认"流程
-# → 逐条确认 inferred 锚点
+# → 逐条确认 pending 锚点
 # → 确认后进入续作阶段
 ```
 
@@ -587,8 +587,8 @@ cat .sumeru/intro.md
 | 已完成章节 | {n} / {plannedChapters} |
 | 章节状态 | {按状态分布} |
 | 字段补齐 | {补齐章节数} / {总章节数} |
-| 锚点状态 | inferred（待确认） |
-| 简介状态 | inferred（待校对） |
+| 锚点状态 | pending（待确认） |
+| 简介状态 | pending（待校对） |
 | 下一可写章节 | {下一个 planned 章节号} |
 ```
 
@@ -612,8 +612,8 @@ cat .sumeru/intro.md
 1. 读取 .sumeru/status.json
 2. 检查 migrationHandoff 字段
 3. 如果存在：
-   a. if anchorStatus == "inferred" → 跳到 anchor 确认
-   b. elif introStatus == "inferred" → 跳到 intro 校对
+   a. if anchorStatus == "pending" → 跳到 anchor 确认
+   b. elif introStatus == "pending" → 跳到 intro 校对
    c. else → 跳到当前 actualStage
 4. 如果不存在：
    a. 检查 .sumeru/migration.json（migrate 旧版产物）

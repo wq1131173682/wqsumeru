@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 
 # 默认词库路径
-DEFAULT_WORDLIB_PATH = Path(__file__).parent / "sensitive-words.json"
+DEFAULT_WORDLIB_PATH = Path(__file__).resolve().parent.parent / "config" / "sensitive-words.json"
 
 
 def load_wordlib(custom_path: str = None) -> Dict[str, Any]:
@@ -216,10 +216,10 @@ def main():
     if len(sys.argv) < 2:
         print("用法: python sensitive-word-filter.py <章节目录> [--output <输出文件>] [--level <1|2|3>] [--custom <词库路径>] [--quiet]")
         print("\n示例:")
-        print("  python sensitive-word-filter.py chapters/")
-        print("  python sensitive-word-filter.py chapters/ --level 2")
-        print("  python sensitive-word-filter.py chapters/ --custom my-words.json")
-        print("  python sensitive-word-filter.py chapters/ --quiet")
+        print("  python sensitive-word-filter.py .sumeru/chapters/")
+        print("  python sensitive-word-filter.py .sumeru/chapters/ --level 2")
+        print("  python sensitive-word-filter.py .sumeru/chapters/ --custom my-words.json")
+        print("  python sensitive-word-filter.py .sumeru/chapters/ --quiet")
         sys.exit(1)
     
     chapters_dir = sys.argv[1]

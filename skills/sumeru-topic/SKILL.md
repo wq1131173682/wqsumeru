@@ -1,7 +1,7 @@
 ---
 name: sumeru-topic
 description: 网文选题策划与创意架构
-version: 1.2.0
+version: 1.2.1
 type: skill
 argument-hint: "[题材类型] [核心关键词] [平台] [受众] [篇幅]"
 disable-model-invocation: false

@@ -48,7 +48,7 @@ FORMAT_RULES = {
         ':': '：',
         ';': '；',
         '"': '"',
-        "'": ''',
+        "'": "'",
     },
 }
 
@@ -279,9 +279,9 @@ def main():
     if len(sys.argv) < 2:
         print("用法: python format-validator.py <章节目录> [--output <输出文件>] [--quiet]")
         print("\n示例:")
-        print("  python format-validator.py chapters/")
-        print("  python format-validator.py chapters/ --quiet")
-        print("  python format-validator.py chapters/ --output format-report.json")
+        print("  python format-validator.py .sumeru/chapters/")
+        print("  python format-validator.py .sumeru/chapters/ --quiet")
+        print("  python format-validator.py .sumeru/chapters/ --output format-report.json")
         sys.exit(1)
     
     chapters_dir = sys.argv[1]

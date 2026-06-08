@@ -1,7 +1,7 @@
 ---
 name: sumeru-polish
 description: 小说内容润色优化与创意强化
-version: 1.2.0
+version: 1.2.1
 type: skill
 argument-hint: "[章节范围] [轻度/中度/深度] [目标风格] [优化重点]"
 disable-model-invocation: false
@@ -109,7 +109,7 @@ agent: build
 - `creativeGoal`、`emotionalBeat`、`readerMemoryPoint`、`freshnessHook`（只强化，不篡改）
 ### 必须遵守
 - 术语、人物名、地名、组织名、功法名 → `plan.md` 术语表（旧版 `docs/glossary.md` 只读兼容）
-- 承接上一章实际结尾（剧情统一门禁，见 `sumeru-rules/SKILL.md` 第十部分"剧情统一门禁"）
+- 承接上一章实际结尾（剧情统一门禁，见 `sumeru-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"）
 ### 发现逻辑硬伤
 记录到`.sumeru/polish/logic-notes.json`，格式：
 ```json
@@ -237,8 +237,8 @@ agent: build
 - 生成 context pack（含具象标杆，见第九节）
 - 启动子Agent，传入精简 context pack
 - 收集子Agent输出，检查完整性、顺序、命名
-- 剧情统一校验（承接检查、人物检查、道具检查、时间线检查、伏笔检查）
-- **反AI句式扫描**（详见`sumeru-rules/SKILL.md` 第十部分）
+- **剧情统一校验**：承接检查、人物检查、道具检查、时间线检查、伏笔检查（详见 `sumeru-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"）
+- **反AI句式扫描**（详见 `sumeru-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"）
 - 备份原文件到 `.sumeru/polish/original/`（每章仅保留最新份）
 - 写入润色后正文到 `chapters/`
 - 更新 `.sumeru/status.json`（章节状态改为`polished`）

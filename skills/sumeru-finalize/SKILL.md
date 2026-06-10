@@ -47,6 +47,7 @@ user-invocable: true
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
 - 检查 `chapters/` 是否缺章、重章、命名不规范
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
+- **检查正文是否残留元信息标注**：扫描"视角：""伏笔：""伏笔设置""下一章""下章""预告""本章完""章节小结""剧情推进"等模式，命中则警告并从导出中剥离
 - 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
 - 导出到 `publish/`（包括 `publish/md/`、`publish/txt/`、`publish/clean/`）时必须剥离章节首行的 `SUMERU_STATUS` 注释
 - 若存在 `.sumeru/intro.md`，将简介写入各导出版本的开头

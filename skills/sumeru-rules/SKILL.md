@@ -595,6 +595,7 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 5. 写作/重写/润色后是否通过 SUMERU_STATUS 与 continuity cache 校验
 6. 章节标题和文件名是否符合命名规范（禁止叙事性标题，参见"标题与文件命名规范"）
 7. 发布导出是否剥离 SUMERU_STATUS 注释
+8. **正文是否残留元信息标注**（"视角：""伏笔：""下一章""预告""本章完"等）——写作/润色后自检，finalize 导出时剥离
 
 ## 跨卷连续性检查
 

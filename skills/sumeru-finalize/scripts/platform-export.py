@@ -189,7 +189,7 @@ def format_title(chapter: Dict) -> str:
 
 # ── 导出核心 ──────────────────────────────────────────────
 
-def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str) -> List[Path]:
+def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str, clean_md: bool = True) -> List[Path]:
     """分章导出：每个章节独立文件，第一行仅标题"""
     ch_dir = out_dir / "chapters"
     ch_dir.mkdir(parents=True, exist_ok=True)
@@ -199,7 +199,9 @@ def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str) -> List[Path]
         padded = f"{ch['num']:03d}"
         file_path = ch_dir / f"{padded}.{fmt}"
 
-        content = format_title(ch) + "\n\n" + ch["body"]
+        # 清理md语法（保留纯文本）
+        body = clean_markdown_syntax(ch["body"]) if clean_md else ch["body"]
+        content = format_title(ch) + "\n\n" + body
 
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -209,11 +211,13 @@ def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str) -> List[Path]
     return results
 
 
-def export_full(chapters: List[Dict], out_dir: Path, fmt: str) -> Path:
+def export_full(chapters: List[Dict], out_dir: Path, fmt: str, clean_md: bool = True) -> Path:
     """整文导出：所有章节合并为一个文件，章节之间空行分隔"""
     parts = []
     for ch in chapters:
-        parts.append(format_title(ch) + "\n\n" + ch["body"])
+        # 清理md语法（保留纯文本）
+        body = clean_markdown_syntax(ch["body"]) if clean_md else ch["body"]
+        parts.append(format_title(ch) + "\n\n" + body)
 
     full_text = "\n\n".join(parts)
 
@@ -243,14 +247,14 @@ def group_chapters_by_volume(
 
 
 def export_volume(
-    vol_num: int, chapters: List[Dict], base_dir: Path, fmt: str
+    vol_num: int, chapters: List[Dict], base_dir: Path, fmt: str, clean_md: bool = True
 ) -> Dict:
     """导出单卷内容（分章 + 整文）"""
     vol_dir = base_dir / f"vol-{vol_num:03d}"
     vol_dir.mkdir(parents=True, exist_ok=True)
 
-    chapter_files = export_chapters(chapters, vol_dir, fmt)
-    full_file = export_full(chapters, vol_dir, fmt)
+    chapter_files = export_chapters(chapters, vol_dir, fmt, clean_md)
+    full_file = export_full(chapters, vol_dir, fmt, clean_md)
 
     total_words = sum(
         len(re.findall(r"[\u4e00-\u9fff]", ch["body"])) for ch in chapters
@@ -272,6 +276,35 @@ def clean_body(body: str) -> str:
     while lines and "SUMERU_STATUS" in lines[0]:
         lines = lines[1:]
     return "\n".join(lines).strip()
+
+
+def clean_markdown_syntax(text: str) -> str:
+    """清理Markdown语法，保留纯文本（用于小说平台上传）"""
+    # 移除加粗
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    # 移除斜体
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    # 移除删除线
+    text = re.sub(r'~~(.+?)~~', r'\1', text)
+    # 移除行内代码
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    # 移除标题标记（保留内容）
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+    # 移除分割线
+    text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+    # 移除引用标记
+    text = re.sub(r'^>\s*', '', text, flags=re.MULTILINE)
+    # 移除无序列表标记
+    text = re.sub(r'^[-*+]\s+', '', text, flags=re.MULTILINE)
+    # 移除有序列表标记
+    text = re.sub(r'^\d+\.\s+', '', text, flags=re.MULTILINE)
+    # 移除图片（必须在链接之前，否则链接正则会先吃掉图片的[]部分）
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    # 移除链接，保留文本
+    text = re.sub(r'\[(.+?)\]\(.+?\)', r'\1', text)
+    # 清理多余空行
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text
 
 
 # ── 主导出逻辑 ──────────────────────────────────────────────
@@ -344,10 +377,10 @@ def export_all(
                 "body": clean_body_text,
             })
 
-        # 分章正本
-        ch_files = export_chapters(clean_chapters, clean_dir, "md")
+        # 分章正本（clean格式不清理md语法，保留原始内容）
+        ch_files = export_chapters(clean_chapters, clean_dir, "md", clean_md=False)
         # 整文正本
-        full_file = export_full(clean_chapters, clean_dir, "md")
+        full_file = export_full(clean_chapters, clean_dir, "md", clean_md=False)
 
         # 按卷正本
         vol_results = None
@@ -355,7 +388,7 @@ def export_all(
             vol_groups = group_chapters_by_volume(clean_chapters, volume_map)
             vol_results = []
             for vol_num in sorted(vol_groups.keys()):
-                vresult = export_volume(vol_num, vol_groups[vol_num], clean_dir, "md")
+                vresult = export_volume(vol_num, vol_groups[vol_num], clean_dir, "md", clean_md=False)
                 vol_results.append(vresult)
             result["volumes"] = vol_results
 
@@ -376,11 +409,11 @@ def export_all(
     fmt_dir.mkdir(parents=True, exist_ok=True)
     result["output_dir"] = str(fmt_dir)
 
-    # 分章导出
-    chapter_files = export_chapters(chapters, fmt_dir, fmt)
+    # 分章导出（清理md语法，保留纯文本）
+    chapter_files = export_chapters(chapters, fmt_dir, fmt, clean_md=True)
 
     # 整文导出
-    full_file = export_full(chapters, fmt_dir, fmt)
+    full_file = export_full(chapters, fmt_dir, fmt, clean_md=True)
 
     # 按卷导出
     vol_results = None
@@ -388,7 +421,7 @@ def export_all(
         vol_groups = group_chapters_by_volume(chapters, volume_map)
         vol_results = []
         for vol_num in sorted(vol_groups.keys()):
-            vresult = export_volume(vol_num, vol_groups[vol_num], fmt_dir, fmt)
+            vresult = export_volume(vol_num, vol_groups[vol_num], fmt_dir, fmt, clean_md=True)
             vol_results.append(vresult)
         result["volumes"] = vol_results
 

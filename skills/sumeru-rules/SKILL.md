@@ -22,6 +22,7 @@ agent: build
 | 技能| 职责 | 触发场景 | user-invocable |
 |------|------|----------|----------------|
 | `sumeru-worldbuilder` | 全流程统筹主管| "从零写小说、帮我写本XX类型小说"、初始化项目 | ✅|
+| `sumeru-scan` | 扫榜分析与竞品拆解| "扫榜"、分析热榜"、拆解XX书"、市场调研" | ✅|
 | `sumeru-topic` | 选题策划与创意架构| "不知道写什么、找热门题材、做选题分析" | ✅|
 | `sumeru-outline` | 大纲设计（世界观/人物/分卷/章节细纲）| "写大纲、设计人物"、世界观设定 | ✅|
 | `sumeru-write` | 章节内容创作 | "写第X章、续写"、扩写"、重写"、批量生成" | ✅|
@@ -33,10 +34,11 @@ agent: build
 
 ## 调用链路
 ```
-用户需求 → worldbuilder → topic(→plan.md)
+用户需求 → worldbuilder → scan(可选,→trends.md + benchmarks/ + writing-guide.md)
+                        → topic(→plan.md, 可读取trends.md)
                         → outline(→outline.md + chapters.json + characters/)
                         → intro.md + creative-anchors.md (worldbuilder 内置)
-                        → write(→chapters/*.md, 子Agent并行)
+                        → write(→chapters/*.md, 子Agent并行, 可注入writing-guide.md)
                         → review(→issues.md + fix-plan.json, 子Agent并行审查)
                         → write(修复重写, 读 fix-plan.json)
                         → polish(→chapters/*.md, 子Agent并行润色)
@@ -48,7 +50,7 @@ agent: build
 
 ### 项目状态流转
 ```
-init →topic →outline →intro →anchor →write →review →fix →polish →finalize →build/release
+init →scan(可选) →topic →outline →intro →anchor →write →review →fix →polish →finalize →build/release
 
 > 旧项目需先执行 `sumeru-migrate` 完成迁移规整（参见 `sumeru-migrate/SKILL.md`），再进入 `init` 阶段。
 ```
@@ -64,6 +66,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 | 阶段完成条件 | 说明 |
 |-------------|------|
+| `init` →`scan`(可选) | 用户触发扫榜，生成 `.sumeru/research/` 目录和报告 |
+| `scan` →`topic` | 趋势报告已生成（可选，无scan也可直接进入topic） |
 | `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平可|
 | `outline` →`anchor` | `outline.md`、`chapters.json`、`.sumeru/intro.md` 存在 |
 | `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确认|
@@ -97,6 +101,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `.sumeru/cache/` | 各类摘要缓存 |
 | `.sumeru/context-packs/` | 子Agent上下文包 |
 | `.sumeru/continuity/` | 剧情一致性数据|
+| `.sumeru/research/` | 扫榜分析数据（trends.md、benchmarks/、writing-guide.md） |
 | `.sumeru/topic/` | 选题阶段数据 |
 | `.sumeru/write/` | 写作阶段数据 |
 | `.sumeru/polish/` | 润色阶段数据 |
@@ -296,6 +301,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | 审查摘要 | `reviews/review-report.md` | 按需生成 |
 | 测试报告 | `tests/` | 按需生成 |
 | 发布产物 | `publish/` | 无|
+| 扫榜分析 | `.sumeru/research/`（trends.md、benchmarks/、writing-guide.md） | 无|
 
 ## 旧路径兼容策略
 **原则**：旧路径只读兼容，新写入一律使用canonical 路径。

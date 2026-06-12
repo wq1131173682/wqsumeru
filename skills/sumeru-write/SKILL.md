@@ -274,6 +274,34 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 **文件位置：** `.sumeru/context-packs/`
 
+### 扫榜写作指南注入
+
+当 `.sumeru/research/writing-guide.md` 存在时（由 `sumeru-scan` 生成），父Agent在生成 context pack 时必须：
+
+1. **读取写作指南**：从 `.sumeru/research/writing-guide.md` 读取「七、注入Context Pack指令」section
+2. **注入共享上下文**：将写作指南的关键内容写入 `shared-write.md` 的「写作指南」section
+3. **子Agent参考执行**：子Agent写作时参考写作指南的开篇、爽点、人设、节奏、避坑等要求
+
+**注入格式示例**：
+```markdown
+## 写作指南（基于{平台}{题材}扫榜数据）
+
+### 开篇要求
+- {从writing-guide.md提取}
+
+### 爽点要求
+- {从writing-guide.md提取}
+
+### 人设要求
+- {从writing-guide.md提取}
+
+### 节奏要求
+- {从writing-guide.md提取}
+
+### 避坑要求
+- {从writing-guide.md提取}
+```
+
 ### 输入优先级
 1. 用户本次明确要求
 2. context pack（批量写作首选）
@@ -373,6 +401,7 @@ allowedDeviations（鼓励添加） → 不强制，但鼓励
 
 ### 与其他Skill 配合
 - **前置**：`sumeru-topic` 选题 + `sumeru-outline` 大纲（`plan.md`、`outline.md`、`outlines/chapters.json`）
+- **前置（可选）**：`sumeru-scan` 扫榜分析（`writing-guide.md` 注入context pack）
 - **后续**：供 `sumeru-review`、`sumeru-polish`、`sumeru-finalize` 使用
 
 > 风格样本机制详见 `sumeru-rules/SKILL.md` 第十二部分子Agent精简版规则中的风格样本说明。用户提供样本后父Agent注入 context pack。

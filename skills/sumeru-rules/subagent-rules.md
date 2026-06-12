@@ -103,6 +103,7 @@ type: skill
 
 | Skill | 核心任务 | 输入 | 输出 |
 |-------|----------|------|------|
+| **sumeru-scan** | 深度拆解单本书 | context pack（书籍文本/URL+拆解维度+输出格式） | 标杆拆解卡片（Markdown） |
 | **sumeru-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾+剧情事实基准+人物/道具/伏笔状态） | 纯正文文本 + 状态标记 |
 | **sumeru-review** | 按任务卡审查章节 | context pack（任务卡+正文+审查标准+consistency-rules） | 审查结论（问题列表+严重程度+证据+建议） |
 | **sumeru-polish** | 按标准润色章节 | context pack（正文+style-brief+creative-brief+审查问题+具象标杆） | 润色后正文 + 状态标记 |

@@ -7,7 +7,6 @@ argument-hint: "[章节范围] [仅检查...]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash(python scripts/*.py), task
-model: inherit
 context: project
 agent: build
 ---

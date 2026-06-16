@@ -7,7 +7,7 @@ argument-hint: ""
 disable-model-invocation: true
 user-invocable: false
 allowed-tools: Read
-model: sonnet
+model: inherit
 context: project
 agent: build
 ---

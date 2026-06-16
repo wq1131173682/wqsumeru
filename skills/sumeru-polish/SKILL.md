@@ -7,7 +7,7 @@ argument-hint: "[章节范围] [轻度/中度/深度] [目标风格] [优化重�
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, task
-model: sonnet
+model: inherit
 context: project
 agent: build
 ---

@@ -7,7 +7,7 @@ argument-hint: '[题材] ["核心创意"] [标题"xxx"] [长篇/中篇/短篇] [
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
-model: sonnet
+model: inherit
 context: project
 agent: build
 ---

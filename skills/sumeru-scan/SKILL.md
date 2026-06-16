@@ -7,7 +7,7 @@ argument-hint: "[平台] [题材] [拆解书名/URL] [更新指南]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task, web_fetch
-model: sonnet
+model: inherit
 context: project
 agent: build
 ---

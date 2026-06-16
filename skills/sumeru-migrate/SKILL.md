@@ -7,7 +7,7 @@ argument-hint: "[仅检查/仅迁移路径/补齐配置/补齐人物卡]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
-model: sonnet
+model: inherit
 context: project
 agent: build
 ---

@@ -7,7 +7,6 @@ argument-hint: '[章节号] ["章节概要"] [风格] [字数] [节奏] [视角]
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
-model: inherit
 context: project
 agent: build
 ---

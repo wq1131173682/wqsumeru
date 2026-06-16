@@ -7,7 +7,6 @@ argument-hint: "[题材类型] [核心关键词] [平台] [受众] [篇幅]"
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
-model: inherit
 context: project
 agent: build
 ---

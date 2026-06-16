@@ -7,7 +7,6 @@ argument-hint: ["核心创意描述", "详细/精简/分卷", "复用数据", "�
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
-model: inherit
 context: project
 agent: build
 ---

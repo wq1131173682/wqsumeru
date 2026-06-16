@@ -7,7 +7,6 @@ argument-hint: ""
 disable-model-invocation: true
 user-invocable: false
 allowed-tools: Read
-model: inherit
 context: project
 agent: build
 ---

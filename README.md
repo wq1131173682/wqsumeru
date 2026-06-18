@@ -93,6 +93,9 @@ novel-project/
     ├── decisions.md           # 决策记录
     ├── changelog.md           # 变更日志
     ├── research/              # 调研数据
+    ├── volumes/               # 分卷隔离数据（150+章时启用）
+    │   └── vol-N/             # 每卷含 continuity/cache/characters/outline.md
+    ├── cross-volume/          # 跨卷依赖表、全局时间线、人物索引
     └── .gitkeep               # 占位（确保目录提交）
 ```
 

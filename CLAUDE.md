@@ -42,6 +42,8 @@ skills/
 - `.sumeru/cache/`：摘要缓存
 - `.sumeru/context-packs/`：子Agent上下文包
 - `.sumeru/continuity/`：剧情一致性数据
+- `.sumeru/volumes/`：分卷隔离数据（150+章时启用）
+- `.sumeru/cross-volume/`：跨卷依赖表、全局时间线、人物索引
 
 ## 执行原则
 

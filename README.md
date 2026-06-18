@@ -50,7 +50,7 @@ skills/
 
 ## 📁 小说项目工程化结构
 
-须弥写作推荐把一本小说当作一个长期开发项目维护。根目录只有一个 `NOVEL.md` 文件（给作者看的），其他所有文件都放在 `.sumeru/` 目录下（给AI看的）。
+须弥写作推荐把一本小说当作一个长期开发项目维护。项目结构遵循 `skills/sumeru-rules/SKILL.md` 定义的 Canonical 路径：用户可见文件位于项目根目录（`plan.md`、`outline.md`、`chapters/` 等），AI 内部数据位于 `.sumeru/` 目录下。
 
 ### 篇幅模式
 
@@ -65,14 +65,19 @@ skills/
 ```text
 novel-project/
 ├── NOVEL.md                   # 小说说明（给作者看）：名字、简介、类型、状态、进度
+├── plan.md                    # 需求、设定、人物、风格、创意策略、术语
+├── outline.md                 # 故事架构、主线、伏笔管理表、章节规划
+├── chapters/                  # 正文，按 001-标题.md 命名（短篇可用 story.md）
+├── characters/                # 人物卡（每人一文件）
+├── world.md                   # 世界观手册（long/full 模式）
+├── reviews/                   # 审查报告
+├── tests/                     # 检查报告
+├── publish/                   # 发布产物
 └── .sumeru/                   # 内部数据（给AI看）
     ├── project.json           # 项目配置
     ├── status.json            # 阶段与章节状态
-    ├── plan.md                # 需求、设定、人物、风格、创意策略、术语
-    ├── outline.md             # 故事架构、主线、伏笔管理表、章节规划
-    ├── chapters/              # 正文，按 001-标题.md 命名
-    ├── characters/            # 人物卡（每人一文件）
-    ├── world.md               # 世界观手册（long/full 模式）
+    ├── intro.md               # 小说简介
+    ├── issues.md              # 问题清单
     ├── outlines/              # 章节任务卡
     │   └── chapters.json
     ├── cache/                 # 摘要缓存
@@ -83,15 +88,12 @@ novel-project/
     ├── review/                # 审查阶段数据
     ├── polish/                # 润色阶段数据
     ├── finalize/              # 完稿阶段数据
-    ├── publish/               # 发布产物
-    ├── reviews/               # 审查报告
-    ├── tests/                 # 检查报告
-    ├── issues.md              # 问题清单
-    ├── intro.md               # 小说简介
     ├── creative-anchors.md    # 创意锚点
     ├── backlog.md             # 待办事项
     ├── decisions.md           # 决策记录
-    └── changelog.md           # 变更日志
+    ├── changelog.md           # 变更日志
+    ├── research/              # 调研数据
+    └── .gitkeep               # 占位（确保目录提交）
 ```
 
 ### NOVEL.md 格式
@@ -130,29 +132,31 @@ novel-project/
 ```text
 short-story/
 ├── NOVEL.md
+├── story.md                   # 正文
+├── outline.md                 # 大纲（可选，短篇可省略）
 └── .sumeru/
     ├── project.json
     ├── status.json
-    ├── story.md
-    ├── outline.md
     └── cache/
 ```
 
 ### 关键机制
-- `NOVEL.md`：小说说明，给作者看的唯一文件
+- `NOVEL.md`：小说说明，给作者看的
+- `plan.md`：需求、设定、人物、风格、创意策略和术语的合并文件
+- `outline.md`：故事结构、主线、伏笔管理表、分卷与章节规划摘要
+- `chapters/`：正文目录，按 001-标题.md 命名
+- `characters/`：人物卡目录，每人一文件
+- `world.md`：世界观手册（long/full 模式）
+- `publish/`：发布产物（full.md、full.txt、chapters/ 分章）
+- `reviews/`：审查报告
+- `tests/`：检查报告
 - `.sumeru/project.json`：项目配置，所有 Skill 优先读取
 - `.sumeru/status.json`：阶段状态和章节状态，支持断点恢复
-- `.sumeru/plan.md`：需求、设定、人物、风格、创意策略和术语的合并文件
-- `.sumeru/outline.md`：故事结构、主线、伏笔管理表、分卷与章节规划摘要
-- `.sumeru/chapters/`：正文目录，按 001-标题.md 命名
-- `.sumeru/characters/`：人物卡目录，每人一文件
-- `.sumeru/world.md`：世界观手册（long/full 模式）
 - `.sumeru/outlines/chapters.json`：章节任务卡
 - `.sumeru/cache/`：稳定摘要缓存
 - `.sumeru/context-packs/`：子Agent任务上下文包
 - `.sumeru/continuity/`：剧情一致性数据
 - `.sumeru/issues.md`：问题清单
-- `.sumeru/publish/`：发布产物（full.md、full.txt、chapters/ 分章）
 
 ### 断点恢复与单独调用
 
@@ -160,7 +164,7 @@ short-story/
 
 - 自动定位项目根目录。
 - 读取或生成 `.sumeru/project.json` 和 `.sumeru/status.json`。
-- 从已有 `chapters/`、`publish/`、`.sumeru/outlines/` 推断当前阶段和章节状态。
+- 从已有 `chapters/`、`publish/`、`outlines/` 推断当前阶段和章节状态。
 - 缺少 `.sumeru/cache/` 或 `.sumeru/context-packs/` 时按当前任务生成最小版本，不全量读取项目。
 - 兼容旧版 `.sumeru/outline/chapter-outlines.json`。
 - 完成后回写状态、缓存、changelog 和必要的 issue/test/build 文件。
@@ -513,9 +517,6 @@ npx skills add wq1131173682/wqsumeru
 ├── context-packs/    # write/review/polish/finalize 子Agent上下文包
 ├── topic/            # 选题阶段中间数据
 ├── outline/          # 旧版大纲兼容数据（只读优先）
-├── outlines/         # chapters.json 章节任务卡
-├── reviews/           # 按需生成的逻辑审查报告
-├── tests/             # 按需生成的连贯性/章节验收/伏笔/字数/release 检查
 ├── write/            # 创作阶段中间数据
 │   └── original/     # 原始章节备份（review/polish修改前自动备份）
 ├── review/           # 审查阶段中间数据
@@ -531,6 +532,11 @@ npx skills add wq1131173682/wqsumeru
 ├── plan.md            # 需求、设定、人物、风格、创意策略、术语
 ├── outline.md         # 故事架构、主线、伏笔管理表、分卷与章节规划摘要
 ├── chapters/          # 章节正文（按 001-标题.md 命名）
+├── characters/        # 人物卡（每人一文件）
+├── world.md           # 世界观手册（long/full 模式）
+├── outlines/          # 章节任务卡（chapters.json）
+├── reviews/           # 审查报告
+├── tests/             # 检查报告
 └── publish/           # 完稿导出（full.md、full.txt、chapters/ 分章）
 ```
 

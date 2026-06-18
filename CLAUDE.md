@@ -20,23 +20,28 @@ skills/
 
 ## Canonical 路径
 
-根目录只有 `NOVEL.md`（给作者看的），其他文件都在 `.sumeru/` 目录下（给AI看的）：
+以 `skills/sumeru-rules/SKILL.md` 第三部分·Canonical 路径为准。概要如下：
 
+### 用户可见文件（项目根目录）
 - `NOVEL.md`：小说说明（名字、简介、类型、状态、进度）
+- `plan.md`：需求、设定、人物、风格、创意策略、术语
+- `outline.md`：故事结构、主线、伏笔、分卷与章节规划摘要
+- `chapters/`：正文，按 001-标题.md 命名（短篇可用 `story.md`）
+- `characters/`：人物卡（每人一文件）
+- `world.md`：世界观手册（long/full 模式）
+- `reviews/`：审查报告
+- `tests/`：检查报告
+- `publish/`：发布产物
+
+### AI 内部数据（.sumeru/ 目录）
 - `.sumeru/project.json`：项目配置
 - `.sumeru/status.json`：阶段和章节状态
-- `.sumeru/plan.md`：需求、设定、人物、风格、创意策略、术语
-- `.sumeru/outline.md`：故事结构、主线、伏笔、分卷与章节规划摘要
-- `.sumeru/outlines/chapters.json`：章节任务卡
-- `.sumeru/chapters/` 或 `.sumeru/story.md`：正文
-- `.sumeru/characters/`：人物卡（每人一文件）
-- `.sumeru/world.md`：世界观手册（long/full 模式）
-- `.sumeru/issues.md`：问题清单
 - `.sumeru/intro.md`：小说简介
-- `.sumeru/reviews/`：审查报告
-- `.sumeru/publish/`：发布产物
-
-旧路径如 `plan.md`、`outline.md`、`chapters/`、`characters/`、`world.md`、`publish/` 只读兼容，新写入一律使用 `.sumeru/` 路径。
+- `.sumeru/issues.md`：问题清单
+- `.sumeru/outlines/chapters.json`：章节任务卡
+- `.sumeru/cache/`：摘要缓存
+- `.sumeru/context-packs/`：子Agent上下文包
+- `.sumeru/continuity/`：剧情一致性数据
 
 ## 执行原则
 

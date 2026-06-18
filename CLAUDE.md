@@ -10,6 +10,7 @@ skills/
 ├── sumeru-topic/          # 选题策划（拆自 outline）
 ├── sumeru-outline/        # 大纲设计（拆自 outline）
 ├── sumeru-write/
+├── sumeru-scan/           # 扫榜分析与竞品拆解
 ├── sumeru-review/
 ├── sumeru-polish/
 ├── sumeru-finalize/

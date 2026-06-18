@@ -6,7 +6,7 @@ type: skill
 argument-hint: "[平台] [题材] [拆解书名/URL] [更新指南]"
 disable-model-invocation: false
 user-invocable: true
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task, web_fetch
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task, webfetch
 context: project
 agent: build
 ---
@@ -42,7 +42,7 @@ agent: build
 
 | 来源 | 适用场景 | 实现方式 |
 |------|----------|----------|
-| **网页抓取** | 公开榜单页面 | `web_fetch` 抓取番茄/七猫榜单URL |
+| **网页抓取** | 公开榜单页面 | `webfetch` 抓取番茄/七猫榜单URL |
 | **手动输入** | 用户有截图/文本/特定书单 | 用户粘贴文本，skill解析结构化 |
 
 ### 平台范围
@@ -74,7 +74,7 @@ https://www.qimao.com/rank/{榜单类型}
 ```
 
 ### 抓取策略
-1. **优先抓取web页面**：使用 `web_fetch` 抓取榜单页面HTML
+1. **优先抓取web页面**：使用 `webfetch` 抓取榜单页面HTML
 2. **解析榜单数据**：从HTML中提取书名、作者、题材、简介、排名等信息
 3. **抓取限制**：单次最多抓取榜单前50本，避免过度请求
 4. **缓存机制**：同一天对同一榜单的抓取结果缓存到 `.sumeru/research/cache/`
@@ -705,7 +705,7 @@ https://www.qimao.com/rank/{榜单类型}
 
 | 任务 | 执行者 | 说明 |
 |------|--------|------|
-| 榜单抓取 | 父Agent | web_fetch调用 |
+| 榜单抓取 | 父Agent | webfetch调用 |
 | 单书拆解 | 子Agent并行 | 每个子Agent负责1本书 |
 | 趋势分析 | 父Agent | 汇总所有拆解结果 |
 | 写作指南生成 | 父Agent | 基于趋势+拆解生成 |

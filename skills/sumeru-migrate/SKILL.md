@@ -53,6 +53,8 @@ agent: build
 | `.sumeru/cache/` 不存在| 创建空目录|
 | `.sumeru/context-packs/` 不存在| 创建空目录|
 | `.sumeru/continuity/` 不存在| 创建空目录|
+| `.sumeru/volumes/` 不存在且 chapters ≥ 150 | 提示用户进入「分卷迁移」模式（见第十部分）；非分卷模式可忽略 |
+| `.sumeru/cross-volume/` 不存在且启用分卷模式 | 按 outline.md 推断并初始化（见第十部分·c） |
 
 ### 1.3 旧路径迁移检查
 | 旧路径| 新路径| 迁移方式 |
@@ -112,7 +114,7 @@ agent: build
 ### 1.8 接续文件检查（v1.3.0 新增）
 > **目的**：检查 `sumeru-worldbuilder` 恢复所需的前置文件是否齐全。
 > **范围**：仅完整迁移模式执行；`仅检查` 模式也执行此段以输出诊断报告。
-> **详细处理规则**：见「第十一、接续协议」。
+> **详细处理规则**：见「第十二、接续协议」。
 
 | 检查项 | 模式 | 缺失时 |
 |--------|------|--------|
@@ -129,6 +131,23 @@ agent: build
 - 1.1-1.7 解决"文件是否齐全 / 字段是否完整"——属于**文件层**整顿
 - 1.8 解决"恢复所需文件是否就绪"——属于**流程层**接续
 - 1.8 的处理全部进入第五阶段「接续准备」执行，不阻塞第三阶段「执行迁移」
+
+### 1.9 分卷结构检查（v1.3+ 新增）
+> **目的**：检测项目是否需要/已启用分卷模式，并执行对应的目录初始化。
+> **触发条件**：`chapters/` 文件数 ≥ 150，或 `outline.md` 显式声明分卷数 ≥ 2。
+> **详细处理规则**：见「第十部分·分卷迁移」与 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议。
+
+| 检查项 | 修复方式 |
+|--------|----------|
+| 扁平项目但 chapters ≥ 150 | 仅提示用户「建议升级为分卷模式」，不强制执行；用户需主动调用 `/sumeru-migrate 分卷迁移` 才会进入第十部分 |
+| 分卷模式但缺少 `volumes/` 目录 | 按 chapters 数量和卷大小（150-250 章/卷）计算分卷方案，创建 `.sumeru/volumes/` 并初始化 `vol-001/` 子目录 |
+| 分卷模式但缺少 `cross-volume/` | 从已有数据（`characters/`、`outline.md` 跨卷依赖表、`continuity/`）推断并初始化（见第十部分·c） |
+| 扁平 `outlines/chapters.json` 含 150+ 章 | 提供可选子模式：将全局 chapters.json 按卷拆分到 `vol-N/outlines/chapters.json`（per-volume 优先级 > 全局）；如用户拒绝则保留单一来源 |
+
+**与 1.8 的区别**：
+- 1.8 是"接续协议"，保证 `worldbuilder` 能恢复上次创作
+- 1.9 是"分卷结构协议"，保证分卷模式下数据按卷隔离且跨卷依赖可查
+- 1.9 仅在用户调用 `分卷迁移` 或主动启用分卷模式时执行；完整迁移流程中默认跳过
 
 ---
 
@@ -166,12 +185,22 @@ agent: build
         ├─ 初始化 context-packs/（H4，仅 long/full）
         ├─ 重建 consistency-rules.json（H5，仅 long/full）
         └─ 补全章节 SUMERU_STATUS 标记（H6）
-        → 详见「第十一、接续协议」
+        → 详见「第十二、接续协议」
+
+    └─[第六阶段：分卷迁移] ⭐ v1.3+ 新增（可选，仅在分卷模式时执行）
+        ├─ 计算卷大小与分卷方案
+        ├─ 创建 .sumeru/volumes/vol-N/ 子目录
+        ├─ 初始化 vol-N/continuity/ 与 vol-N/cache/batch-summaries/
+        ├─ 初始化 .sumeru/cross-volume/ 三份文档
+        ├─ 可选：拆分 outlines/chapters.json 到 per-volume
+        └─ 更新 project.json（volumeCount / currentVolume / volumes[]）
+        → 详见「第十部分·分卷迁移」
 ```
 
 **模式区别：**
 - **仅检查 / 仅迁移路径 / 补齐配置 / 补齐人物卡**：执行到第三阶段相应子任务即结束，**不进入第五阶段**
-- **完整迁移**（无子参数）：必须执行全五阶段；第五阶段任意子步骤失败时，整体标记为 `partial`，详见 11.7
+- **完整迁移**（无子参数）：必须执行全五阶段；第五阶段任意子步骤失败时，整体标记为 `partial`，详见 12.7
+- **分卷迁移**（`分卷迁移` 子参数或 chapters ≥ 150 且用户确认）：在前述模式完成后额外执行第六阶段；详见「第十部分·分卷迁移」
 
 ---
 
@@ -409,6 +438,20 @@ cat .sumeru/intro.md      # 校对
 **用户可见输出**：- `migration-report.md`：迁移报命
 **中间数据**：- `.sumeru/backup/`：旧文件备份
 - `.sumeru/migration.json`：迁移记当
+
+**分卷迁移中间数据**（仅在第六阶段执行时生成）：
+- `.sumeru/volumes/vol-N/continuity/consistency-rules.json`：每卷独立一致性规则（空 schema）
+- `.sumeru/volumes/vol-N/continuity/batch-summaries/`：每卷批次摘要目录（空）
+- `.sumeru/volumes/vol-N/cache/batch-summaries/`：每卷缓存批次摘要（空）
+- `.sumeru/volumes/vol-N/outlines/chapters.json`：每卷章节任务卡（可选拆分，按用户确认）
+- `.sumeru/cross-volume/master-characters.md`：全局人物索引
+- `.sumeru/cross-volume/master-timeline.md`：全局时间线主干
+- `.sumeru/cross-volume/dependency-table.md`：跨卷依赖表
+
+**`project.json` 增量字段**（分卷迁移后追加，**不修改**既有字段）：
+- `volumeCount`：分卷数（≥ 2 时启用分卷隔离）
+- `currentVolume`：当前活跃卷 ID（默认 `"vol-001"`）
+- `volumes[vol-N]`：卷详情映射（`title` / `chapterRange` / `status`）
 ---
 
 ## 九、与其他 Skill 配合
@@ -417,7 +460,228 @@ cat .sumeru/intro.md      # 校对
 
 ---
 
-## 十、独立调用说明
+## 十、分卷迁移（Volume Migration，v1.3+ 新增）
+
+> **目标**：将扁平项目升级为分卷模式，或为已分卷项目补齐分卷基础设施。
+> **具体规范**：分卷数据模型、目录结构、激活/降级规则详见 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议；本节仅描述迁移阶段的执行流程。
+
+### 10.1 触发条件
+
+分卷迁移作为**子模式**触发，不会自动执行：
+
+| 触发方式 | 说明 |
+|----------|------|
+| 显式调用 `/sumeru-migrate 分卷迁移` | 用户主动请求升级为分卷模式 |
+| 显式调用 `/sumeru-migrate 启用分卷` | 同上，语义别名 |
+| 1.9 检查项触发 | 完整迁移过程中检测到 `chapters/` ≥ 150 且 `volumes/` 缺失，**仅提示**，不自动执行；需用户回复确认才会进入本节 |
+| `outline.md` 显式声明分卷数 ≥ 2 | 同上，仅提示 |
+
+**与第五阶段接续协议的关系**：分卷迁移是**独立的可选阶段**（第六阶段），不强制与接续协议联动。但完整迁移流程推荐顺序为：先执行第五阶段补做 anchor/intro，再执行第六阶段分卷初始化。
+
+### 10.2 迁移流程
+
+```
+进入分卷迁移模式
+    │
+    ├─[A. 扫描与方案计算]
+    │   ├─ 统计 chapters/ 文件数（总章节数 N）
+    │   ├─ 读取 outline.md 分卷规划（如有）
+    │   ├─ 计算卷数：volumeCount = ceil(N / 200)（按目标 200 章/卷，区间 150-250）
+    │   ├─ 计算每卷章节区间（连续分配）：
+    │   │     vol-001: 1 ~ ceil(N/volumeCount)
+    │   │     vol-002: ... ~ ...
+    │   │     vol-K:   ... ~ N
+    │   ├─ 读取 outline.md 跨卷依赖表（如有）
+    │   └─ 生成迁移方案 → 询问用户确认
+    │
+    ├─[B. 卷目录创建]
+    │   ├─ 创建 .sumeru/volumes/
+    │   ├─ 对每个 vol-N 创建：
+    │   │     .sumeru/volumes/vol-N/continuity/
+    │   │     .sumeru/volumes/vol-N/continuity/batch-summaries/
+    │   │     .sumeru/volumes/vol-N/cache/
+    │   │     .sumeru/volumes/vol-N/cache/batch-summaries/
+    │   │     .sumeru/volumes/vol-N/outlines/    （可选，按 D 执行）
+    │   ├─ 初始化 vol-N/continuity/consistency-rules.json：
+    │   │     {"schemaVersion": "1.3", "volumeId": "vol-N",
+    │   │      "chapterRange": [<start>, <end>], "rules": [], "stateDiff": []}
+    │   └─ vol-N/cache/batch-summaries/ 保持空（待后续批次写入）
+    │
+    ├─[C. 跨卷基础设施创建]
+    │   ├─ 创建 .sumeru/cross-volume/
+    │   ├─ 创建 master-characters.md（见 10.4.a）
+    │   ├─ 创建 master-timeline.md（见 10.4.b）
+    │   └─ 创建 dependency-table.md（见 10.4.c）
+    │
+    ├─[D. chapters.json 拆分（可选）]
+    │   ├─ 询问用户：是否将 outlines/chapters.json 按卷拆分到 per-volume 副本？
+    │   ├─ 用户同意：
+    │   │     ├─ 按 chapterRange 切片
+    │   │     ├─ 写入 vol-N/outlines/chapters.json
+    │   │     └─ 保留根级 outlines/chapters.json 作为单一来源（per-volume 是缓存镜像）
+    │   └─ 用户拒绝：保持单一全局文件不变
+    │
+    ├─[E. project.json 更新]
+    │   ├─ 写入 volumeCount = K
+    │   ├─ 写入 currentVolume = "vol-001"（首个活跃卷）
+    │   ├─ 写入 volumes 映射：
+    │   │     "volumes": {
+    │   │       "vol-001": {"title": "<从 outline.md 提取或占位>",
+    │   │                   "chapterRange": [<start>, <end>],
+    │   │                   "status": "planned"},
+    │   │       ...
+    │   │     }
+    │   └─ 不修改 existing fields（保留 title/genre/audience 等）
+    │
+    └─[F. 报告与变更记录]
+        ├─ 迁移报告追加「分卷迁移结果」段
+        ├─ 写入 changelog.md
+        └─ 更新 status.json（currentVolume 字段保持兼容；不修改 chapterStatus 字段）
+```
+
+### 10.3 卷大小与分配规则
+
+| 参数 | 取值 | 说明 |
+|------|------|------|
+| 目标卷大小 | 200 章/卷 | 推荐值 |
+| 最小卷大小 | 150 章/卷 | 低于此值不切分 |
+| 最大卷大小 | 250 章/卷 | 超出此值强制切分 |
+| 分配方式 | 连续区间 | `vol-001: [1, a]`, `vol-002: [a+1, b]`, ... 末卷补齐余数 |
+| 边界对齐 | 优先 outline.md | 若 outline.md 已声明分卷章节段，**优先采用用户声明**，跳过自动计算 |
+
+### 10.4 跨卷数据生成规则
+
+#### a. `master-characters.md`
+
+从以下来源汇总人物状态：
+
+| 来源 | 提取内容 |
+|------|----------|
+| `characters/*.md` | 全局人物基础信息（姓名、身份、当前状态） |
+| `outline.md` 人物表 | 人物在各卷的出场规划 |
+| `.sumeru/continuity/` | 人物状态快照（如有） |
+
+格式：
+
+```markdown
+# 全局人物索引（Master Characters）
+
+> 生成时间：{timestamp}
+> 来源：characters/, outline.md, .sumeru/continuity/
+> 状态：⚠️ pending（迁移自动生成，待用户校对）
+
+| # | 人物 | 当前卷 | 状态 | 关键转折 | 出场章节 |
+|---|------|--------|------|----------|----------|
+| 1 | {name} | vol-001 | active | {arc point} | {range} |
+| ... |
+```
+
+#### b. `master-timeline.md`
+
+从 `outline.md` 的章节规划生成卷级时间线骨架：
+
+```markdown
+# 全局时间线主干（Master Timeline）
+
+> 生成时间：{timestamp}
+> 来源：outline.md 分卷规划
+
+| 卷 | 章节范围 | 时间锚点 | 关键事件 | 跨卷承诺 |
+|----|----------|----------|----------|----------|
+| vol-001 | 1-200 | {从大纲提取} | {从大纲提取} | — |
+| vol-002 | 201-400 | {从大纲提取} | {从大纲提取} | {来自 vol-001 的承诺} |
+| ... |
+```
+
+**回退**：若 outline.md 无时间线信息，骨架仅含章节范围与卷标题，时间锚点列填 `待规划`。
+
+#### c. `dependency-table.md`
+
+仅当 `outline.md` 显式包含「跨卷依赖表」段时提取；否则创建空模板：
+
+```markdown
+# 跨卷依赖表（Dependency Table）
+
+> 生成时间：{timestamp}
+> 来源：outline.md 跨卷依赖表 / [empty]
+
+| ID | 源卷 | 目标卷 | 类型 | 描述 | 状态 |
+|----|------|--------|------|------|------|
+| D001 | vol-001 | vol-002 | 伏笔 | {从大纲提取} | pending |
+| ... |
+```
+
+### 10.5 chapters.json 拆分策略
+
+**核心原则**：`outlines/chapters.json`（全局）始终是**单一真相源（single source of truth）**；`vol-N/outlines/chapters.json` 是**按卷镜像缓存**。
+
+**优先级规则**（在 sumeru-write / sumeru-review 读取时）：
+1. 如 `vol-N/outlines/chapters.json` 存在 → 优先使用（per-volume）
+2. 否则回退到全局 `outlines/chapters.json` 并按 `chapter` 字段过滤
+
+**拆分方式**：
+```javascript
+// 伪代码
+const globalChapters = readJSON('outlines/chapters.json');
+for each vol-N in volumePlan:
+  const range = volumes[vol-N].chapterRange;
+  const slice = globalChapters.filter(c => c.chapter >= range[0] && c.chapter <= range[1]);
+  writeJSON(`vol-N/outlines/chapters.json`, slice);
+```
+
+**不拆分场景**：用户拒绝、章节数 < 200、或 `outlines/chapters.json` 字段不完整（先执行 1.4 字段补全）。
+
+### 10.6 迁移报告「分卷迁移结果」段
+
+分卷迁移完成后，在 `migration-report.md` 追加：
+
+```markdown
+## 分卷迁移结果
+
+| 卷 | 章节范围 | 状态 | continuity | cache | chapters.json |
+|----|----------|------|------------|-------|----------------|
+| vol-001 | 1-200 | planned | ✅已初始化 | ✅已初始化 | ✅已拆分 / ⏭️保持全局 |
+| vol-002 | 201-400 | planned | ✅已初始化 | ✅已初始化 | ✅已拆分 / ⏭️保持全局 |
+| ... |
+
+### 跨卷基础设施
+- `.sumeru/cross-volume/master-characters.md`：{n} 个人物
+- `.sumeru/cross-volume/master-timeline.md`：{k} 个时间锚点
+- `.sumeru/cross-volume/dependency-table.md`：{m} 条依赖 / [empty]
+
+### project.json 更新
+- `volumeCount`: 0 → {K}
+- `currentVolume`: "" → "vol-001"
+- `volumes`: 新增 {K} 条记录
+```
+
+### 10.7 失败处理
+
+| 失败步骤 | 处理 |
+|----------|------|
+| 卷目录创建失败（权限/磁盘） | 回滚已创建的目录；标记整体 `failed`；报告失败清单 |
+| `consistency-rules.json` 初始化失败 | 跳过该卷；标记 `partial`；后续 review 阶段重建 |
+| `master-characters.md` 生成失败（无 characters/） | 创建空模板，状态 `pending`；worldbuilder 恢复时提示 |
+| chapters.json 拆分中断 | 保留已拆分卷；未完成卷标记 `skipped`；全局文件保留 |
+| project.json 字段写入失败 | **不重写**整个 project.json；仅跳过新增字段；状态标记 `partial` |
+
+### 10.8 与其他阶段的关系
+
+| 阶段 | 与分卷迁移的关系 |
+|------|------------------|
+| 第一阶段（扫描） | 1.9 分卷结构检查项预判是否需要分卷 |
+| 第三阶段（迁移） | 扁平项目升级时，所有 chapters/ 文件**保留在原位置**；分卷目录是镜像/缓存，不移动原始文件 |
+| 第五阶段（接续） | 独立可选；推荐先执行 H1-H3 后再做分卷（保证 anchor/intro 已就绪） |
+| 第六阶段（本节） | 仅在分卷模式激活时执行；不强制 |
+
+**重要约束**：
+- **不移动** `chapters/*.md` 文件到卷目录（卷目录仅放 continuity/cache/outlines）
+- **不修改** `status.json` 的 `chapterStatus` 字段（分卷后由 sumeru-worldbuilder 在卷切换时自动管理 `vol-N/status.json`）
+- **不修改** H1-H6 接续协议字段（`migrationHandoff` 不含分卷信息）
+
+---
+
+## 十一、独立调用说明
 1. 定位项目根目录2. 执行项目扫描
 3. 生成迁移计划
 4. 询问用户确认
@@ -427,14 +691,14 @@ cat .sumeru/intro.md      # 校对
 
 ---
 
-## 十一、接续协议（Handoff Protocol）
+## 十二、接续协议（Handoff Protocol）
 
 > **目标**：确保 `sumeru-migrate` 完成后，项目处于"可被 `sumeru-worldbuilder` 恢复"的就绪状态。
 > **适用版本**：v1.3.0 起。
 >
 > **与 v1.2 的区别**：v1.2 仅完成"文件规整"即结束；v1.3 必须额外完成"接续准备"（补做 anchor / intro / handoff 标记）才算完成迁移。
 
-### 11.1 为什么需要接续协议
+### 12.1 为什么需要接续协议
 
 老/不完整项目迁移后存在三个隐藏缺口，必须在迁移阶段补齐，否则 `worldbuilder 恢复上次创作` 会失准：
 
@@ -442,7 +706,7 @@ cat .sumeru/intro.md      # 校对
 2. **缺失 `intro.md`**（1.2.0 升级为必填）：finalize / publish 阶段可能跳过简介注入。
 3. **缺失 `migrationHandoff` 标记**：`worldbuilder` 无法判断"项目是否经过 migrate"，会按全新项目初始化导致覆盖风险。
 
-### 11.2 接续检查清单（强制执行）
+### 12.2 接续检查清单（强制执行）
 
 完整迁移（`/sumeru-migrate` 不带子参数）必须在「生成报告」之后依次执行以下步骤，缺一不可：
 
@@ -455,7 +719,7 @@ cat .sumeru/intro.md      # 校对
 | **H5** | `.sumeru/continuity/consistency-rules.json` 是否存在（仅 long/full 模式） | 扫描所有章节 `SUMERU_STATUS` 的 `state_diff` 合并生成 |
 | **H6** | `chapters/` 现有文件是否含 `SUMERU_STATUS` 标记 | 旧章节无标记 → 推断状态（按内容关键词 / 文件 mtime / 章节号）后补写 |
 
-### 11.3 anchor 补做规则（H1 详细）
+### 12.3 anchor 补做规则（H1 详细）
 
 `creative-anchors.md` 是 1.2.0 新增的不可违背创意基准。老项目没有这个文件时，**不能跳过、不能直接进入 write**，必须按以下规则推断：
 
@@ -494,7 +758,7 @@ cat .sumeru/intro.md      # 校对
 请用 `/sumeru-worldbuilder {原题材} 锚点确认` 逐条确认、修改或新增，确认后状态从 `pending` 改为 `confirmed` / `user_modified` / `user_added`。
 ```
 
-### 11.4 intro.md 补做规则（H2 详细）
+### 12.4 intro.md 补做规则（H2 详细）
 
 **生成模板**：
 
@@ -521,7 +785,7 @@ cat .sumeru/intro.md      # 校对
 - 必含四要素：困境 → 转折 → 冲突 → 悬念
 - 至少 4 个平台标签
 
-### 11.5 migrationHandoff 字段格式（H3 详细）
+### 12.5 migrationHandoff 字段格式（H3 详细）
 
 `.sumeru/status.json` 顶层追加：
 
@@ -546,7 +810,7 @@ cat .sumeru/intro.md      # 校对
 - 然后到 anchor 确认（`pending` 锚点逐条确认）
 - 最后到当前实际章节续作
 
-### 11.6 续作建议输出格式
+### 12.6 续作建议输出格式
 
 迁移报告末尾追加"续作建议"段（**完整迁移必出，仅检查/仅迁移路径模式可省**）：
 
@@ -591,7 +855,7 @@ cat .sumeru/intro.md
 | 下一可写章节 | {下一个 planned 章节号} |
 ```
 
-### 11.7 失败处理
+### 12.7 失败处理
 
 接续协议任意一步失败的处理：
 
@@ -603,7 +867,7 @@ cat .sumeru/intro.md
 | H5 continuity 重建失败（如章节无 SUMERU_STATUS） | 跳过，标记 `skipped`；review 阶段重建 |
 | H6 旧章节无状态标记 | 按 H6 规则推断；推断失败 → 标记 `unknown`，worldbuilder 恢复时暂停询问用户 |
 
-### 11.8 与 worldbuilder 的接力协议
+### 12.8 与 worldbuilder 的接力协议
 
 `/sumeru-worldbuilder 恢复上次创作` 检测迁移 handoff 的逻辑：
 
@@ -620,7 +884,7 @@ cat .sumeru/intro.md
    c. 如果不存在 → 按全新项目处理（topic → outline → ...）
 ```
 
-### 11.9 状态字段语义对照
+### 12.9 状态字段语义对照
 
 为避免 `migrationHandoff` 与 `status.json` 现有字段冲突，新增字段**只增不改**：
 

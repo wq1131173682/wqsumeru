@@ -97,9 +97,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `.sumeru/changelog.md` | 变更日志 |
 | `.sumeru/decisions.md` | 决策记录 |
 | `.sumeru/backlog.md` | 待办事项 |
-| `.sumeru/cache/` | 各类摘要缓存 |
+| `.sumeru/cache/` | 各类摘要缓存（含 `cache/vol-N/` 分卷子目录） |
 | `.sumeru/context-packs/` | 子Agent上下文包 |
-| `.sumeru/continuity/` | 剧情一致性数据|
+| `.sumeru/continuity/` | 剧情一致性数据（旧版扁平格式）|
+| `.sumeru/volumes/` | 分卷隔离数据：每卷独立 continuity/cache/status（150+章时启用）|
+| `.sumeru/cross-volume/` | 跨卷依赖表、全局时间线主干、全局人物索引 |
 | `.sumeru/research/` | 扫榜分析数据（trends.md、benchmarks/、writing-guide.md） |
 | `.sumeru/topic/` | 选题阶段数据 |
 | `.sumeru/write/` | 写作阶段数据 |
@@ -135,7 +137,10 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 - 人物：主角练气三层→五层，苏瑾轻伤恢复，赵无极首次出在- 道具：黑色残片归主角，回春丹消者构- 伏笔：v1黑衣人身从mentioned)，v2残片来历(active)
 - 情绪：压抑→突破→暗爆```
 
-**存储位置**：`.sumeru/continuity/batch-summaries/batch-001.md`、`batch-002.md`...
+**存储位置（< 150 章）**：`.sumeru/continuity/batch-summaries/batch-001.md`、`batch-002.md`...
+**存储位置（≥ 150 章，分卷模式）**：`.sumeru/volumes/vol-N/continuity/batch-summaries/batch-001.md`...
+
+> **卷边界重置**：卷切换时执行"软重置"——最后1批摘要 + 卷级总结（~500字）保留到新卷 batch-summaries 第一项，更早的摘要归档到 `vol-N-archived/`。
 
 ---
 
@@ -223,8 +228,24 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 各技能上下文格式已在对应 `SKILL.md` 中定义。父Agent生成 context pack 时按目标技能 `SKILL.md` 中的格式要求写入。
 
 ## 四、文件位置
-所本context pack 写入 `.sumeru/context-packs/`）- `shared-{task}.md`：共享上下文
+所有 context pack 写入 `.sumeru/context-packs/`：
+- `shared-{task}.md`：共享上下文
 - `cards-{范围}.md`：本组任务卡
+
+## 五、分卷数据源作用域规则（≥ 150 章时强制）
+
+当项目章节数 ≥ 150（volumes/ 目录存在时），context pack 各字段的数据源必须按以下规则限定作用域：
+
+| Context Pack 字段 | 数据源（非分卷模式） | 数据源（分卷模式） |
+|---|---|---|
+| Project Brief | `plan.md` | 同左（全书级不变） |
+| Current Volume | `outline.md` 分卷章节 | `vol-N/outline.md` |
+| Relevant Characters | `characters/` 全局 | `vol-N/characters/` + `cross-volume/master-characters.md` |
+| Relevant World | `world.md` 全局 | `world.md` 全书规则 + `vol-N/world-addendum.md`（如有） |
+| Continuity State | `.sumeru/continuity/` | `vol-N/continuity/state-current.json` |
+| Batch Summary | `.sumeru/continuity/batch-summaries/` | `vol-N/continuity/batch-summaries/` |
+
+**跨卷引用**：仅当 `outlines/chapters.json` 目标章节的 `protectedElements` 或伏笔涉及跨卷依赖表中注册的项时，才从 `cross-volume/dependency-table.md` 做一次额外查询。不预加载全量。
 
 ---
 
@@ -340,10 +361,17 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
   "tone": "热血",
   "currentStage": "outline",
   "outputLevel": "quiet",
+  "volumeCount": 0,
+  "currentVolume": "",
+  "volumes": {},
   "createdAt": "2026-05-16T00:00:00Z",
   "updatedAt": "2026-05-16T00:00:00Z"
 }
 ```
+
+**volumeCount**：分卷数。0 或缺失 = 扁平模式。≥ 2 时启用分卷隔离。
+**currentVolume**：当前活跃卷 ID（如 `"vol-003"`）。扁平模式下为空字符串。
+**volumes**：卷详情映射。格式见第十五部分·四。`volumes[vol-N].status` 取值：`planned` / `active` / `completed` / `archived`。
 
 **阶段状态：** `pending` / `in_progress` / `blocked` / `completed` / `skipped`
 
@@ -372,6 +400,10 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ```
 
 **更新规则** 每批次完成后，父Agent汇总本批所有子Agent的state_diff/char_update/plot_update，合并写入该文件。持续累积，不重置。
+
+**分卷模式**：`consistency-rules.json` 按卷隔离存储于 `.sumeru/volumes/vol-N/continuity/consistency-rules.json`。
+每卷独立累积，卷切换时通过 Phase B 的 state-start.json 继承前卷状态子集。
+
 ---
 
 # 第八部分：各 Skill 子Agent职责明细
@@ -641,6 +673,125 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 | `cross_volume_emotion_cliff` | 卷间情绪断层（悲→喜无过渡） | low | outline/review |
 | `cross_volume_rhythm_cliff` | 卷间节奏断崖（fast→slow无过渡） | low | outline/review |
 | `cross_volume_relationship_stall` | 跨卷人物关系无推进 | medium | review |
+
+---
+
+# 第十五部分：分卷隔离与卷切换协议
+
+> **适用条件**：项目 `chapters/` ≥ 150 章，或 `project.json` 中 `volumeCount ≥ 2`。
+> 少于 150 章的项目继续使用扁平模式，无需 volumes/ 目录。
+
+## 一、分卷目录结构
+
+当分卷模式激活时，父Agent在自举阶段自动创建以下目录结构：
+
+```text
+.sumeru/volumes/
+├── vol-001-仙门初入/
+│   ├── outline.md              # 本卷剧情框架（由 sumeru-outline 生成）
+│   ├── characters/              # 本卷活跃人物（从全局 characters/ 筛选的副本）
+│   ├── continuity/
+│   │   ├── state-start.json    # 本卷开场全局状态
+│   │   ├── state-current.json  # 当前最新状态
+│   │   ├── batch-summaries/    # 批次摘要（见第二部分·批次间串行摘要）
+│   │   └── checkpoints/        # 卷内阶段性快照
+│   ├── status.json             # 本卷章节状态（200 条，非全局 1500 条）
+│   └── world-addendum.md       # 本卷新增设定（可选，不覆盖 world.md）
+├── vol-002-北域风云/
+│   └── ...
+└── vol-003-...
+```
+
+此外，自举阶段创建跨卷骨架数据：
+
+```text
+.sumeru/cross-volume/
+├── dependency-table.md         # 跨卷依赖表（同 outline.md 末尾格式）
+├── master-timeline.md          # 全局时间线主干（每卷起止时间 + 关键事件）
+└── master-characters.md        # 全局人物索引（每卷出场标记）
+```
+
+## 二、卷切换协议（Volume Handoff）
+
+### Phase A — 当前卷完结
+
+由 `sumeru-write` 父Agent检测到当前卷最后一批写作完成时自动触发：
+
+1. **最终快照**：将 `state-current.json` 复制为 `state-final.json`，写入 `vol-N/continuity/`
+2. **卷级总结**：生成 ≤ 500 字卷级总结，包含：
+   - 本卷起止章节号、时间跨度的
+   - 本卷核心事件清单（5-8 条）
+   - 本卷结束时各主要人物状态
+   - 本卷埋设的跨卷伏笔（指向目标卷）
+   - 本卷结束时未回收的伏笔列表
+3. **更新跨卷骨架**：
+   - `cross-volume/master-timeline.md` 追加卷条目
+   - `cross-volume/dependency-table.md` 追加本卷新注册的跨卷依赖
+   - `cross-volume/master-characters.md` 更新人物状态
+4. **存档批次摘要**：`vol-N/continuity/batch-summaries/` → 移入 `vol-N-archived/`（保留只读）
+5. **标记卷完成**：`project.json` → `volumes[vol-N].status = "completed"`
+6. **回写 changelog**：`.sumeru/changelog.md` 追加卷完结记录
+
+### Phase B — 新卷启动
+
+由 `sumeru-worldbuilder` 编排 `sumeru-outline` 在新卷写作开始前执行：
+
+1. **加载前卷快照**：从 `vol-N/continuity/state-final.json` 读取
+2. **生成本卷开场状态**：`state-start.json` — 继承 state-final 中与本卷相关的子集（过滤掉下卷不再活跃的人物/道具）
+3. **创建卷目录**：`.sumeru/volumes/vol-M/` 及子目录
+4. **生成 outline**：`vol-M/outline.md`（本卷剧情框架，由 sumeru-outline 生成）
+5. **筛选活跃人物**：从 `cross-volume/master-characters.md` 筛选本卷出场人物，复制到 `vol-M/characters/`
+6. **加载跨卷承诺**：从 `cross-volume/dependency-table.md` 筛选 `目标卷 = vol-M` 的条目，注入 `vol-M/outline.md` 的"本卷必须兑现"清单
+7. **初始化状态**：`vol-M/status.json`（空状态，章节状态 = `planned`）
+8. **清空批次缓存**：`vol-M/continuity/batch-summaries/` 写入唯一的软重置条目（上一卷最后 1 批摘要 + 卷级总结）
+9. **更新 project.json**：`currentVolume = "vol-M"`
+
+### Phase C — 跨卷引用查询
+
+任何技能需要读取跨卷数据时，不扫描全量 continuity，而是：
+
+1. 查询 `.sumeru/cross-volume/dependency-table.md` 看是否有与本卷相关的条目
+2. 如果有 → 只读取对应卷的 `state-final.json` 或 `state-start.json`
+3. 如果没有 → 不做跨卷读取
+
+此规则适用于所有技能（write/review/polish/finalize）。
+
+## 三、分卷模式的文件操作规则
+
+| 操作 | 非分卷模式 | 分卷模式 |
+|------|-----------|---------|
+| 写入章节 | `chapters/001.md` | 同左（chapters/ 保持扁平全局编号） |
+| 更新章状态 | `.sumeru/status.json` | `.sumeru/volumes/vol-N/status.json` |
+| 更新 continuity | `.sumeru/continuity/` | `.sumeru/volumes/vol-N/continuity/` |
+| 缓存读写 | `.sumeru/cache/` | `.sumeru/cache/vol-N/` |
+| 人物卡写入 | `characters/` | `characters/`（全局统一，vol-N/characters/ 为镜像筛选） |
+| context pack | `.sumeru/context-packs/` | `.sumeru/context-packs/`（数据源按作用域规则限定） |
+| 跨卷查询 | 不适用 | `.sumeru/cross-volume/dependency-table.md` → 精确加载 |
+
+## 四、分卷模式的激活与降级
+
+### 激活条件
+- **自动**：`sumeru-worldbuilder` 自举时发现 `chapters/` ≥ 150 章或 `outline.md` 中分卷数 ≥ 2
+- **手动**：用户在任意阶段要求 `启用分卷模式` 或 `/sumeru-migrate 启用分卷`
+
+### 降级条件
+- **自动**：全书完稿后（所有章节状态为 `finalized`），可选取消除卷隔离归档到扁平结构
+- **手动**：用户要求 `合并卷结构`，由 `sumeru-migrate` 执行逆向合并
+
+### volumeCount 配置
+见 `project.json` Schema（第七部分）。`volumeCount` 可选，缺失时按扁平模式运行。
+分卷模式激活后 `project.json` 新增字段：
+```json
+{
+  "volumeCount": 5,
+  "currentVolume": "vol-003",
+  "volumes": {
+    "vol-001": { "title": "仙门初入", "chapterRange": [1, 200], "status": "completed" },
+    "vol-002": { "title": "北域风云", "chapterRange": [201, 400], "status": "completed" },
+    "vol-003": { "title": "秘境探秘", "chapterRange": [401, 600], "status": "active" }
+  }
+}
+```
 
 ---
 

@@ -265,13 +265,15 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 ### 父Agent context pack 生成规则
 
-> **详见 `sumeru-rules/SKILL.md` 第四部分"Context Pack 格式"**
+> **详见 `sumeru-rules/SKILL.md` 第四部分"Context Pack 格式"与第五部分"分卷数据源作用域规则"。** 完整目录结构与卷切换协议见 `sumeru-rules/SKILL.md` **第十五部分·分卷隔离与卷切换协议**。
 
 每批子Agent启动前，父Agent生成 2 个文件：
 1. **共享上下文`shared-write.md`**：同批次所有子Agent共用
 2. **本组任务卡`cards-{范围}.md`**：每子Agent独有
 
 **文件位置：** `.sumeru/context-packs/`
+
+**分卷模式**：当 `project.json.volumeCount >= 2` 时，shared context pack 的数据源**必须按卷作用域**限定（详见下文「分卷模式支持」第一节），从 `.sumeru/volumes/vol-N/` 读取对应数据，而非全局 `characters/` / `.sumeru/continuity/` / `.sumeru/cache/`。
 
 ### 扫榜写作指南注入
 
@@ -424,18 +426,18 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 父Agent在子Agent写入**前**必须执行：
 
-1. **伏笔活跃度预检**：调用 `python skills/sumeru-review/scripts/foreshadowing-tracker.py .sumeru/continuity <current_chapter> --quiet`，把输出的逾期伏笔与近期伏笔建议注入 `shared-write.md` 头部（父 Agent 决定是否提示用户）
+1. **伏笔活跃度预检**：调用 `python skills/sumeru-review/scripts/foreshadowing-tracker.py .sumeru/continuity <current_chapter> --quiet`，把输出的逾期伏笔与近期伏笔建议注入 `shared-write.md` 头部（父 Agent 决定是否提示用户）。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 在调用前先 `export SUMERU_CURRENT_VOLUME=vol-N` 让脚本读取卷内 `consistency-rules.json` 与本卷伏笔表。
 2. **锚点临近检查**：读取 `.sumeru/creative-anchors.md`，找出 `targetChapter` 字段距当前章 ≤ 3 的「名场面种子」，在 `shared-write.md` 头部追加"⚠️ 锚点临近：本章或近 3 章需兑现 XX 锚点"
 
 父Agent在子Agent写入**后**必须执行：
 
-1. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比
-2. **foreshadowing 增量更新**：遍历 `plot_update.foreshadowing`，对每个提及的伏笔 ID 同步写入 `consistency-rules.json.foreshadowing.<id>.last_mentioned = current_chapter` 且 `mentionCount += 1`（新伏笔初始化 `{status: "active", last_mentioned: current_chapter, mentionCount: 1, first_appeared: current_chapter}`）
+1. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比。**分卷模式**：从 `.sumeru/volumes/vol-N/continuity/consistency-rules.json` 读取，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`。
+2. **foreshadowing 增量更新**：遍历 `plot_update.foreshadowing`，对每个提及的伏笔 ID 同步写入 `consistency-rules.json.foreshadowing.<id>.last_mentioned = current_chapter` 且 `mentionCount += 1`（新伏笔初始化 `{status: "active", last_mentioned: current_chapter, mentionCount: 1, first_appeared: current_chapter}`）。**分卷模式**：写入 `.sumeru/volumes/vol-N/continuity/consistency-rules.json`。
 3. **反AI / 反水文扫描（v1.2.2 强约束）**：**必须**调用 `python skills/sumeru-review/scripts/anti-ai-scan.py chapters --outlines outlines/chapters.json --output .sumeru/review --quiet`。脚本退出码：
    - `0` = 通过，继续下一步
    - `1` = warning，写入 fix-plan.json `type=anti_ai_warning`；可选触发 polish 轻量级
    - `2` = 含阻断（`narrative_high_description` / `narrative_low_event_density` / `water_text_cliche_density` 命中）→ **禁止更新状态文件**，必须将当前章节打回子 Agent 重写。父 Agent **不得**用"插入 2-4 段描写"方式补字数或绕过阻断。
-4. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/sumeru-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`
+4. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/sumeru-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`；跨卷冲突写入 `.sumeru/cross-volume/dependency-table.md` 的「已发现冲突」section。
 
 校验通过后才允许更新 `chapters/` 和状态文件。
 
@@ -480,6 +482,8 @@ allowedDeviations（鼓励添加） → 不强制，但鼓励
 /sumeru-write 第3章         # 生成特定章
 /sumeru-write 第3章 "概要"   # 单章创作
 /sumeru-write 第3章 按细纲生成
+/sumeru-write 第1卷         # 分卷模式：生成第1卷所有章节（详见「分卷模式支持·四」）
+/sumeru-write vol-003       # 用 vol-ID 形式指定卷
 ```
 
 ### 章节文件命名规范
@@ -500,11 +504,123 @@ allowedDeviations（鼓励添加） → 不强制，但鼓励
 - 标题：与文件名中的章节标题一致
 - 第一行：必须是标题行，后面跟空行，然后是正文
 
+## 分卷模式支持
+
+> **适用条件**：项目 `chapters/` ≥ 150 章，或 `project.json` 中 `volumeCount >= 2`。
+> 完整目录结构与卷切换协议见 `sumeru-rules/SKILL.md` **第十五部分·分卷隔离与卷切换协议**。
+> 少于 150 章的项目继续使用扁平模式，所有卷作用域规则**降级为**全局规则，不创建 `volumes/` 目录。
+
+分卷模式下，父 Agent 在自举阶段需读取 `project.json.volumeCount` 与 `currentVolume` 字段，并按本节规则限定所有数据源路径。
+
+### 一、Context Pack 卷作用域
+
+当 `project.json.volumeCount >= 2` 时，shared context pack 的数据源**必须**按卷作用域限定，禁止从全局 `characters/` / `.sumeru/continuity/` / `.sumeru/cache/` 读取本卷数据：
+
+| Context Pack 字段 | 分卷模式数据源 |
+|---|---|
+| **Relevant Characters** | `.sumeru/volumes/vol-N/characters/`（本卷活跃人物镜像） **并集** `.sumeru/cross-volume/master-characters.md`（全局人物索引）。**不读**全局 `characters/` 整目录 |
+| **Continuity State** | `.sumeru/volumes/vol-N/continuity/state-current.json`（本卷当前状态）。**不读** `.sumeru/continuity/` |
+| **Batch Summary** | `.sumeru/volumes/vol-N/cache/batch-summaries/`（本卷批次摘要）。**不读** `.sumeru/cache/batch-summaries/` |
+| **Current Volume outline** | `.sumeru/volumes/vol-N/outline.md`（本卷剧情框架）。**不读** 全局 `outline.md` 分卷章节 |
+| **World Addendum** | `world.md` 全书规则 **并集** `.sumeru/volumes/vol-N/world-addendum.md`（如有） |
+
+**跨卷引用（按需查询，不预加载）**：
+仅当目标章节的 `protectedElements` 或伏笔涉及跨卷依赖表中注册的项时，**额外**查询一次 `.sumeru/cross-volume/dependency-table.md`，从 `dependency-table.md` 锁定目标卷，再按需读取 `state-final.json` / `state-start.json`。**禁止**扫描全量 continuity 或预加载全部跨卷数据。
+
+父 Agent 在生成 `shared-write.md` 头部必须显式标注：
+```markdown
+## 当前卷
+- Volume: vol-N（{卷名}）
+- 数据源作用域：`.sumeru/volumes/vol-N/` + `.sumeru/cross-volume/`
+- 跨卷引用：见 `dependency-table.md`（仅按需）
+```
+
+### 二、Continuity 写入作用域
+
+在「剧情统一门禁与反AI扫描」节的 pre-check / post-check 流程中，**分卷模式下**：
+
+| 操作 | 非分卷模式 | 分卷模式 |
+|------|-----------|---------|
+| 读取 `consistency-rules.json` | `.sumeru/continuity/` | `.sumeru/volumes/vol-N/continuity/consistency-rules.json` |
+| 读取 `state-current.json` | `.sumeru/continuity/` | `.sumeru/volumes/vol-N/continuity/state-current.json` |
+| 写入伏笔增量 | `.sumeru/continuity/consistency-rules.json` | `.sumeru/volumes/vol-N/continuity/consistency-rules.json` |
+| `foreshadowing-tracker.py` 输入目录 | `.sumeru/continuity` | `.sumeru/volumes/vol-N/continuity` |
+| `continuity-check.py` 输入目录 | `.sumeru/continuity` | `.sumeru/volumes/vol-N/continuity` |
+| 跨卷冲突登记 | 不适用 | `.sumeru/cross-volume/dependency-table.md`「已发现冲突」section |
+| 章状态更新 | `.sumeru/status.json` | `.sumeru/volumes/vol-N/status.json` |
+| issues.md 写入 | `.sumeru/issues.md` | `.sumeru/issues.md`（全局；卷号前缀标注） |
+
+**父 Agent 调用脚本前置条件**：
+```bash
+# 分卷模式下，父 Agent 在调用 continuity 脚本前必须设置：
+export SUMERU_CURRENT_VOLUME=vol-N
+python skills/sumeru-review/scripts/foreshadowing-tracker.py \
+  .sumeru/volumes/vol-N/continuity <current_chapter> --quiet
+# 同理 continuity-check.py
+```
+
+`SUMERU_CURRENT_VOLUME` 必须与 `project.json.currentVolume` 一致；若两者不一致，父 Agent 应中止并提示用户：
+```
+⚠️ SUMERU_CURRENT_VOLUME={env} 与 project.json.currentVolume={json} 不一致
+```
+
+### 三、批次摘要软重置（卷切换边界）
+
+当父 Agent 检测到当前批次的章节范围**跨过卷边界**（即 `chapters.json` 中下一章 `volume` 字段发生变化），执行软重置协议：
+
+1. **保留前卷最后 1 批摘要 + 卷级总结**（≤ 500 字），整体作为**新卷** `.sumeru/volumes/vol-M/continuity/batch-summaries/batch-000-handoff.md` 第一条记录写入。
+2. **归档更早批次**：`vol-N/continuity/batch-summaries/batch-002.md` 之前的所有摘要，整体移入 `vol-N/continuity/batch-summaries-archived/`（保留只读，可用于回溯但不再被 context pack 加载）。
+3. **新卷初始化**：若 `vol-M/continuity/batch-summaries/` 仍为空（无 handoff 条目），按本节第一步补写。
+4. **回写 changelog**：`.sumeru/changelog.md` 追加 `ℹ️ write: vol-N → vol-M 软重置，{N} 条旧摘要归档，1 条 handoff 写入`。
+5. **回写 project.json**：`currentVolume = "vol-M"`，`volumes[vol-M].status` 从 `planned` 切到 `active`。
+
+软重置**不删除**任何历史摘要，只移动位置并标记只读。子 Agent 看到的 batch-summaries 数量在卷切换后立刻从「前卷累计 N 条」变为「新卷 1 条 handoff + 后续累积」，避免 context pack 因摘要膨胀超限。
+
+### 四、批量卷写（`/sumeru-write 第N卷`）
+
+新增 `/sumeru-write 第N卷` 调用形式，父 Agent 自动按卷范围批量生成该卷所有章节：
+
+**触发命令示例**：
+```bash
+/sumeru-write 第1卷               # 写第1卷所有章节
+/sumeru-write 第2卷 仙侠风格       # 第2卷 + 风格覆盖
+/sumeru-write vol-003              # 用 vol-ID 形式
+/sumeru-write 第1卷 --from-batch 5 # 从第5批开始（卷内偏移）
+```
+
+**卷边界自动检测**（按优先级）：
+1. **`chapters.json.volume` 字段**：若 `chapters.json` 章节任务卡包含 `volume` 字段（值为 `"vol-001"` 等），按该字段过滤属于 `vol-N` 的所有章节号
+2. **`project.json.volumes[vol-N].chapterRange`**：回退到 `chapterRange: [start, end]`，取 `[start, end]` 闭区间
+3. **`outline.md` 分卷章节标记**：从 `outline.md` 解析 `## 第N卷` 标题下的章节列表
+
+**执行流程**：
+1. 解析出目标卷的章节号集合 `chapterList = [ch1, ch2, ...]`
+2. 按 3 章/子 Agent 的约束自动分批（与扁平模式相同）
+3. 卷首（第一批次）触发 context pack 软重置（见第三节）
+4. 卷内批次正常串行（与扁平模式相同）
+5. 卷尾（最后一批次）若为该卷最后章节，**仅在用户明确要求**时触发 `sumeru-write` 父 Agent 的 `Phase A` 卷完结流程（最终快照 + 卷级总结 + 跨卷骨架更新）；**默认不自动**触发 Phase A，留给 `sumeru-worldbuilder` 编排
+
+**章节范围约定**：`/sumeru-write 第1卷` 与 `/sumeru-write 第1-30章`（章节号范围）可以混用；优先按 `volume` 字段匹配，未匹配时回退到范围语法。
+
+
 ### 数据持久化
 **用户可见输出**：`chapters/` 下的纯净正文文件
 
-**中间数据（`.sumeru/write/`）：**
-- `progress.json`、`chapter-meta.json`、`character-state.json`、`original/`
+**中间数据**：
+
+**扁平模式（`project.json.volumeCount < 2`）：**
+- `.sumeru/write/`：`progress.json`、`chapter-meta.json`、`character-state.json`、`original/`
+- `.sumeru/continuity/`：`consistency-rules.json`、`state-current.json`、`batch-summaries/`
+- `.sumeru/cache/`：项目/世界观/人物/风格/创意/连续性/issue 摘要
+
+**分卷模式（`project.json.volumeCount >= 2`，详见「分卷模式支持」与 `sumeru-rules/SKILL.md` 第十五部分）：**
+- `.sumeru/write/`：仅放全局写阶段元数据
+- `.sumeru/volumes/vol-N/continuity/`：本卷 `consistency-rules.json`、`state-current.json`、`state-start.json`、`state-final.json`
+- `.sumeru/volumes/vol-N/continuity/batch-summaries/`：本卷批次摘要
+- `.sumeru/volumes/vol-N/continuity/batch-summaries-archived/`：本卷已归档批次（只读）
+- `.sumeru/volumes/vol-N/cache/`：本卷缓存
+- `.sumeru/volumes/vol-N/status.json`：本卷章节状态
+- `.sumeru/cross-volume/`：`master-characters.md`、`master-timeline.md`、`dependency-table.md`
 
 ### 与其他Skill 配合
 - **前置**：`sumeru-topic` 选题 + `sumeru-outline` 大纲（`plan.md`、`outline.md`、`outlines/chapters.json`）
@@ -514,3 +630,4 @@ allowedDeviations（鼓励添加） → 不强制，但鼓励
 
 > 风格样本机制详见 `sumeru-rules/SKILL.md` 第十二部分子Agent精简版规则中的风格样本说明。用户提供样本后父Agent注入 context pack。
 > 反AI写作规则详见本文`反AI写作规则` 节和 `人物真实感与毛边规则` 节。
+> 分卷模式完整规范（目录结构、卷切换协议、Phase A/B/C、激活与降级）见 `sumeru-rules/SKILL.md` **第十五部分·分卷隔离与卷切换协议**；本文「分卷模式支持」节是 write 侧的操作约束。

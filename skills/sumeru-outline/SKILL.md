@@ -20,13 +20,30 @@ agent: build
 ### 独立调用自举
 1. 定位项目根目录，读取或生成`.sumeru/project.json`、`.sumeru/status.json`
 2. 若已有`plan.md`、`.sumeru/topic/summary.json`，复用既有选题和需求（旧路径兼容见 `sumeru-rules/SKILL.md` 第六部分"独立调用自举协议"）3. 若缺乏`plan.md`，提示先执行 `sumeru-topic` 选题策划，或生成最小创意库存4. 若存在`.sumeru/creative-anchors.md`，读取创意锚点并注入大纲设计（锚点是不可违背的创意基准）
-5. 大纲完成后生成或刷新 `outlines/chapters.json`；长篇项目同步拆分6. 同步生成 `characters/` 人物卡7. 更新 `.sumeru/status.json`、`.sumeru/cache/` 相关摘要
+5. 大纲完成后生成或刷新 `outlines/chapters.json`；长篇项目同步拆分6. 同步生成 `characters/` 人物卡7. 若 `project.json.volumeCount ≥ 2`，执行"分卷模式支持"中的卷目录创建和跨卷初始化8. 更新 `.sumeru/status.json`、`.sumeru/cache/` 相关摘要
 
 ### 按模式输出| 模式 | 大纲输出 |
 |------|----------|
 | `short/light` | `outline.md`，包含高概念、人物、三幕结构、核心反转、情绪曲线|
 | `medium/standard` | `plan.md`、`outline.md`、`outlines/chapters.json`、`characters/` |
 | `long/full` | `plan.md`、`outline.md`、`outlines/chapters.json`、`characters/`、`world.md`，必要时拆分章节任务卡|
+
+### 分卷模式支持
+
+> 当 `.sumeru/project.json` 中 `volumeCount ≥ 2` 时启用分卷隔离模式，完整协议见 `sumeru-rules/SKILL.md` 第十五部分。
+
+**卷目录创建**：大纲阶段在 `chapters.json` 生成前，检查 `project.json.volumeCount`：
+- `volumeCount < 2` 或缺失 → 扁平模式，不变
+- `volumeCount ≥ 2` → 执行以下操作：
+
+1. **创建卷目录结构**：调用 `sumeru-rules` 第十五部分·四「分卷目录结构」创建 `.sumeru/volumes/vol-001/`、`vol-002/` ... `vol-{volumeCount}/`，每卷含 `continuity/`、`cache/`、`characters/`、`outline.md` 子目录
+2. **创建跨卷目录**：创建 `.sumeru/cross-volume/` 含 `dependency-table.md`、`master-timeline.md`、`master-characters.md`
+3. **注册卷信息到 project.json**：填充 `volumes` 映射，每卷标记 `status: "planned"`
+
+**per-volume chapters.json 规则**：
+- 主 `outlines/chapters.json` 仍保留所有章节的完整任务卡（全局统一索引）
+- 每卷的 `.sumeru/volumes/vol-N/outline.md` 自动生成该卷的章节范围摘要（第 XXX-YYY 章）、核心冲突、本卷角色列表
+- `outline.md` 的「分卷大纲」section 中每卷增加 `chaptersRange` 字段标注章节范围
 
 ### 项目化输出要求- `plan.md`：需求、世界观、人物、风格、创意策略、术语合并维护- `outline.md`：故事架构、主线、支线、分卷规划、关键高潮、伏笔管理表、节奏规划- `outlines/chapters.json`：章节任务卡主文件，每章必须包含全部必填字段（见下文"章节任务卡格式），旧路径兼容见 `sumeru-rules/SKILL.md` 第六部分"独立调用自举协议"
 - `characters/`：人物卡目录，每人物独立文件
@@ -350,6 +367,10 @@ agent: build
 ### 数据持久化**用户可见输出**）- `plan.md`、`outline.md`、`outlines/chapters.json`、`characters/`、`world.md`
 
 **中间数据（`.sumeru/outline/`）*）- 仅保存必要缓存；旧版 `world.json`、`characters.json`、`plot-outline.json`、`chapter-outlines.json` 只读兼容（旧路径兼容策略见`sumeru-rules/SKILL.md` 第六部分"独立调用自举协议"）
+
+**分卷模式**（`volumeCount ≥ 2` 时额外创建）：
+- `.sumeru/volumes/vol-N/continuity/`、`cache/`、`characters/`、`outline.md`
+- `.sumeru/cross-volume/dependency-table.md`、`master-timeline.md`、`master-characters.md`
 ### 风格样本自动分析
 
 > **触发**：用户在大纲完成后提供 `style-samples/user-sample-<timestamp>.md` 时（模板见 `style-samples/sample-template.md`）。

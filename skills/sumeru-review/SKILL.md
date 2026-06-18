@@ -24,7 +24,7 @@ agent: build
 5. **剧情统一验收**：检查章节是否承接上一章实际结尾，是否违反 continuity 中的人物、道具、伏笔、战力和时间线状态
 ### 独立调用自举
 1. 定位项目根目录，读取或生成`.sumeru/project.json`、`.sumeru/status.json`
-2. 根据 `chapters/` 推断可审查章节范围
+2. 根据 `chapters/` 推断可审查章节范围；若 `project.json.volumeCount >= 2`，按**分卷模式**定位 continuity 路径（见下方「分卷审查模式」），扫描当前卷的 `.sumeru/volumes/vol-N/continuity/` 而非 `.sumeru/continuity/`
 3. 若缺少`outlines/chapters.json`，按旧路径兼容策略处理（见`sumeru-rules/SKILL.md` 第六部分"独立调用自举协议"）
 4. 若缺少`.sumeru/cache/`，生成最小摘要
 5. 若缺少当前范围的 context pack，先生成临时 context pack 再审查
@@ -340,6 +340,92 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 
 ```
 
+---
+
+## 分卷审查模式
+
+> **适用条件**：项目 `project.json.volumeCount >= 2`（详见 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议）。未启用分卷模式的项目继续使用扁平 continuity 路径，本节不生效。
+> **职责定位**：review 阶段是**跨卷状态连续性的最终把关者**。write 阶段可能漏掉跨卷依赖的兑现、卷边界的状态漂移，本节定义的检查项就是用来发现这些问题的。
+
+### 1. 范围收窄（Volume-scoped Continuity）
+
+分卷模式下，父Agent在自举阶段从 `project.json.currentVolume` 确定当前卷，审查范围按卷收窄：
+
+- **continuity 读取路径**：`.sumeru/continuity/` → `.sumeru/volumes/vol-N/continuity/`（`state-start.json`、`state-current.json`、`consistency-rules.json`）
+- **不扫描其他卷的 continuity**（避免误判跨卷人为设置的差异，例如跨卷战力跃升是预期的）
+- **批次摘要路径**：`.sumeru/cache/` → `.sumeru/volumes/vol-N/continuity/batch-summaries/`（按卷隔离）
+- **章节状态路径**：`.sumeru/status.json` → `.sumeru/volumes/vol-N/status.json`
+
+### 2. 脚本路径（Volume Mode Script Args）
+
+当 volumes 存在时，父Agent调用检查脚本必须**追加 `--continuity-dir` 参数**，指向当前卷的 continuity 目录：
+
+```bash
+# 扁平模式（默认）
+python skills/sumeru-review/scripts/continuity-check.py <chapters_dir>
+
+# 分卷模式（追加参数）
+python skills/sumeru-review/scripts/continuity-check.py <chapters_dir> \
+    --continuity-dir .sumeru/volumes/vol-N/continuity
+
+python skills/sumeru-review/scripts/foreshadowing-tracker.py <chapters_dir> \
+    --continuity-dir .sumeru/volumes/vol-N/continuity
+```
+
+`currentVolume` 由父Agent从 `project.json.currentVolume` 字段读取后透传给脚本，不得让脚本自行推断（避免跨卷误判）。
+
+### 3. 跨卷检查点（Cross-volume Checkpoint）
+
+审查范围除当前卷内容外，还需**校验本卷是否兑现跨卷依赖**：
+
+1. 父Agent读取 `.sumeru/cross-volume/dependency-table.md`
+2. 筛选 `目标卷 == currentVolume` 的所有条目
+3. 对每个条目，在本卷章节中查找对应兑现动作（伏笔回收、人物登场、设定启用、关系变化等）
+4. 输出**「跨卷依赖检查」section**到审查报告中：
+
+```markdown
+## 跨卷依赖检查
+
+| 来源卷 | 依赖类型 | 描述 | 目标章节 | 状态 |
+|--------|----------|------|----------|------|
+| vol-001 | foreshadow | "黑玉断续膏"在第一卷被埋下 | vol-002/ch020 | ✅ 已兑现（vol-002/ch021 使用） |
+| vol-001 | character | "燕无归"承诺第二卷归来 | vol-002/ch005 | ⚠️ 延迟（实际登场 vol-002/ch008） |
+| vol-002 | setting | "天机阁"组织设定启用 | vol-003/ch010 | ❌ 未启用 |
+```
+
+- **未启用/未兑现的依赖**写入 `fix-plan.json`，`type=cross_volume_dependency_missing`，`severity=high`
+- **延迟兑现**（晚于目标章节）写入 `issues.md`，标记 `cross_volume_dependency_delayed`
+
+### 4. 卷边界审查（Volume-edge Review）
+
+当审查范围跨越卷边界（即同时包含某卷最后 5 章 + 下一卷前 5 章）时，父Agent必须追加**边界专项检查**：
+
+| 检查项 | 检查内容 | 严重度 |
+|--------|----------|--------|
+| **状态连续性** | vol-N `state-final.json` 与 vol-M `state-start.json` 是否一致（人物位置/道具归属/战力值/时间线） | critical |
+| **人物状态一致性** | 跨边界人物的位置、伤势、关系、情绪是否自然延续，无突兀跳转 | high |
+| **伏笔不悬空** | 卷尾埋设的伏笔是否已注册到 `dependency-table.md`，未注册的补注册 | medium |
+| **风格/节奏过渡** | 卷首 5 章是否承接卷尾的情绪曲线和叙事节奏，无风格断层 | low |
+| **时间线连贯** | 卷尾时间点 → 卷首时间点是否合理（无时间跳跃无交代 / 时间倒流） | critical |
+
+边界审查输出追加到审查报告的「卷边界检查」section，问题严重度按上表处理。
+
+### 5. 全书审查模式（Global Review Mode）
+
+当用户**明确要求**「全书审查 / 完整报告 / 跨卷分析」时，审查范围扩展为全局：
+
+- **额外加载** `.sumeru/cross-volume/` 全部数据（`dependency-table.md`、`master-timeline.md`、`master-characters.md`）
+- **扫描所有卷的 continuity**（`vol-001` ~ `vol-N`）做跨卷一致性对比
+- **检查项扩展**：
+  - 跨卷战力体系一致性（`cross_volume_power_leap`）
+  - 跨卷时间线连贯性（`cross_volume_timeline_gap`）
+  - 跨卷设定无矛盾（`cross_volume_setting_conflict`）
+  - 卷间情绪/节奏过渡自然度（`cross_volume_emotion_cliff` / `cross_volume_rhythm_cliff`）
+  - 跨卷人物关系推进（`cross_volume_relationship_stall`）
+- **默认审查模式（仅单卷）不触发上述扩展**，仅在用户显式声明「全书审查」时启用
+
+---
+
 ### 数据持久化
 **用户可见输出**：
 - `reviews/review-report.md`：用户可读审查报告
@@ -348,6 +434,12 @@ python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir> \
 - `.sumeru/issues.md`：问题清单
 - `.sumeru/review/global-issues.json`：全局问题清单
 - `.sumeru/review/fix-plan.json`：重写修复计划
+**分卷模式下的路径差异**（`project.json.volumeCount >= 2` 时）：
+- continuity 数据源：`.sumeru/volumes/vol-N/continuity/` 而非 `.sumeru/continuity/`
+- 章节状态：`.sumeru/volumes/vol-N/status.json` 而非 `.sumeru/status.json`
+- 跨卷依赖校验读：`.sumeru/cross-volume/dependency-table.md`
+- 卷边界/跨卷问题写入 `fix-plan.json` 时，`type` 前缀加 `cross_volume_`（如 `cross_volume_dependency_missing`、`cross_volume_setting_conflict`）
+- 详细规范见 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议
 ### 与其他Skill 配合
 - **前置**：`sumeru-write` 生成的`chapters/` 和`sumeru-outline` 的大纲数据
 - **后续**：输出供 `sumeru-polish`、`sumeru-finalize` 使用

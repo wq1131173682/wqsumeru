@@ -49,18 +49,23 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
    mode 确认后写入 `.sumeru/project.json`，并将验证结果记录到 `.sumeru/decisions.md`
 
-3. 写入 `.sumeru/project.json`（含 `projectMode` 和 `workflowLevel`）
-4. 生成 `.sumeru/status.json`
-5. 按模式创建目录（不一次性创建 full 结构）
-6. 生成必要 cache 和 context pack
-7. 生成 `.sumeru/backlog.md`、`.sumeru/decisions.md`、`.sumeru/changelog.md`
+3. **分卷模式判定**：当以下任一条件满足时启用分卷模式 —
+   - 计划章节数 ≥ 150
+   - 用户明确要求"分卷"或指定卷数
+
+   满足条件时计算 `volumeCount`：按每卷 150-250 章均分计划章节数，记录到 `.sumeru/project.json` 的 `volumeCount` / `currentVolume` / `volumes[vol-N]` 字段。例如 200 章 / 每卷约 150 章 → `volumeCount = 2`：`vol-001`（第 1-150 章）、`vol-002`（第 151-200 章）。结果写入 `.sumeru/decisions.md`。具体规范见 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议。
+4. 写入 `.sumeru/project.json`（含 `projectMode` 和 `workflowLevel`，分卷模式下同时写入 `volumeCount` / `currentVolume` / `volumes`）
+5. 生成 `.sumeru/status.json`
+6. 按模式创建目录（不一次性创建 full 结构）
+7. 生成必要 cache 和 context pack
+8. 生成 `.sumeru/backlog.md`、`.sumeru/decisions.md`、`.sumeru/changelog.md`
 
 ### 模式初始化
 | 模式 | 创建内容 |
 |------|----------|
 | `short/light` | `README.md`、`story.md`、`outline.md`、`.sumeru/project.json`、`.sumeru/status.json`、`.sumeru/cache/story-brief.md` |
 | `medium/standard` | `README.md`、`plan.md`、`outline.md`、`outlines/chapters.json`、`characters/`、`.sumeru/intro.md`、`chapters/`、`publish/`、`.sumeru/cache/`、`.sumeru/issues.md`、`.sumeru/continuity/consistency-rules.json`（空 schema，见 `sumeru-rules/SKILL.md` §consistency-rules.json 格式；medium 模式同样启用 `sumeru-review/scripts/continuity-check.py` / `foreshadowing-tracker.py` 校验） |
-| `long/full` | medium 结构 + `world.md`、`.sumeru/context-packs/`、必要时 `reviews/`、`tests/` |
+| `long/full` | medium 结构 + `world.md`、`.sumeru/context-packs/`、必要时 `reviews/`、`tests/` + `.sumeru/volumes/`（若 `volumeCount >= 2`）+ `.sumeru/cross-volume/` |
 
 ### 模式升级协议
 - `short -> medium`：补齐 `plan.md`、`outlines/chapters.json`、`chapters/`、标准 cache
@@ -110,11 +115,17 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - 每次接续动作追加一条到 `.sumeru/changelog.md`（时间戳 + 接续状态 + 实际走的分支）
 
 ### 项目状态机
-**阶段顺序**：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → finalize → build/release`
+**阶段顺序（扁平模式）**：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → finalize → build/release`
+
+**阶段顺序（分卷模式，`volumeCount >= 2`）**：`[migrate? →] init → topic → outline → intro → anchor → write → [volume_handoff? → write → ...] → review → fix → polish → finalize → build/release`
 
 > **migrate 前缀**：对于已有旧项目（存在 `chapters/` 但缺少 `.sumeru/` 规范目录的项目），第一阶段应为调用 `sumeru-migrate` 完成旧项目迁移规整，再进入 `init`。新项目直接跳过此步。
+>
+> **volume_handoff 中间态**：仅当分卷模式下写完当前卷最后一章时插入，详见"分卷模式编排"节。扁平模式永不触发。
 
 **章节状态流转**：`planned -> drafted -> reviewed -> fixed -> polished -> finalized -> exported`
+
+**卷状态流转（分卷模式）**：`planned -> active -> completed -> archived`，存储在 `.sumeru/project.json.volumes[vol-N].status`，详见"分卷模式编排"节。
 
 **推进规则**：
 - `topic` 完成：`plan.md` 已写入，至少包含选题方向和核心创意，且包含目标平台信息
@@ -176,10 +187,12 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求→收集需求→[migrate? →] topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →review →[fix] →polish →finalize →build/release
+用户需求→收集需求→[migrate? →] topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →[volume_handoff? 分卷模式触发时插入] →review →[fix] →polish →finalize →build/release
                                       →
                               阶段检查点验证
 ```
+
+> `[volume_handoff?]` 为分卷模式（`volumeCount >= 2`）的**条件中间节点**：仅当写完当前卷最后一章时插入，执行 Phase A→B→C 卷切换后回到 `write`；扁平模式不出现。详见"分卷模式编排"节与 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议。
 
 ### 使用示例
 ```
@@ -234,3 +247,99 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - **子 Agent 自检**：每章必须至少体现 1 个锚点（写作自检增加此项）
 - **review 验证**：审查阶段检查锚点是否被悄然遗忘，连续 3 章未体现任何锚点 → 标记 `high` 警告
 - **修改保护**：锚点被视为 `protectedElements` 的最高优先级，子 Agent 不可违背
+
+### 分卷模式编排
+
+> **目标**：当 `project.json.volumeCount >= 2` 时，worldbuilder 接管卷切换编排，保证每卷独立 continuity/cache、不污染全局、跨卷承诺可追溯。
+>
+> **完整规范**：见 `sumeru-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议。本节只描述 worldbuilder 的编排职责与状态机衔接。
+
+#### 1. 分卷模式判定
+
+- 大纲阶段完成后，worldbuilder 读取 `.sumeru/project.json.volumeCount`
+- 若 `volumeCount >= 2` → 进入分卷模式（`currentVolume` / `volumes[vol-N].status` 等字段生效）
+- 若 `volumeCount` 缺失或 `< 2` → 扁平模式，不触发本节任何流程
+
+#### 2. 跨卷基础数据初始化（首次进入分卷模式时执行一次）
+
+启用分卷模式后，worldbuilder 必须同步初始化 `.sumeru/cross-volume/` 目录：
+
+| 文件 | 来源 | 用途 |
+|------|------|------|
+| `cross-volume/master-timeline.md` | 从 `outline.md` 主线时间线 + `outlines/chapters.json` 提炼 | 卷级时间线骨架，每卷交接时追加卷条目 |
+| `cross-volume/master-characters.md` | 从 `characters/` 全集 + `outline.md` 人物关系表聚合 | 全局人物索引，卷切换时筛选本卷出场人物 |
+| `cross-volume/dependency-table.md` | 从 `outline.md` 跨卷依赖表提取 | 登记跨卷伏笔/承诺，标注 `目标卷` 字段供 Phase B 加载 |
+
+初始化记录写入 `.sumeru/decisions.md` 与 `.sumeru/changelog.md`。
+
+#### 3. 卷切换流程（Volume Handoff）
+
+当 `write` 阶段写完当前卷最后一个章节时，worldbuilder 自动进入 `volume_handoff` 状态，按 **Phase A → B → C** 顺序执行：
+
+##### Phase A — 完成当前卷
+
+1. 检查当前卷所有章节状态：若存在非 `drafted`（或更高）章节 → 调用 `sumeru-write` 补写至至少 `drafted`
+2. 更新 `.sumeru/project.json`：`volumes[vol-N].status = "completed"`，并记录 `completedAt` 时间戳
+3. 在 `.sumeru/cross-volume/master-timeline.md` 追加该卷条目
+4. 在 `.sumeru/cross-volume/master-characters.md` 同步本卷人物状态变更
+5. 追加 `.sumeru/changelog.md`：卷完成事件
+
+##### Phase B — 准备下一卷（`vol-M`）
+
+1. 创建目录树：
+   ```
+   .sumeru/volumes/vol-M/
+   ├── continuity/
+   ├── cache/batch-summaries/
+   ├── characters/
+   └── outline.md   # 本卷专属 outline 引用
+   ```
+2. 从 `.sumeru/cross-volume/` 复制状态快照（state-start.json）：当前 continuity 子集、master-characters 子集、master-timeline 到卷切换点
+3. 从 `cross-volume/master-characters.md` 筛选 `vol-M` 出场人物，复制到 `vol-M/characters/`
+4. 从 `cross-volume/dependency-table.md` 加载所有 `目标卷 = vol-M` 的条目，作为 `vol-M/outline.md` 的"本卷必须兑现"清单
+5. 把上卷最后 1 批摘要 + 卷级总结（~500 字）保留为新卷 `batch-summaries` 第一项；更早的摘要归档到 `vol-N-archived/`
+
+##### Phase C — 激活下一卷
+
+1. 更新 `.sumeru/project.json`：
+   - `currentVolume = "vol-M"`
+   - `volumes[vol-M].status = "active"`，记录 `activatedAt`
+2. 刷新 `.sumeru/status.json.currentStage = "write"`
+3. 清空旧卷对应的 `.sumeru/context-packs/`，按 `vol-M` 重新生成 volume-scoped context packs（每包仅含 `vol-M/continuity/` + `vol-M/cache/` + `cross-volume/` 中本卷相关条目）
+4. 追加 `.sumeru/changelog.md`：卷激活事件
+5. 回到 `write` 阶段继续创作 `vol-M` 章节
+
+#### 4. 卷状态管理
+
+`.sumeru/project.json.volumes[vol-N].status` 取值：
+
+```
+planned → active → completed → archived
+```
+
+| 状态 | 含义 | 允许流转到 |
+|------|------|-----------|
+| `planned` | 已规划未开始 | `active` |
+| `active` | 正在创作 | `completed` |
+| `completed` | 全部章节 ≥ `drafted` | `archived` |
+| `archived` | 已归档（后续审查/导出只读） | （终态） |
+
+每次状态变更同步写入 `.sumeru/changelog.md`。
+
+#### 5. 归档流程（卷完成 → `archived`）
+
+当所有卷进入 `completed` 且项目准备进入 `finalize` 之前，worldbuilder 可对已完成卷执行归档：
+- 把 `vol-N/continuity/`、`vol-N/cache/` 复制到 `vol-N-archived/`（压缩只读）
+- `project.json.volumes[vol-N].status = "archived"`
+- 保留 `vol-N/characters/` 引用以供 review/finalize 阶段查询
+- 追加 `.sumeru/changelog.md`：归档事件
+
+#### 6. 状态机衔接
+
+项目状态机在分卷模式下扩展为：
+
+```
+[... → write → volume_handoff → write → review → fix → polish → finalize → build/release]
+```
+
+`volume_handoff` 是分卷模式下的**条件中间态**（仅当需要切卷时插入），非分卷模式永不触发。

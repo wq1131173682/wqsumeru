@@ -27,6 +27,7 @@ agent: build
 | `sumeru-write` | 章节内容创作 | "写第X章、续写"、扩写"、重写"、批量生成" | ✅|
 | `sumeru-review` | 逻辑审查与创意疲劳检测| "检查bug"、时间线矛盾、人物OOC" | ✅|
 | `sumeru-polish` | 文笔润色与创意强化| "润色"、改文笔、优化节奏"、强化爽点" | ✅|
+| `sumeru-score` | 完稿评分系统（五维评分）| "评分"、打分"、评估作品质量" | ✅|
 | `sumeru-finalize` | 完稿校验与发布导出| "检查错别字"、检测敏感词"、导出平台格式" | ✅|
 | `sumeru-migrate` | 旧项目迁移与规整 | "规整项目"、迁移旧项目、补齐缺失文件"、查缺补漏" | ✅|
 | `sumeru-rules` | 全局约束规则（不直接调用）| —| ❌|
@@ -37,11 +38,12 @@ agent: build
                         → topic(→plan.md, 可读取trends.md)
                         → outline(→outline.md + chapters.json + characters/)
                         → intro.md + creative-anchors.md (worldbuilder 内置)
-                        → write(→chapters/*.md, 子Agent并行, 可注入writing-guide.md)
-                        → review(→issues.md + fix-plan.json, 子Agent并行审查)
-                        → write(修复重写, 读 fix-plan.json)
-                        → polish(→chapters/*.md, 子Agent并行润色)
-                        → finalize(→publish/)
+                         → write(→chapters/*.md, 子Agent并行, 可注入writing-guide.md)
+                         → review(→issues.md + fix-plan.json, 子Agent并行审查)
+                         → write(修复重写, 读 fix-plan.json)
+                         → polish(→chapters/*.md, 子Agent并行润色)
+                         → score(可选,→.sumeru/score/)
+                         → finalize(→publish/)
 ```
 
 **独立调用**：每个 skill 都可以脱离 worldbuilder 单独启动，执行自举协议。
@@ -49,8 +51,10 @@ agent: build
 
 ### 项目状态流转
 ```
-init →scan(可选) →topic →outline →intro →anchor →write →review →fix →polish →finalize →build/release
+init →scan(可选) →topic →outline →intro →anchor →write →review →fix →polish →[score?] →finalize →build/release
 
+> `[score?]` 为可选中间节点：worldbuilder 编排时可选择在 polish 完成后、finalize 前插入评分阶段；用户也可手动调用 `/sumeru-score` 触发。评分阶段不修改章节文件，仅输出评估报告。
+>
 > 旧项目需先执行 `sumeru-migrate` 完成迁移规整（参见 `sumeru-migrate/SKILL.md`），再进入 `init` 阶段。
 ```
 
@@ -74,6 +78,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `review` →`fix` | 问题写入 `issues.md`，重写项写入 `fix-plan.json` |
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
 | `polish` →`finalize` | 章节状态`polished` |
+| `polish` →`score`(可选) | 评分范围确定，评分数据收集就绪 |
+| `score` →`finalize` | 评分完成（无阻塞条件，评分仅建议不阻断） |
 | `finalize` →`build` | 技术校验通过，章节状态`finalized` |
 
 ### 状态字段语义对照
@@ -106,6 +112,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `.sumeru/topic/` | 选题阶段数据 |
 | `.sumeru/write/` | 写作阶段数据 |
 | `.sumeru/polish/` | 润色阶段数据 |
+| `.sumeru/score/` | 评分阶段数据（latest.json、score-snapshot.json、history/、report.md） |
 | `.sumeru/finalize/` | 完稿阶段数据 |
 
 ### 旧路径兼容（只读）

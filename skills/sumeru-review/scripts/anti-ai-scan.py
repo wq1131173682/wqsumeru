@@ -59,12 +59,15 @@ def _load_thresholds() -> dict:
         "DIALOG_MARKER_DOMINANCE": 0.80, "DIALOG_MARKER_MIN_TOTAL": 5,
         "DIALOG_EMOTION_COMMENTARY_MIN_HITS": 3,
         "CLICHE_HIT_THRESHOLD": 3, "DESCRIPTION_PARAGRAPH_MIN_LEN": 80,
+        "EM_DASH_DENSITY_PER_1K": 5, "EM_DASH_SIMPLE_CONTINUATION_MIN": 3,
+        "ELLIPSIS_FORMAT_MISMATCH_MIN": 2,
+        "EXCLAMATION_STACK_MIN": 2, "EXCLAMATION_DENSITY_PER_1K": 3,
     }
     try:
         cfg_file = _CONFIG_DIR / "anti-ai-thresholds.json"
         if cfg_file.exists():
             data = json.loads(cfg_file.read_text("utf-8"))
-            key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "dialog_emotion_commentary_min_hits": "DIALOG_EMOTION_COMMENTARY_MIN_HITS", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN"}
+            key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "dialog_emotion_commentary_min_hits": "DIALOG_EMOTION_COMMENTARY_MIN_HITS", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN", "em_dash_density_per_1k": "EM_DASH_DENSITY_PER_1K", "em_dash_simple_continuation_min": "EM_DASH_SIMPLE_CONTINUATION_MIN", "ellipsis_format_mismatch_min": "ELLIPSIS_FORMAT_MISMATCH_MIN", "exclamation_stack_min": "EXCLAMATION_STACK_MIN", "exclamation_density_per_1k": "EXCLAMATION_DENSITY_PER_1K"}
             for jk, ck in key_map.items():
                 if jk in data:
                     defaults[ck] = data[jk]
@@ -94,6 +97,11 @@ DIALOG_MARKER_MIN_TOTAL = _th["DIALOG_MARKER_MIN_TOTAL"]
 DIALOG_EMOTION_COMMENTARY_MIN_HITS = _th["DIALOG_EMOTION_COMMENTARY_MIN_HITS"]
 CLICHE_HIT_THRESHOLD = _th["CLICHE_HIT_THRESHOLD"]
 DESCRIPTION_PARAGRAPH_MIN_LEN = _th["DESCRIPTION_PARAGRAPH_MIN_LEN"]
+EM_DASH_DENSITY_PER_1K = _th["EM_DASH_DENSITY_PER_1K"]
+EM_DASH_SIMPLE_CONTINUATION_MIN = _th["EM_DASH_SIMPLE_CONTINUATION_MIN"]
+ELLIPSIS_FORMAT_MISMATCH_MIN = _th["ELLIPSIS_FORMAT_MISMATCH_MIN"]
+EXCLAMATION_STACK_MIN = _th["EXCLAMATION_STACK_MIN"]
+EXCLAMATION_DENSITY_PER_1K = _th["EXCLAMATION_DENSITY_PER_1K"]
 
 def _load_cliches() -> list:
     defaults = [
@@ -406,6 +414,108 @@ def detect_post_dialog_emotion_commentary(text: str) -> Tuple[int, List[str]]:
     return len(hits), hits
 
 
+def detect_em_dash_abuse(text: str) -> Tuple[float, int, List[str]]:
+    """检测破折号（——）滥用。
+
+    返回 (密度per_1k_chars, 简单承接型误用数, 详情列表)。
+    """
+    if not text:
+        return 0.0, 0, []
+    hanzi = len(re.findall(r"[\u4e00-\u9fa5]", text))
+    if hanzi == 0:
+        return 0.0, 0, []
+
+    all_dashes = re.findall(r"—{2,}", text)
+    total_count = sum(len(d) // 2 for d in all_dashes)
+    density = total_count / (hanzi / 1000) if hanzi > 0 else 0.0
+
+    simple_hits: List[str] = []
+    simple_patterns = [
+        r"—{2}(?=是)",
+        r"—{2}(?=有)",
+        r"—{2}(?=在)",
+        r"—{2}(?=这)",
+        r"—{2}(?=那)",
+        r"—{2}(?=上面)",
+        r"—{2}(?=里面)",
+        r"—{2}(?=[一-龥]{1,3}[是有着在了])",
+    ]
+    for pattern in simple_patterns:
+        for m in re.finditer(pattern, text):
+            ctx_start = max(0, m.start() - 10)
+            ctx_end = min(len(text), m.end() + 20)
+            ctx = text[ctx_start:ctx_end]
+            simple_hits.append(f"破折号简单承接: '{ctx}'")
+
+    return density, len(simple_hits), simple_hits
+
+
+def detect_ellipsis_format(text: str) -> Tuple[int, List[str]]:
+    """检测省略号格式问题。
+
+    返回 (问题数, 详情列表)。
+    """
+    if not text:
+        return 0, []
+    issues: List[str] = []
+
+    for m in re.finditer(r'\.{3,}', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append(f"英文省略号 '...' → 应为 '……' in '{text[ctx_start:ctx_end]}'")
+
+    for m in re.finditer(r'(?<!…)…(?!…)', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append(f"单省略号 '…' → 应为 '……' in '{text[ctx_start:ctx_end]}'")
+
+    for m in re.finditer(r'……。', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append(f"省略号后多余句号 '……。' → 应为 '……' in '{text[ctx_start:ctx_end]}'")
+
+    return len(issues), issues
+
+
+def detect_exclamation_abuse(text: str) -> Tuple[int, float, List[str]]:
+    """检测感叹号/问号叠用和密度。
+
+    返回 (叠用次数, 密度per_1k_chars, 详情列表)。
+    """
+    if not text:
+        return 0, 0.0, []
+    hanzi = len(re.findall(r"[\u4e00-\u9fa5]", text))
+    if hanzi == 0:
+        return 0, 0.0, []
+
+    issues: List[str] = []
+    stack_count = 0
+
+    for m in re.finditer(r'！{3,}', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append(f"感叹号叠用 '{m.group()}' → 应精简为 '！' in '{text[ctx_start:ctx_end]}'")
+        stack_count += 1
+
+    for m in re.finditer(r'？{3,}', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append(f"问号叠用 '{m.group()}' → 应精简为 '？' in '{text[ctx_start:ctx_end]}'")
+        stack_count += 1
+
+    for m in re.finditer(r'[！？]{2,}', text):
+        if '！' in m.group() and '？' in m.group():
+            ctx_start = max(0, m.start() - 10)
+            ctx_end = min(len(text), m.end() + 10)
+            issues.append(f"感叹问号混合叠用 '{m.group()}' → 应保留一种 in '{text[ctx_start:ctx_end]}'")
+            stack_count += 1
+
+    exclamation_count = len(re.findall(r'[！!]', text))
+    density = exclamation_count / (hanzi / 1000) if hanzi > 0 else 0.0
+
+    return stack_count, density, issues
+
+
 def load_outline_meta(outlines_path: Optional[Path]) -> Dict[str, Dict[str, Any]]:
     """读取 outlines/chapters.json，返回 {chapter_no: card}。"""
     meta: Dict[str, Dict[str, Any]] = {}
@@ -646,6 +756,51 @@ def scan_chapter(
             ),
         })
 
+    # 10.8) 破折号（——）滥用
+    em_dash_density, em_dash_simple_hits, em_dash_details = detect_em_dash_abuse(text)
+    metrics["em_dash_density"] = em_dash_density
+    metrics["em_dash_simple_continuation"] = em_dash_simple_hits
+    if em_dash_density >= EM_DASH_DENSITY_PER_1K or em_dash_simple_hits >= EM_DASH_SIMPLE_CONTINUATION_MIN:
+        issues.append({
+            "code": "punctuation_em_dash_abuse",
+            "severity": "medium",
+            "scope": f"chapter {chapter_no}",
+            "detail": (
+                f"破折号密度 {em_dash_density:.1f}/千字"
+                f"（阈值 {EM_DASH_DENSITY_PER_1K}），"
+                f"简单承接型误用 {em_dash_simple_hits} 处"
+                f"（阈值 {EM_DASH_SIMPLE_CONTINUATION_MIN}）"
+            ),
+        })
+
+    # 10.9) 省略号格式
+    ellipsis_count, ellipsis_details = detect_ellipsis_format(text)
+    metrics["ellipsis_format_issues"] = ellipsis_count
+    if ellipsis_count >= ELLIPSIS_FORMAT_MISMATCH_MIN:
+        issues.append({
+            "code": "punctuation_ellipsis_format",
+            "severity": "medium",
+            "scope": f"chapter {chapter_no}",
+            "detail": f"省略号格式问题 {ellipsis_count} 处 ≥ {ELLIPSIS_FORMAT_MISMATCH_MIN}：{'; '.join(ellipsis_details[:3])}",
+        })
+
+    # 10.10) 感叹号/问号叠用
+    exclamation_stack, exclamation_density, exclamation_details = detect_exclamation_abuse(text)
+    metrics["exclamation_stack"] = exclamation_stack
+    metrics["exclamation_density"] = exclamation_density
+    if exclamation_stack >= EXCLAMATION_STACK_MIN or exclamation_density >= EXCLAMATION_DENSITY_PER_1K:
+        issues.append({
+            "code": "punctuation_exclamation_abuse",
+            "severity": "medium",
+            "scope": f"chapter {chapter_no}",
+            "detail": (
+                f"感叹号/问号叠用 {exclamation_stack} 处"
+                f"（阈值 {EXCLAMATION_STACK_MIN}），"
+                f"感叹号密度 {exclamation_density:.1f}/千字"
+                f"（阈值 {EXCLAMATION_DENSITY_PER_1K}）"
+            ),
+        })
+
     # 11) 场景类型
     scene_type = (outline_card or {}).get("sceneType") or (outline_card or {}).get("rhythm") or "unknown"
     metrics["scene_type"] = scene_type
@@ -809,8 +964,8 @@ def write_markdown_report(report: Dict[str, Any], md_path: Path) -> None:
         lines.append("")
 
     lines.append("## 各章指标")
-    lines.append("| 章节 | 字数 | 对话% | 独白% | 描写% | 核心事件 | 主谓宾连击 | 开场重复段 | 套路命中 | micro-arc | 对话标记 | 旁白解说 |")
-    lines.append("|------|------|-------|-------|-------|----------|------------|------------|----------|-----------|----------|----------|")
+    lines.append("| 章节 | 字数 | 对话% | 独白% | 描写% | 核心事件 | 主谓宾连击 | 开场重复段 | 套路命中 | micro-arc | 对话标记 | 旁白解说 | 破折号 | 省略号 | 感叹号 |")
+    lines.append("|------|------|-------|-------|-------|----------|------------|------------|----------|-----------|----------|----------|--------|--------|--------|")
     for c in report["chapters"]:
         m = c["metrics"]
         lines.append(
@@ -822,6 +977,9 @@ def write_markdown_report(report: Dict[str, Any], md_path: Path) -> None:
             f" {m.get('micro_arc_repeat', 0)}×{m.get('micro_arc_fingerprint') or '-'} |"
             f" {m.get('dialog_marker_top', '-')}({m.get('dialog_marker_top_n', 0)}/{m.get('dialog_marker_total', 0)}) |"
             f" {m.get('dialog_emotion_commentary_hits', 0)} |"
+            f" {m.get('em_dash_density', 0):.1f}/{m.get('em_dash_simple_continuation', 0)} |"
+            f" {m.get('ellipsis_format_issues', 0)} |"
+            f" {m.get('exclamation_stack', 0)}/{m.get('exclamation_density', 0):.1f} |"
         )
     lines.append("")
 

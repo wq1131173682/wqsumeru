@@ -1,5 +1,5 @@
 {
-  "version": "1.2.4",
+  "version": "1.3.0",
   "sentence_pattern_repeat": 6,
   "sentence_opening_repeat": 3,
   "opening_similar_window": 2,
@@ -20,5 +20,10 @@
   "dialog_marker_min_total": 5,
   "dialog_emotion_commentary_min_hits": 3,
   "cliche_hit_threshold": 3,
-  "description_paragraph_min_len": 80
+  "description_paragraph_min_len": 80,
+  "em_dash_density_per_1k": 5,
+  "em_dash_simple_continuation_min": 3,
+  "ellipsis_format_mismatch_min": 2,
+  "exclamation_stack_min": 2,
+  "exclamation_density_per_1k": 3
 }

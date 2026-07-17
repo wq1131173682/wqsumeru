@@ -175,7 +175,7 @@ def check_spell_errors(text: str, chapter_id: str) -> List[Dict]:
                 errors.append({
                     "chapter": chapter_id,
                     "type": "punctuation",
-                    "severity": "low",
+                    "severity": "medium",
                     "position": match.start(),
                     "wrong": wrong,
                     "correct": correct,

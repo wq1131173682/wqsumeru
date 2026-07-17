@@ -150,7 +150,7 @@ def validate_paragraph_format(text: str, chapter_id: str, style: str = "standard
 def validate_punctuation(text: str, chapter_id: str) -> List[Dict]:
     """验证标点符号"""
     issues = []
-    
+
     # 检查重复标点
     for wrong, correct in FORMAT_RULES['punctuation_errors'].items():
         if wrong in text:
@@ -166,26 +166,229 @@ def validate_punctuation(text: str, chapter_id: str) -> List[Dict]:
                 "count": count,
                 "suggestion": f"将'{wrong}'改为'{correct}'"
             })
-    
-    # 检查英文标点误用
+
+    # 检查英文标点误用（中文标点前后有中文字符时才算误用）
+    cn_char = r'[\u4e00-\u9fa5]'
     for wrong, correct in FORMAT_RULES['english_punctuation'].items():
-        # 排除引号内的英文标点（可能是对话中的英文）
-        count = text.count(wrong)
-        if count > 0:
-            # 粗略估计：如果英文标点数量过多，可能是误用
-            if count > len(text) * 0.01:  # 超过1%的字符是英文标点
-                issues.append({
-                    "chapter": chapter_id,
-                    "type": "punctuation",
-                    "severity": "low",
-                    "position": 0,
-                    "issue": f"可能误用英文标点'{wrong}'",
-                    "current": wrong,
-                    "correct": correct,
-                    "count": count,
-                    "suggestion": f"建议将英文标点'{wrong}'改为中文标点'{correct}'"
-                })
-    
+        # 精确检测：中文标点前后有中文字符
+        pattern = re.compile(
+            cn_char + re.escape(wrong) + r'|'
+            + re.escape(wrong) + cn_char
+        )
+        matches = list(pattern.finditer(text))
+        if matches:
+            issues.append({
+                "chapter": chapter_id,
+                "type": "punctuation",
+                "severity": "medium",
+                "position": matches[0].start(),
+                "issue": f"中英文标点混排'{wrong}'",
+                "current": wrong,
+                "correct": correct,
+                "count": len(matches),
+                "suggestion": f"建议将英文标点'{wrong}'改为中文标点'{correct}'"
+            })
+
+    return issues
+
+
+def validate_punctuation_space(text: str, chapter_id: str) -> List[Dict]:
+    """检测中文标点前后的多余空格"""
+    issues = []
+    # 中文标点前不得有空格
+    space_before = re.finditer(r' +([，。！？：；、）」》])', text)
+    for m in space_before:
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_space",
+            "severity": "low",
+            "position": m.start(),
+            "issue": "标点前多余空格",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "删除标点前的空格"
+        })
+    # 中文标点后不得有连续2个以上空格（排除段首缩进）
+    space_after = re.finditer(r'([，。！？：；、（「《]) {2,}', text)
+    for m in space_after:
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_space",
+            "severity": "low",
+            "position": m.start(),
+            "issue": "标点后多余空格",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "标点后最多保留一个空格"
+        })
+    return issues
+
+
+def validate_quote_closure(text: str, chapter_id: str) -> List[Dict]:
+    """检测引号是否成对闭合"""
+    issues = []
+    # 中文双引号
+    left_dq = text.count('\u201c')  # "
+    right_dq = text.count('\u201d')  # "
+    if left_dq != right_dq:
+        issues.append({
+            "chapter": chapter_id,
+            "type": "quote_closure",
+            "severity": "high",
+            "issue": f"中文双引号未闭合（左{left_dq}个 vs 右{right_dq}个）",
+            "suggestion": "检查引号是否成对使用"
+        })
+    # 直角引号
+    left_ra = text.count('「')
+    right_ra = text.count('」')
+    if left_ra != right_ra:
+        issues.append({
+            "chapter": chapter_id,
+            "type": "quote_closure",
+            "severity": "high",
+            "issue": f"直角引号未闭合（左{left_ra}个 vs 右{right_ra}个）",
+            "suggestion": "检查引号是否成对使用"
+        })
+    return issues
+
+
+def validate_book_title_marks(text: str, chapter_id: str) -> List[Dict]:
+    """检测书名号《》规范"""
+    issues = []
+    left_bt = text.count('《')
+    right_bt = text.count('》')
+    if left_bt != right_bt:
+        issues.append({
+            "chapter": chapter_id,
+            "type": "book_title",
+            "severity": "medium",
+            "issue": f"书名号未闭合（左{left_bt}个 vs 右{right_bt}个）",
+            "suggestion": "检查书名号是否成对使用"
+        })
+    # 英文尖括号误用（中文上下文中）
+    cn_char = r'[\u4e00-\u9fa5]'
+    angle_matches = re.findall(
+        cn_char + r'<[^>]+>|<[^>]+>' + cn_char,
+        text
+    )
+    if angle_matches:
+        issues.append({
+            "chapter": chapter_id,
+            "type": "book_title",
+            "severity": "low",
+            "issue": f"可能误用英文尖括号<>'{angle_matches[0][:20]}'",
+            "count": len(angle_matches),
+            "suggestion": "建议将英文'<'>'改为中文书名号'《'》'"
+        })
+    return issues
+
+
+def validate_punctuation_format(text: str, chapter_id: str) -> List[Dict]:
+    """检测省略号、破折号、括号格式规范"""
+    issues = []
+
+    # 省略号格式：... → ……，单 … → ……
+    for m in re.finditer(r'\.{3,}', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "position": m.start(),
+            "issue": "英文省略号'...'",
+            "correct": "……",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "将'...'改为中文省略号'……'"
+        })
+    for m in re.finditer(r'(?<!…)…(?!…)', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "position": m.start(),
+            "issue": "单省略号'…'",
+            "correct": "……",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "将单'…'改为双'……'"
+        })
+    # 省略号后多余句号
+    for m in re.finditer(r'……。', text):
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "low",
+            "position": m.start(),
+            "issue": "省略号后多余句号'……。'",
+            "correct": "……",
+            "suggestion": "省略号已含句末功能，删除句号"
+        })
+
+    # 破折号格式：-- → ——，单个 — → ——
+    for m in re.finditer(r'(?<!—)--(?!—)', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "position": m.start(),
+            "issue": "英文破折号'--'",
+            "correct": "——",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "将'--'改为中文破折号'——'"
+        })
+    for m in re.finditer(r'(?<!—)—(?!—)', text):
+        ctx_start = max(0, m.start() - 10)
+        ctx_end = min(len(text), m.end() + 10)
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "position": m.start(),
+            "issue": "单个破折号'—'",
+            "correct": "——",
+            "context": text[ctx_start:ctx_end],
+            "suggestion": "将单个'—'改为双'——'"
+        })
+
+    # 括号格式：英文 () → 中文 （）
+    cn_char = r'[\u4e00-\u9fa5]'
+    paren_matches = re.findall(
+        cn_char + r'\([^)]+\)|\([^)]+\)' + cn_char,
+        text
+    )
+    if paren_matches:
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "low",
+            "issue": f"可能误用英文括号'()'",
+            "count": len(paren_matches),
+            "suggestion": "建议将英文'(')'改为中文'（'）'"
+        })
+    # 括号闭合
+    if text.count('(') != text.count(')'):
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "issue": "英文括号未闭合",
+            "suggestion": "检查括号是否成对使用"
+        })
+    if text.count('（') != text.count('）'):
+        issues.append({
+            "chapter": chapter_id,
+            "type": "punctuation_format",
+            "severity": "medium",
+            "issue": "中文括号未闭合",
+            "suggestion": "检查括号是否成对使用"
+        })
+
     return issues
 
 
@@ -245,6 +448,10 @@ def scan_chapters(chapters_dir: str) -> Dict:
             issues.extend(validate_chapter_title(text, chapter_id))
             issues.extend(validate_paragraph_format(text, chapter_id))
             issues.extend(validate_punctuation(text, chapter_id))
+            issues.extend(validate_punctuation_space(text, chapter_id))
+            issues.extend(validate_quote_closure(text, chapter_id))
+            issues.extend(validate_book_title_marks(text, chapter_id))
+            issues.extend(validate_punctuation_format(text, chapter_id))
             issues.extend(validate_dialogue_format(text, chapter_id))
             
             all_issues.extend(issues)
@@ -263,6 +470,10 @@ def scan_chapters(chapters_dir: str) -> Dict:
         "chapter_title": len([i for i in all_issues if i.get("type") == "chapter_title"]),
         "paragraph": len([i for i in all_issues if i.get("type") == "paragraph"]),
         "punctuation": len([i for i in all_issues if i.get("type") == "punctuation"]),
+        "punctuation_space": len([i for i in all_issues if i.get("type") == "punctuation_space"]),
+        "quote_closure": len([i for i in all_issues if i.get("type") == "quote_closure"]),
+        "book_title": len([i for i in all_issues if i.get("type") == "book_title"]),
+        "punctuation_format": len([i for i in all_issues if i.get("type") == "punctuation_format"]),
         "dialogue": len([i for i in all_issues if i.get("type") == "dialogue"]),
         "read_error": len([i for i in all_issues if i.get("type") == "read_error"]),
     }
@@ -318,6 +529,10 @@ def main():
             print(f"  章节标题: {stats.get('chapter_title', 0)}")
             print(f"  段落格式: {stats.get('paragraph', 0)}")
             print(f"  标点符号: {stats.get('punctuation', 0)}")
+            print(f"  标点空格: {stats.get('punctuation_space', 0)}")
+            print(f"  引号闭合: {stats.get('quote_closure', 0)}")
+            print(f"  书名号: {stats.get('book_title', 0)}")
+            print(f"  标点格式: {stats.get('punctuation_format', 0)}")
             print(f"  对话格式: {stats.get('dialogue', 0)}")
         
         if result.get('issues'):

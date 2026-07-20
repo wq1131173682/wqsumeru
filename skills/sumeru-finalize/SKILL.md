@@ -1,7 +1,7 @@
 ---
 name: sumeru-finalize
 description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。
-version: 1.2.1
+version: 1.2.2
 type: skill
 user-invocable: true
 ---
@@ -16,7 +16,7 @@ user-invocable: true
 ### 核心功能
 1. 错别字、标点符号、语法错误检查
 2. 敏感内容、违规内容排查（三级分类）
-3. 格式规范统一：章节标题、段落格式、标点规范
+3. 格式规范统一：章节标题、段落格式、10类标点规范（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点，详见 `sumeru-rules` 第六点五部分）
 4. 全文字数统计、完稿报告生成
 5. **分章导出**：md/txt 格式，每章独立文件
 6. **整文导出**：md/txt 格式，全文合并为一个文件
@@ -119,7 +119,7 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 |------|------|------|
 | 错别字检查 | `scripts/spell-check.py` | 词典匹配 + 上下文验证 |
 | 敏感词初筛 | `scripts/sensitive-word-filter.py` | 正则匹配 + 三级分类 |
-| 格式规范 | `scripts/format-validator.py` | 章节标题、段落格式、标点规范 |
+| 格式规范 | `scripts/format-validator.py` | 章节标题、段落格式、10类标点规范检测（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点） |
 | 格式导出 | `scripts/platform-export.py` | md/txt/clean 分章 + 整文 + 按卷导出 |
 | 修复导出 | `scripts/platform-export.py repair` | 按当前规则重新导出 md + txt + clean |
 | Build前检查 | 内置逻辑 | 缺章检查、TODO检查、issue检查 |

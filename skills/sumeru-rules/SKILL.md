@@ -355,7 +355,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 # 第六点五部分：标点符号规范
 
-> **全局标点规范**，所有 Skill 在正文写作、润色、审查时必须遵守。脚本检测见 `anti-ai-scan.py`（破折号/省略号/感叹号）和 `format-validator.py`（格式/闭合/混排/空格）。
+> **全局标点规范**，所有 Skill 在正文写作、润色、审查时必须遵守。脚本检测见 `anti-ai-scan.py`（破折号密度/省略号格式/感叹号叠用）和 `format-validator.py`（重复标点/中英文混排/标点空格/引号闭合/书名号/括号格式/省略号格式/破折号格式）。
 
 ## 一、破折号（——）使用规范
 

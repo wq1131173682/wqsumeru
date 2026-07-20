@@ -95,7 +95,7 @@ agent: build
 ```
 
 **字段说明**
-- `type`：问题类型（`character_ooc`、`timeline_error`、`plot_hole`、`foreshadow_missing`、`word_count`、`typo`、`punctuation`、`repeated_char`、`format`、`other`）
+- `type`：问题类型（`character_ooc`、`timeline_error`、`plot_hole`、`foreshadow_missing`、`word_count`、`typo`、`punctuation`、`punctuation_space`、`quote_closure`、`book_title`、`punctuation_format`、`repeated_char`、`format`、`other`）
 - `severity`：严重程度（`critical`、`high`、`medium`、`low`）
 - `autoFixable`：是否可自动修复（`true` 时write 子Agent可直接处理，`false` 时需用户确认）
 ---
@@ -107,7 +107,7 @@ agent: build
 | 问题类型 | 修复方式 | 示例 |
 |----------|----------|------|
 | **错别字** | 词典匹配 + 上下文验证 | "在次" 改为"再次"、"在经" 改为"已经" |
-| **标点错误** | 规则替换 | 连续逗号"，，" 改为"，"、英文标点改为中文标点 |
+| **标点错误** | 规则替换 | 连续逗号"，，"改为"、"、英文标点改为中文标点、省略号格式统一为"……"、破折号格式统一为"——"、引号/书名号/括号闭合检查、标点前后空格清理（详见 `sumeru-rules` 第六点五部分） |
 | **重复字** | 去重 | "非常非常" 改为"非常"、"真的真的" 改为"真的" |
 | **格式问题** | 统一格式 | 章节标题格式统一为`第X章 标题`、首行缩进统一 |
 | **重复段落** | 标记 + 去重 | 连续两段内容高度相似时标记 |
@@ -116,7 +116,7 @@ agent: build
 | **字数不足** | ⚠️ **不再自动注入描写段**（防止水文）。改用反 AI 扫描+ fix-plan 标记，触发 write 重写 | 调用 `python skills/sumeru-review/scripts/anti-ai-scan.py <chapters_dir>` 报告问题；将 `word_count_short` 写入 `fix-plan.json`，由 write 阶段在当前场景中"自然展开"（让人物多一个反应、多一句停顿、多一段沉默）补足 |
 
 **自动修复流程**：
-1. 脚本扫描（错别字词典、正则标点、重复字检测）
+1. 脚本扫描（错别字词典、10类标点规范检测、重复字检测）
 2. 标记可自动修复项（`autoFixable: true`）
 3. 父Agent直接应用修复（不经过子Agent）
 4. 修复后生成`fix-log.json` 记录修复内容

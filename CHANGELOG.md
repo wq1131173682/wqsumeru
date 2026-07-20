@@ -1,5 +1,65 @@
 # Changelog
 
+## 1.3.7 (2026-07-20)
+
+### 标点符号规范体系：10类检测规则 + 全链路集成
+
+> **背景**：AI 生成小说正文存在系统性标点问题——破折号滥用做简单承接、省略号格式混乱、感叹号堆叠制造虚假戏剧感、中英文标点混排。原有脚本仅检测重复标点和英文标点占比，覆盖面严重不足。本次新增 10 类标点检测规则，从检测脚本到 SKILL.md 规则文件全链路集成。
+
+**改动**（9 个文件，+720 −26 行）：
+
+- **A. `anti-ai-scan.py` 新增 3 维标点检测**（+164 行）
+  - `detect_em_dash_abuse()`：破折号密度检测（≥5/千字触发 medium）+ 简单承接型误用检测（`——是/有/在/这/那` 等模式，≥3 处触发 medium）
+  - `detect_ellipsis_format()`：英文 `...` → `……`、单 `…` → `……`、`……。` 去多余句号
+  - `detect_exclamation_abuse()`：`！！！`→`！`、`？？？`→`？`、`！？`/`？！` 混合叠用 + 感叹号密度（≥3/千字触发 medium）
+  - `anti-ai-thresholds.json` 新增 5 项阈值（版本升至 v1.3.0）
+
+- **B. `format-validator.py` 新增 4 个验证函数**（+255 行）
+  - `validate_punctuation_space()`：标点前后多余空格检测
+  - `validate_quote_closure()`：中文双引号 `""` 和直角引号 `「」` 未闭合检测
+  - `validate_book_title_marks()`：书名号 `《》` 闭合 + 英文 `<>` 误用检测
+  - `validate_punctuation_format()`：省略号/破折号/括号格式标准化 + 闭合检测
+  - `validate_punctuation()` 改进：从"占比 >1%"粗略检测改为"中文标点前后有中文字符"精确检测
+
+- **C. `spell-check.py` 严重度统一**
+  - 标点重复检测严重度从 `low` → `medium`，与 `format-validator.py` 保持一致
+
+- **D. `sumeru-rules/SKILL.md` 新增第六点五部分：标点符号规范**（+77 行）
+  - 10 个子章节：破折号、省略号、感叹号问号、中英文混排、标点空格、引号闭合、书名号、括号、顿号逗号边界、脚本检测阈值
+  - 作为全局标点规范的唯一权威来源
+
+- **E. 标点规范向下游 Skill 传播**
+  - `sumeru-write/SKILL.md`：反AI自检清单新增标点检查项
+  - `sumeru-polish/SKILL.md`：新增标点符号润色规范（不受"禁止标点规范化"约束）
+  - `subagent-rules.md`：新增标点符号规范（强制），子Agent写作/润色时必须执行
+
+- **F. 文档同步**
+  - `README.md`：版本升至 v1.3.7，新增更新条目，finalize 功能描述补充 10 类标点检测
+  - `QWEN.md`：format-validator.py 描述更新，anti-ai-scan.py 描述补充 3 维标点检测
+  - `sumeru-finalize/SKILL.md`：版本升至 v1.2.2，标点规范引用更新
+  - `sumeru-review/SKILL.md`：type 枚举扩展、自动修复表扩充、脚本扫描描述更新
+
+**未破坏项**：
+- 原有标点重复检测和英文标点检测逻辑保留，新增检测为增量
+- JSON 配置无配置文件时使用内置默认值，向后兼容
+- `spell-check.py` 严重度调整不影响已有调用方逻辑
+
+---
+
+## 1.3.6 (2026-06-08)
+
+### 反 AI 扫描第 9 维：对话后旁白解说检测
+
+> **背景**：对话已表达情绪后，叙述用散文"翻译"同一情绪（如"你给我滚！"他愤怒地说），是 AI 最典型的行为模式之一。
+
+**改动**：
+- `anti-ai-scan.py` 新增 `detect_post_dialog_emotion_commentary()` 检测函数
+- 阈值 ≥ 3 处触发 medium 级 polish
+- 8 维 → 9 维反 AI 句式扫描
+- 水文硬指标编号顺延 9-15 → 10-16
+
+---
+
 ## 1.3.5 (2026-06-08)
 
 ### 技能生态优化：Token 精简 + OCR 错字根除 + JSON 配置外置

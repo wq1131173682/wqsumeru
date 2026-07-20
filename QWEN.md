@@ -1,6 +1,6 @@
 # QWEN.md — 须弥写作 (Sumeru Writing) 项目上下文
 
-> **版本**: v1.3.6 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
+> **版本**: v1.3.7 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
 > **全局约束唯一来源**: `skills/sumeru-rules/SKILL.md`
 
 ## 项目概述
@@ -143,18 +143,18 @@ novel-project/
 
 ### Python 脚本（`skills/*/scripts/`）
 
-- **反AI扫描** (`anti-ai-scan.py`): 9维反AI句式检测 + 15项水文硬指标 + 80+ Cliché黑名单，阈值和黑名单从 JSON 配置加载
+- **反AI扫描** (`anti-ai-scan.py`): 9维反AI句式 + 15项水文硬指标 + 80+ Cliché黑名单 + 3维标点检测（破折号滥用/省略号格式/感叹号叠用），阈值和黑名单从 JSON 配置加载
 - **字数统计** (`chapter-word-counter.py`): 章节字数达标检查
 - **连续性检查** (`continuity-check.py`): 时间线、人物位置、道具状态一致性
 - **伏笔追踪** (`foreshadowing-tracker.py`): 伏笔设置与回收追踪
 - **拼写检查** (`spell-check.py`): 错别字检测，词典从 JSON 加载
 - **敏感词过滤** (`sensitive-word-filter.py`): 三级敏感词检测，词库从 JSON 加载
-- **格式校验** (`format-validator.py`): 标点、格式标准化
+- **格式校验** (`format-validator.py`): 10类标点规范检测（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点）+ 章节标题/段落/对话格式校验
 - **平台导出** (`platform-export.py`): md/txt 分章+整文导出
 
 ### JSON 外置配置
 
-- `sumeru-review/config/anti-ai-thresholds.json`: 20项反AI检测阈值
+- `sumeru-review/config/anti-ai-thresholds.json`: 25项反AI检测阈值（含5项标点检测阈值）
 - `sumeru-review/config/cliche-blacklist.json`: 8分类80+条Cliché黑名单
 - `sumeru-finalize/config/spell-dict.json`: 拼写检查词典
 - `sumeru-finalize/config/sensitive-words.json`: 敏感词库
@@ -217,4 +217,4 @@ agent: build
 
 ## 版本
 
-当前 v1.3.6，完整变更见 [CHANGELOG.md](./CHANGELOG.md)。
+当前 v1.3.7，完整变更见 [CHANGELOG.md](./CHANGELOG.md)。

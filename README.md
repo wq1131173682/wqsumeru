@@ -1,6 +1,6 @@
 # 须弥写作 (Sumeru Writing) - 二次开发版
 
-> **当前版本**: v1.3.6 · **更新日期**: 2026-06-08 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.3.7 · **更新日期**: 2026-07-20 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
 基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
@@ -10,6 +10,7 @@
 
 ## 🆕 最新更新
 
+- **v1.3.7** (2026-07-20) — 标点符号规范体系：新增10类标点检测规则（破折号滥用/省略号格式/感叹号问号叠用/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点）；`anti-ai-scan.py` 新增3维标点检测（破折号密度+简单承接型误用、省略号格式、感叹号叠用+密度）；`format-validator.py` 新增4个验证函数（标点空格、引号闭合、书名号、标点格式）；`sumeru-rules/SKILL.md` 新增第六点五部分标点规范章节；修复 `spell-check.py` 标点严重度不一致
 - **v1.3.6** (2026-06-08) — 反 AI 扫描第 9 维：新增「对话后旁白解说」检测（`anti_ai_dialog_emotion_commentary`）—— 对话已表达情绪后叙述用散文"翻译"同一情绪，AI 最典型行为模式之一；阈值 ≥ 3 处触发 medium 级 polish；8 维 → 9 维反 AI 句式扫描；水文硬指标编号顺延 9-15 → 10-16
 - **v1.3.5** (2026-06-08) — 技能生态优化：Token 精简（删除 sumeru-rules 冗余章节 ~120 行）+ OCR 错字根除（20+ 处覆盖 3 个文件）+ JSON 配置外置（anti-ai-thresholds.json / cliche-blacklist.json / spell-dict.json / sensitive-words.json）+ migrationHandoff 状态简化（inferred→pending, failed→skipped, 校对完成→confirmed）+ 6 项技能版本统一至 v1.2.1
 - **v1.3.4** (2026-06-05) — 反 AI 扫描闭环套用模板：新增 2 项检查（`micro_arc_template_repeat` 段间结构指纹 + `dialog_marker_dominant` 对话标记集中度）+ Cliché 黑名单 40+ → 80+（战斗套路 + 转折模板 + 情绪标签）+ 6 维 → 8 维反 AI 句式
@@ -417,7 +418,7 @@ npx skills add wq1131173682/wqsumeru
 
 #### 6. 完稿校验 Skill
 **适用场景**：完稿检查、敏感词检测、md/txt 导出
-**功能**：错别字/标点/语法错误修正，三级敏感内容检测与修正建议，格式标准化，md/txt 分章+整文导出，批量替换与自动分段，**批量处理时使用子Agent并行校验，每个Agent最多负责3个章节**。
+**功能**：错别字/标点/语法错误修正，三级敏感内容检测与修正建议，10类标点规范检测（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点），格式标准化，md/txt 分章+整文导出，批量替换与自动分段，**批量处理时使用子Agent并行校验，每个Agent最多负责3个章节**。
 
 > 💡 **Skill 边界**：技术性文字校验（错别字/标点/语法）由本Skill负责，`sumeru-polish` 专注文笔和内容层面优化，两者互补不重叠。
 

@@ -1,8 +1,8 @@
-# 须弥写作 (Sumeru Writing) - 二次开发版
+# WQ 写作 (WQ Writing) - 二次开发版
 
-> **当前版本**: v1.3.7 · **更新日期**: 2026-07-20 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.4.0 · **更新日期**: 2026-08-06 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
-基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
+基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode、Qwen Code等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
 > 🎯 **定位**: 网文作者的AI创作副驾驶，覆盖**迁移 → 选题 → 大纲 → 写作 → 审稿 → 润色 → 导出**全流程，让创作更高效。
 
@@ -10,20 +10,21 @@
 
 ## 🆕 最新更新
 
-- **v1.3.7** (2026-07-20) — 标点符号规范体系：新增10类标点检测规则（破折号滥用/省略号格式/感叹号问号叠用/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点）；`anti-ai-scan.py` 新增3维标点检测（破折号密度+简单承接型误用、省略号格式、感叹号叠用+密度）；`format-validator.py` 新增4个验证函数（标点空格、引号闭合、书名号、标点格式）；`sumeru-rules/SKILL.md` 新增第六点五部分标点规范章节；修复 `spell-check.py` 标点严重度不一致
+- **v1.4.0** (2026-08-06) — 品牌重命名：`sumeru-*` 技能前缀统一改为 `wq-*`；11 个技能目录全部重命名；项目名称更新为 "WQ 写作 (WQ Writing)"；保留 xindoo/sumeru 原项目致谢；补入评分模块到架构图
+- **v1.3.7** (2026-07-20) — 标点符号规范体系：新增10类标点检测规则（破折号滥用/省略号格式/感叹号问号叠用/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点）；`anti-ai-scan.py` 新增3维标点检测（破折号密度+简单承接型误用、省略号格式、感叹号叠用+密度）；`format-validator.py` 新增4个验证函数（标点空格、引号闭合、书名号、标点格式）；`wq-rules/SKILL.md` 新增第六点五部分标点规范章节；修复 `spell-check.py` 标点严重度不一致
 - **v1.3.6** (2026-06-08) — 反 AI 扫描第 9 维：新增「对话后旁白解说」检测（`anti_ai_dialog_emotion_commentary`）—— 对话已表达情绪后叙述用散文"翻译"同一情绪，AI 最典型行为模式之一；阈值 ≥ 3 处触发 medium 级 polish；8 维 → 9 维反 AI 句式扫描；水文硬指标编号顺延 9-15 → 10-16
-- **v1.3.5** (2026-06-08) — 技能生态优化：Token 精简（删除 sumeru-rules 冗余章节 ~120 行）+ OCR 错字根除（20+ 处覆盖 3 个文件）+ JSON 配置外置（anti-ai-thresholds.json / cliche-blacklist.json / spell-dict.json / sensitive-words.json）+ migrationHandoff 状态简化（inferred→pending, failed→skipped, 校对完成→confirmed）+ 6 项技能版本统一至 v1.2.1
+- **v1.3.5** (2026-06-08) — 技能生态优化：Token 精简（删除 wq-rules 冗余章节 ~120 行）+ OCR 错字根除（20+ 处覆盖 3 个文件）+ JSON 配置外置（anti-ai-thresholds.json / cliche-blacklist.json / spell-dict.json / sensitive-words.json）+ migrationHandoff 状态简化（inferred→pending, failed→skipped, 校对完成→confirmed）+ 6 项技能版本统一至 v1.2.1
 - **v1.3.4** (2026-06-05) — 反 AI 扫描闭环套用模板：新增 2 项检查（`micro_arc_template_repeat` 段间结构指纹 + `dialog_marker_dominant` 对话标记集中度）+ Cliché 黑名单 40+ → 80+（战斗套路 + 转折模板 + 情绪标签）+ 6 维 → 8 维反 AI 句式
-- **v1.3.3** (2026-06-05) — 反水文扫描脚本（`anti-ai-scan.py`，560 行，15 项检查 + 6 维反 AI 句式 + 40+ Cliché 黑名单）+ 修复 `sumeru-review` L116 内部矛盾
+- **v1.3.3** (2026-06-05) — 反水文扫描脚本（`anti-ai-scan.py`，560 行，15 项检查 + 6 维反 AI 句式 + 40+ Cliché 黑名单）+ 修复 `wq-review` L116 内部矛盾
 - **v1.3.2** (2026-06-05) — 清理 `scripts-lib` 死代码 + 9 个 SKILL.md 全面 OCR 错字校对
 - **v1.3.1** (2026-06-05) — 剧情一致性 + 文笔丰富优化包：medium 模式启用 continuity、anchor 加 `targetChapter`、user-style 自动分析
-- **v1.3.0** (2026-06-05) — sumeru-migrate 接续协议：迁移后自动补 anchor/intro/状态标记，worldbuilder 一键续作
+- **v1.3.0** (2026-06-05) — wq-migrate 接续协议：迁移后自动补 anchor/intro/状态标记，worldbuilder 一键续作
 
 ## ✨ 核心特性
 
 - **全流程覆盖**: 从迁移旧项目到多平台导出，覆盖网文创作所有核心环节
-- **模块化架构**: 10个独立Skill模块（扫榜/迁移/选题/大纲/写作/审稿/润色/完稿 + 2 个支撑模块），可单独调用也可全流程自动编排
-- **项目接续**: sumeru-migrate v1.3.0+ 支持 H1-H6 接续协议，旧版本项目迁移后无缝续作
+- **模块化架构**: 11个独立Skill模块（扫榜/迁移/选题/大纲/写作/审稿/评分/润色/完稿 + 1 个支撑模块），可单独调用也可全流程自动编排
+- **项目接续**: wq-migrate v1.3.0+ 支持 H1-H6 接续协议，旧版本项目迁移后无缝续作
 - **Vibe Coding**: 自然语言指令驱动，无需学习复杂操作
 - **市场导向**: 基于主流平台榜单数据分析，提供选题可行性评估
 - **逻辑自洽**: 自动校验时间线、剧情一致性、人物OOC等问题
@@ -33,25 +34,26 @@
 
 ## 🏗️ 系统架构
 
-须弥写作采用模块化Skill架构，各模块独立工作又可协同编排：
+WQ 写作采用模块化Skill架构，各模块独立工作又可协同编排：
 
 ```
 skills/
-├── sumeru-worldbuilder/  # 全流程编排器
-├── sumeru-topic/         # 选题策划，市场分析→创意引擎→高概念Pitch→金手指设计
-├── sumeru-outline/       # 大纲设计，世界观→人设→剧情框架→伏笔管理表→章节细纲
-├── sumeru-write/         # 章节撰写，单章/批量创作+续写+重写
-├── sumeru-scan/          # 扫榜分析与竞品拆解
-├── sumeru-review/        # 逻辑审查，时间线+剧情+人物一致性校验
-├── sumeru-polish/        # 内容润色，文笔优化+节奏调整+风格统一
-├── sumeru-finalize/      # 完稿校验，合规检查+md/txt格式导出
-├── sumeru-migrate/       # 旧项目迁移，路径迁移+配置补齐+字段补全
-└── sumeru-rules/         # 全局约束（唯一来源）
+├── wq-worldbuilder/  # 全流程编排器
+├── wq-topic/         # 选题策划，市场分析→创意引擎→高概念Pitch→金手指设计
+├── wq-outline/       # 大纲设计，世界观→人设→剧情框架→伏笔管理表→章节细纲
+├── wq-write/         # 章节撰写，单章/批量创作+续写+重写
+├── wq-scan/          # 扫榜分析与竞品拆解
+├── wq-review/        # 逻辑审查，时间线+剧情+人物一致性校验
+├── wq-polish/        # 内容润色，文笔优化+节奏调整+风格统一
+├── wq-score/         # 完稿评分，五维模型量化评估
+├── wq-finalize/      # 完稿校验，合规检查+md/txt格式导出
+├── wq-migrate/       # 旧项目迁移，路径迁移+配置补齐+字段补全
+└── wq-rules/         # 全局约束（唯一来源）
 ```
 
 ## 📁 小说项目工程化结构
 
-须弥写作推荐把一本小说当作一个长期开发项目维护。项目结构遵循 `skills/sumeru-rules/SKILL.md` 定义的 Canonical 路径：用户可见文件位于项目根目录（`plan.md`、`outline.md`、`chapters/` 等），AI 内部数据位于 `.sumeru/` 目录下。
+WQ 写作推荐把一本小说当作一个长期开发项目维护。项目结构遵循 `skills/wq-rules/SKILL.md` 定义的 Canonical 路径：用户可见文件位于项目根目录（`plan.md`、`outline.md`、`chapters/` 等），AI 内部数据位于 `.sumeru/` 目录下。
 
 ### 篇幅模式
 
@@ -164,7 +166,7 @@ short-story/
 
 ### 断点恢复与单独调用
 
-所有 Skill 都支持单独调用，不要求必须先运行 `sumeru-worldbuilder`。当你直接调用 `/sumeru-write`、`/sumeru-review`、`/sumeru-polish` 或 `/sumeru-finalize` 时，Skill 会先执行自举流程：
+所有 Skill 都支持单独调用，不要求必须先运行 `wq-worldbuilder`。当你直接调用 `/wq-write`、`/wq-review`、`/wq-polish` 或 `/wq-finalize` 时，Skill 会先执行自举流程：
 
 - 自动定位项目根目录。
 - 读取或生成 `.sumeru/project.json` 和 `.sumeru/status.json`。
@@ -189,7 +191,7 @@ npx skills add wq1131173682/wqsumeru
 ### 全流程创作（推荐）
 直接启动完整创作流程，系统会自动引导你完成所有环节，自动协调选题→大纲→写作→审查→润色→导出全流程：
 ```bash
-/sumeru-worldbuilder <题材类型> "<核心创意关键词>"
+/wq-worldbuilder <题材类型> "<核心创意关键词>"
 ```
 
 **可选参数说明：**
@@ -205,26 +207,26 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-worldbuilder 玄幻 "废柴逆袭+系统流+穿越"
-/sumeru-worldbuilder 都市 "重生+投资+创业"
-/sumeru-worldbuilder 言情 "霸道总裁+契约恋爱" 标题"总裁的契约新娘"
+/wq-worldbuilder 玄幻 "废柴逆袭+系统流+穿越"
+/wq-worldbuilder 都市 "重生+投资+创业"
+/wq-worldbuilder 言情 "霸道总裁+契约恋爱" 标题"总裁的契约新娘"
 
 # 带参数的完整用法
-/sumeru-worldbuilder 都市 "重生2000年+互联网创业+商战" 标题"重生之网络帝国" 长篇 精品文
-/sumeru-worldbuilder 科幻 "星际冒险+机甲+无限流" 长篇 快节奏
+/wq-worldbuilder 都市 "重生2000年+互联网创业+商战" 标题"重生之网络帝国" 长篇 精品文
+/wq-worldbuilder 科幻 "星际冒险+机甲+无限流" 长篇 快节奏
 
 # 多风格组合
-/sumeru-worldbuilder 都市 "修仙+打工+搞笑" 均衡风格 幽默调性     # 幽默风都市修仙
-/sumeru-worldbuilder 悬疑 "连环杀人+心理侧写+反转" 详写风格 暗黑调性  # 暗黑系悬疑推理
-/sumeru-worldbuilder 竞技 "篮球+天赋+逆袭" 快节奏 励志调性        # 热血励志竞技
+/wq-worldbuilder 都市 "修仙+打工+搞笑" 均衡风格 幽默调性     # 幽默风都市修仙
+/wq-worldbuilder 悬疑 "连环杀人+心理侧写+反转" 详写风格 暗黑调性  # 暗黑系悬疑推理
+/wq-worldbuilder 竞技 "篮球+天赋+逆袭" 快节奏 励志调性        # 热血励志竞技
 
 # 中断恢复与阶段跳过
-/sumeru-worldbuilder 科幻 "星际冒险+机甲+无限流" 恢复上次创作 跳过选题  # 恢复之前的科幻题材创作，跳过选题环节
-/sumeru-worldbuilder 都市 "职场+重生" 跳过选题阶段                    # 跳过选题，直接从已有大纲继续
+/wq-worldbuilder 科幻 "星际冒险+机甲+无限流" 恢复上次创作 跳过选题  # 恢复之前的科幻题材创作，跳过选题环节
+/wq-worldbuilder 都市 "职场+重生" 跳过选题阶段                    # 跳过选题，直接从已有大纲继续
 
 # 团队协作场景
-/sumeru-worldbuilder 玄幻 "废柴逆袭+系统流" 跳过写作、审查、润色、完稿阶段  # 策划完成选题和大纲后交由写手
-/sumeru-worldbuilder 玄幻 "废柴逆袭+系统流" 跳过选题、大纲阶段 恢复上次创作  # 写手接手，从创作阶段继续
+/wq-worldbuilder 玄幻 "废柴逆袭+系统流" 跳过写作、审查、润色、完稿阶段  # 策划完成选题和大纲后交由写手
+/wq-worldbuilder 玄幻 "废柴逆袭+系统流" 跳过选题、大纲阶段 恢复上次创作  # 写手接手，从创作阶段继续
 ```
 
 ### 独立功能调用
@@ -237,7 +239,7 @@ npx skills add wq1131173682/wqsumeru
 **功能**：基于类型经验和模型知识生成3套差异化选题方案，包含金手指设计、核心卖点、爽点模式和风险提示。市场判断为非实时推断，需结合平台最新榜单验证。
 
 ```bash
-/sumeru-outline 选题 "<题材类型> <核心关键词>"
+/wq-outline 选题 "<题材类型> <核心关键词>"
 ```
 
 **可选参数说明：**
@@ -250,15 +252,15 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-outline 选题 "玄幻 系统+签到+无敌" 起点平台
-/sumeru-outline 选题 "言情 穿越+宫斗+甜宠" 女频 中篇
+/wq-outline 选题 "玄幻 系统+签到+无敌" 起点平台
+/wq-outline 选题 "言情 穿越+宫斗+甜宠" 女频 中篇
 
 # 指定平台和受众
-/sumeru-outline 选题 "都市 异能+鉴宝+赘婿" 番茄平台 男频
-/sumeru-outline 选题 "悬疑 无限流+密室逃脱+灵异" 中性向 中篇
+/wq-outline 选题 "都市 异能+鉴宝+赘婿" 番茄平台 男频
+/wq-outline 选题 "悬疑 无限流+密室逃脱+灵异" 中性向 中篇
 
 # 直接进入大纲（不执行选题）
-/sumeru-outline "重生2000年靠互联网创业"
+/wq-outline "重生2000年靠互联网创业"
 ```
 
 ---
@@ -268,7 +270,7 @@ npx skills add wq1131173682/wqsumeru
 **功能**：首阶段执行选题策划（市场分析+创意引擎），第二阶段生成 `plan.md`、`outline.md` 和 `outlines/chapters.json`，覆盖世界观、人物、剧情框架、伏笔管理表、爽点排布和章节任务卡。大批量细纲生成时使用子Agent并行处理。
 
 ```bash
-/sumeru-outline "<核心创意描述>"
+/wq-outline "<核心创意描述>"
 ```
 
 **可选参数说明：**
@@ -281,18 +283,18 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-outline "重生2000年靠互联网创业"
-/sumeru-outline 复用已有选题数据  # 复用选题阶段生成的创意
+/wq-outline "重生2000年靠互联网创业"
+/wq-outline 复用已有选题数据  # 复用选题阶段生成的创意
 
 # 指定大纲风格
-/sumeru-outline "高武世界+校花+系统+高考逆袭" 分卷式大纲   # 生成分卷式大纲
-/sumeru-outline "古代权谋+皇子夺嫡+穿越" 允许映射真实地名  # 允许映射真实历史背景
+/wq-outline "高武世界+校花+系统+高考逆袭" 分卷式大纲   # 生成分卷式大纲
+/wq-outline "古代权谋+皇子夺嫡+穿越" 允许映射真实地名  # 允许映射真实历史背景
 
 # 复用已有数据继续完善
-/sumeru-outline "星际文明+机甲战斗+虫族入侵" 复用已有大纲草稿  # 复用之前的大纲草稿继续完善
+/wq-outline "星际文明+机甲战斗+虫族入侵" 复用已有大纲草稿  # 复用之前的大纲草稿继续完善
 ```
 
-> 💡 **细纲驱动**：大纲设计完成后自动生成 `outlines/chapters.json`，供 `sumeru-write` 进行细纲驱动的并行批量创作。
+> 💡 **细纲驱动**：大纲设计完成后自动生成 `outlines/chapters.json`，供 `wq-write` 进行细纲驱动的并行批量创作。
 
 ---
 
@@ -301,7 +303,7 @@ npx skills add wq1131173682/wqsumeru
 **功能**：**细纲驱动生成**，自动读取 `outlines/chapters.json`，支持单章或批量并行生成章节。使用单一通用写作模式，保持人物性格与剧情一致性，批量生成时每个子Agent最多负责3章。
 
 ```bash
-/sumeru-write <章节号> "<章节概要>"
+/wq-write <章节号> "<章节概要>"
 ```
 
 **可选参数说明：**
@@ -318,25 +320,25 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 细纲驱动批量生成（推荐）
-/sumeru-write 全部章节                           # 从细纲生成所有章节（自动并行）
-/sumeru-write 第1-50章                            # 生成指定范围章节
-/sumeru-write 第1卷                               # 生成特定卷的所有章节
-/sumeru-write 第3章,第5章,第10章                   # 生成特定章节
+/wq-write 全部章节                           # 从细纲生成所有章节（自动并行）
+/wq-write 第1-50章                            # 生成指定范围章节
+/wq-write 第1卷                               # 生成特定卷的所有章节
+/wq-write 第3章,第5章,第10章                   # 生成特定章节
 
 # 单章创作
-/sumeru-write 第3章 "主角首次使用金手指震惊众人" 仙侠风格 强化爽点 2500字
-/sumeru-write 第3章 按细纲生成                     # 基于已有细纲生成
+/wq-write 第3章 "主角首次使用金手指震惊众人" 仙侠风格 强化爽点 2500字
+/wq-write 第3章 按细纲生成                     # 基于已有细纲生成
 
 # 续写与重写
-/sumeru-write 第5章 续写                           # 续写第4章之后的内容
+/wq-write 第5章 续写                           # 续写第4章之后的内容
 
 # 批量并行创作
-/sumeru-write 第1-100章 批量并行                   # 并行批量生成100章内容
+/wq-write 第1-100章 批量并行                   # 并行批量生成100章内容
 
 # 更多实用场景
-/sumeru-write 第1章 "主角重生回到高考前一天" 都市风格 快节奏 2000字  # 快节奏开篇
-/sumeru-write 第20-30章 女配视角 古风             # 从女配视角写10章内容
-/sumeru-write 第15章 "拍卖会冲突" 强化爽点 3000字   # 强化打脸爽点的章节
+/wq-write 第1章 "主角重生回到高考前一天" 都市风格 快节奏 2000字  # 快节奏开篇
+/wq-write 第20-30章 女配视角 古风             # 从女配视角写10章内容
+/wq-write 第15章 "拍卖会冲突" 强化爽点 3000字   # 强化打脸爽点的章节
 ```
 
 > 💡 **并行约束**：批量生成时每个子Agent最多负责3个章节，所需Agent数 = ceil(总章节数 / 3)，自动分配。
@@ -348,7 +350,7 @@ npx skills add wq1131173682/wqsumeru
 **功能**：默认做目标范围最小审查，检查剧情统一、时间线、人物OOC、伏笔、字数和常识问题。轻量问题直接修复为最终版本；需要重写的章节生成修复计划。用户要求全书审查时才生成完整报告。
 
 ```bash
-/sumeru-review <章节范围>
+/wq-review <章节范围>
 ```
 
 **三阶段审查流程：**
@@ -367,17 +369,17 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-review 第1-50章
-/sumeru-review 审查全部内容
-/sumeru-review 第1-20章 仅检查时间线和人物OOC
+/wq-review 第1-50章
+/wq-review 审查全部内容
+/wq-review 第1-20章 仅检查时间线和人物OOC
 
 # 指定检查类型
-/sumeru-review 第30-80章 仅检查剧情和伏笔  # 检查剧情矛盾和伏笔回收情况
-/sumeru-review 第10-15章 仅检查常识         # 检查这几章的常识/逻辑合理性
-/sumeru-review 第1-30章 仅检查字数           # 检查章节字数是否达标
+/wq-review 第30-80章 仅检查剧情和伏笔  # 检查剧情矛盾和伏笔回收情况
+/wq-review 第10-15章 仅检查常识         # 检查这几章的常识/逻辑合理性
+/wq-review 第1-30章 仅检查字数           # 检查章节字数是否达标
 ```
 
-> 💡 **自动修复**：审查后自动修复所有轻量级问题（文字修正、段落调整、字数填充等），结果直接修改 `chapters/` 目录，修改前自动备份到 `.sumeru/write/original/`。需要重写的章节记录到 `fix-plan.json`，由 worldbuilder 编排或用户手动调用 `sumeru-write` 处理。
+> 💡 **自动修复**：审查后自动修复所有轻量级问题（文字修正、段落调整、字数填充等），结果直接修改 `chapters/` 目录，修改前自动备份到 `.sumeru/write/original/`。需要重写的章节记录到 `fix-plan.json`，由 worldbuilder 编排或用户手动调用 `wq-write` 处理。
 
 ---
 
@@ -386,7 +388,7 @@ npx skills add wq1131173682/wqsumeru
 **功能**：专注文笔与内容层面优化，支持多风格转换，针对性优化节奏、爽点、对话、悬念等。润色结果直接修改 chapters/ 目录为最终版本，修改前自动备份；用户提供片段时不生成 context pack。
 
 ```bash
-/sumeru-polish <章节范围>
+/wq-polish <章节范围>
 ```
 
 **润色级别说明：**
@@ -404,14 +406,14 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-polish 第10章 中度润色 小白爽文风格 强化爽点
-/sumeru-polish 第1-3章 轻度润色  # 轻度润色，优化表达流畅度
-/sumeru-polish 第5章 深度润色 对话优化+文笔提升
+/wq-polish 第10章 中度润色 小白爽文风格 强化爽点
+/wq-polish 第1-3章 轻度润色  # 轻度润色，优化表达流畅度
+/wq-polish 第5章 深度润色 对话优化+文笔提升
 
 # 更多实用场景
-/sumeru-polish 第1-20章 古风风格 文笔提升       # 将前20章转为古风风格，提升文笔
-/sumeru-polish 第35章 深度润色 悬念增强+爽点强化  # 深度优化章节悬念和爽点
-/sumeru-polish 第1-100章 轻度润色               # 全本轻度润色，优化文字流畅度
+/wq-polish 第1-20章 古风风格 文笔提升       # 将前20章转为古风风格，提升文笔
+/wq-polish 第35章 深度润色 悬念增强+爽点强化  # 深度优化章节悬念和爽点
+/wq-polish 第1-100章 轻度润色               # 全本轻度润色，优化文字流畅度
 ```
 
 ---
@@ -420,10 +422,10 @@ npx skills add wq1131173682/wqsumeru
 **适用场景**：完稿检查、敏感词检测、md/txt 导出
 **功能**：错别字/标点/语法错误修正，三级敏感内容检测与修正建议，10类标点规范检测（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点），格式标准化，md/txt 分章+整文导出，批量替换与自动分段，**批量处理时使用子Agent并行校验，每个Agent最多负责3个章节**。
 
-> 💡 **Skill 边界**：技术性文字校验（错别字/标点/语法）由本Skill负责，`sumeru-polish` 专注文笔和内容层面优化，两者互补不重叠。
+> 💡 **Skill 边界**：技术性文字校验（错别字/标点/语法）由本Skill负责，`wq-polish` 专注文笔和内容层面优化，两者互补不重叠。
 
 ```bash
-/sumeru-finalize
+/wq-finalize
 ```
 
 **可选参数说明：**
@@ -443,15 +445,15 @@ npx skills add wq1131173682/wqsumeru
 **示例：**
 ```bash
 # 基础用法
-/sumeru-finalize 导出md格式
-/sumeru-finalize 导出txt格式
-/sumeru-finalize 导出全部
+/wq-finalize 导出md格式
+/wq-finalize 导出txt格式
+/wq-finalize 导出全部
 
 # 修复已有导出
-/sumeru-finalize 修复导出
+/wq-finalize 修复导出
 
 # 批量替换+自动分段
-/sumeru-finalize 替换"张三"为"李玄" 导出全部 自动分段
+/wq-finalize 替换"张三"为"李玄" 导出全部 自动分段
 ```
 
 ---
@@ -461,35 +463,35 @@ npx skills add wq1131173682/wqsumeru
 **功能**：扫描现有项目结构，识别文件缺失和字段问题，自动迁移旧路径、补齐配置文件、生成人物卡、补全章节任务卡字段。**v1.3.0+ 支持接续协议（H1-H6）**：迁移后自动推断补做 `creative-anchors.md` / `intro.md` / 状态标记，写入 `status.json.migrationHandoff` 字段，worldbuilder 后续按字段状态决定跳过/进入确认流程，实现迁移→续作闭环。
 
 ```bash
-/sumeru-migrate                    # 完整迁移检查与修复（含接续协议）
-/sumeru-migrate 仅检查             # 只检查不修复
-/sumeru-migrate 仅迁移路径         # 只迁移旧路径
-/sumeru-migrate 补齐配置           # 只补齐配置文件
-/sumeru-migrate 补齐人物卡         # 只生成缺失的人物卡
+/wq-migrate                    # 完整迁移检查与修复（含接续协议）
+/wq-migrate 仅检查             # 只检查不修复
+/wq-migrate 仅迁移路径         # 只迁移旧路径
+/wq-migrate 补齐配置           # 只补齐配置文件
+/wq-migrate 补齐人物卡         # 只生成缺失的人物卡
 ```
 
 **可选参数说明：**
 | 参数 | 说明 | 示例 |
 |------|------|------|
-| 仅检查 | 只扫描不修复 | `/sumeru-migrate 仅检查` |
-| 仅迁移路径 | 只迁移旧路径到新路径 | `/sumeru-migrate 仅迁移路径` |
-| 补齐配置 | 只补齐缺失的配置文件 | `/sumeru-migrate 补齐配置` |
-| 补齐人物卡 | 只生成缺失的人物卡 | `/sumeru-migrate 补齐人物卡` |
+| 仅检查 | 只扫描不修复 | `/wq-migrate 仅检查` |
+| 仅迁移路径 | 只迁移旧路径到新路径 | `/wq-migrate 仅迁移路径` |
+| 补齐配置 | 只补齐缺失的配置文件 | `/wq-migrate 补齐配置` |
+| 补齐人物卡 | 只生成缺失的人物卡 | `/wq-migrate 补齐人物卡` |
 
 **示例：**
 ```bash
 # 基础用法
-/sumeru-migrate                          # 完整迁移检查与修复
+/wq-migrate                          # 完整迁移检查与修复
 
 # 仅检查
-/sumeru-migrate 仅检查                   # 只检查项目完整性，不修复
+/wq-migrate 仅检查                   # 只检查项目完整性，不修复
 
 # 仅迁移路径
-/sumeru-migrate 仅迁移路径               # 只迁移旧路径到新 canonical 路径
+/wq-migrate 仅迁移路径               # 只迁移旧路径到新 canonical 路径
 
 # 补齐特定内容
-/sumeru-migrate 补齐配置                 # 只补齐缺失的配置文件
-/sumeru-migrate 补齐人物卡               # 只生成缺失的人物卡
+/wq-migrate 补齐配置                 # 只补齐缺失的配置文件
+/wq-migrate 补齐人物卡               # 只生成缺失的人物卡
 ```
 
 **支持的迁移项：**

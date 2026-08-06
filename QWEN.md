@@ -1,11 +1,11 @@
-# QWEN.md — 须弥写作 (Sumeru Writing) 项目上下文
+# QWEN.md — WQ 写作 (WQ Writing) 项目上下文
 
-> **版本**: v1.3.7 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
-> **全局约束唯一来源**: `skills/sumeru-rules/SKILL.md`
+> **版本**: v1.4.0 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
+> **全局约束唯一来源**: `skills/wq-rules/SKILL.md`
 
 ## 项目概述
 
-须弥写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 Claude Code、OpenCode、Qwen Code 等 AI 编程工具。通过 Vibe Coding（自然语言指令驱动）方式，一站式完成从创意到完稿的全流程小说写作。
+WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 Claude Code、OpenCode、Qwen Code 等 AI 编程工具。通过 Vibe Coding（自然语言指令驱动）方式，一站式完成从创意到完稿的全流程小说写作。
 
 核心定位：网文作者的 AI 创作副驾驶，覆盖 **迁移 → 选题 → 大纲 → 写作 → 审稿 → 润色 → 评分 → 导出** 全流程。
 
@@ -17,17 +17,17 @@
 
 | Skill | 职责 | 触发关键词 |
 |-------|------|-----------|
-| `sumeru-worldbuilder` | 全流程统筹主管 | "从零写小说"、初始化项目 |
-| `sumeru-scan` | 扫榜分析与竞品拆解 | "扫榜"、分析热榜" |
-| `sumeru-topic` | 选题策划与创意架构 | "不知道写什么、找热门题材" |
-| `sumeru-outline` | 大纲设计（世界观/人物/分卷/章节细纲） | "写大纲、设计人物" |
-| `sumeru-write` | 章节内容创作 | "写第X章、续写、扩写" |
-| `sumeru-review` | 逻辑审查与创意疲劳检测 | "检查bug、时间线矛盾、人物OOC" |
-| `sumeru-polish` | 文笔润色与创意强化 | "润色、改文笔、强化爽点" |
-| `sumeru-score` | 完稿评分系统（五维评分） | "评分、打分、评估作品质量" |
-| `sumeru-finalize` | 完稿校验与发布导出 | "检查错别字、检测敏感词、导出" |
-| `sumeru-migrate` | 旧项目迁移与规整 | "规整项目、迁移旧项目、查缺补漏" |
-| `sumeru-rules` | 全局约束规则（不直接调用） | — |
+| `wq-worldbuilder` | 全流程统筹主管 | "从零写小说"、初始化项目 |
+| `wq-scan` | 扫榜分析与竞品拆解 | "扫榜"、分析热榜" |
+| `wq-topic` | 选题策划与创意架构 | "不知道写什么、找热门题材" |
+| `wq-outline` | 大纲设计（世界观/人物/分卷/章节细纲） | "写大纲、设计人物" |
+| `wq-write` | 章节内容创作 | "写第X章、续写、扩写" |
+| `wq-review` | 逻辑审查与创意疲劳检测 | "检查bug、时间线矛盾、人物OOC" |
+| `wq-polish` | 文笔润色与创意强化 | "润色、改文笔、强化爽点" |
+| `wq-score` | 完稿评分系统（五维评分） | "评分、打分、评估作品质量" |
+| `wq-finalize` | 完稿校验与发布导出 | "检查错别字、检测敏感词、导出" |
+| `wq-migrate` | 旧项目迁移与规整 | "规整项目、迁移旧项目、查缺补漏" |
+| `wq-rules` | 全局约束规则（不直接调用） | — |
 
 ### 调用链路
 
@@ -57,15 +57,15 @@
 ```
 wqsumeru/
 ├── skills/                    # 10个 Skill 模块
-│   ├── sumeru-rules/          # 全局约束（唯一来源）
+│   ├── wq-rules/          # 全局约束（唯一来源）
 │   │   ├── SKILL.md           # 主约束文件
 │   │   └── subagent-rules.md  # 子Agent精简版规则
-│   ├── sumeru-worldbuilder/   # 全流程编排器
-│   ├── sumeru-topic/          # 选题策划
-│   ├── sumeru-outline/        # 大纲设计
-│   ├── sumeru-write/          # 章节撰写
-│   ├── sumeru-scan/           # 扫榜分析
-│   ├── sumeru-review/         # 逻辑审查
+│   ├── wq-worldbuilder/   # 全流程编排器
+│   ├── wq-topic/          # 选题策划
+│   ├── wq-outline/        # 大纲设计
+│   ├── wq-write/          # 章节撰写
+│   ├── wq-scan/           # 扫榜分析
+│   ├── wq-review/         # 逻辑审查
 │   │   ├── SKILL.md
 │   │   ├── config/            # 反AI检测配置（JSON外置）
 │   │   │   ├── anti-ai-thresholds.json
@@ -75,9 +75,9 @@ wqsumeru/
 │   │       ├── chapter-word-counter.py
 │   │       ├── continuity-check.py
 │   │       └── foreshadowing-tracker.py
-│   ├── sumeru-polish/         # 内容润色
-│   ├── sumeru-score/          # 完稿评分
-│   ├── sumeru-finalize/       # 完稿校验与导出
+│   ├── wq-polish/         # 内容润色
+│   ├── wq-score/          # 完稿评分
+│   ├── wq-finalize/       # 完稿校验与导出
 │   │   ├── SKILL.md
 │   │   ├── config/            # 拼写/敏感词配置（JSON外置）
 │   │   │   ├── spell-dict.json
@@ -87,7 +87,7 @@ wqsumeru/
 │   │       ├── platform-export.py
 │   │       ├── sensitive-word-filter.py
 │   │       └── spell-check.py
-│   └── sumeru-migrate/        # 旧项目迁移
+│   └── wq-migrate/        # 旧项目迁移
 ├── style-samples/             # 风格样本模板
 │   ├── sample-template.md     # 提交模板
 │   └── user-style.md          # 系统自动生成的风格分析
@@ -154,10 +154,10 @@ novel-project/
 
 ### JSON 外置配置
 
-- `sumeru-review/config/anti-ai-thresholds.json`: 25项反AI检测阈值（含5项标点检测阈值）
-- `sumeru-review/config/cliche-blacklist.json`: 8分类80+条Cliché黑名单
-- `sumeru-finalize/config/spell-dict.json`: 拼写检查词典
-- `sumeru-finalize/config/sensitive-words.json`: 敏感词库
+- `wq-review/config/anti-ai-thresholds.json`: 25项反AI检测阈值（含5项标点检测阈值）
+- `wq-review/config/cliche-blacklist.json`: 8分类80+条Cliché黑名单
+- `wq-finalize/config/spell-dict.json`: 拼写检查词典
+- `wq-finalize/config/sensitive-words.json`: 敏感词库
 
 所有脚本启动时动态加载 JSON 配置，无配置文件时使用代码内置默认值，零外部依赖。
 
@@ -173,15 +173,15 @@ npx skills add wq1131173682/wqsumeru
 
 ```bash
 # 全流程创作
-/sumeru-worldbuilder 玄幻 "废柴逆袭+系统流+穿越"
+/wq-worldbuilder 玄幻 "废柴逆袭+系统流+穿越"
 
 # 独立调用各环节
-/sumeru-outline 选题 "玄幻 系统+签到+无敌" 起点平台
-/sumeru-write 全部章节          # 细纲驱动批量生成
-/sumeru-review 第1-50章
-/sumeru-polish 第10章 中度润色 小白爽文风格 强化爽点
-/sumeru-finalize 导出全部
-/sumeru-migrate                 # 旧项目迁移
+/wq-outline 选题 "玄幻 系统+签到+无敌" 起点平台
+/wq-write 全部章节          # 细纲驱动批量生成
+/wq-review 第1-50章
+/wq-polish 第10章 中度润色 小白爽文风格 强化爽点
+/wq-finalize 导出全部
+/wq-migrate                 # 旧项目迁移
 ```
 
 ### 技能文件格式
@@ -204,8 +204,8 @@ agent: build
 
 ## 开发约定
 
-- **全局约束唯一来源**: `skills/sumeru-rules/SKILL.md`，所有 Skill 必须遵守
-- **子Agent规则**: `skills/sumeru-rules/subagent-rules.md`（精简版，子Agent只读此文件 + context pack）
+- **全局约束唯一来源**: `skills/wq-rules/SKILL.md`，所有 Skill 必须遵守
+- **子Agent规则**: `skills/wq-rules/subagent-rules.md`（精简版，子Agent只读此文件 + context pack）
 - **Canonical 路径**: 用户可见文件在项目根目录，AI内部数据在 `.sumeru/` 目录
 - **旧路径兼容**: 支持旧版路径只读优先（如 `.sumeru/outline/chapter-outlines.json` → `outlines/chapters.json`）
 - **正文必须走子Agent**: 父Agent绝不直接写正文
@@ -217,4 +217,4 @@ agent: build
 
 ## 版本
 
-当前 v1.3.7，完整变更见 [CHANGELOG.md](./CHANGELOG.md)。
+当前 v1.4.0，完整变更见 [CHANGELOG.md](./CHANGELOG.md)。

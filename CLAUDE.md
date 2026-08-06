@@ -1,26 +1,26 @@
-# CLAUDE.md - 须弥写作当前协议
+# CLAUDE.md - WQ 写作项目上下文
 
-本仓库以 `skills/sumeru-rules/SKILL.md` 为唯一全局约束源。
+本仓库以 `skills/wq-rules/SKILL.md` 为唯一全局约束源。
 
 ## 当前 Skill
 
 ```
 skills/
-├── sumeru-worldbuilder/
-├── sumeru-topic/          # 选题策划（拆自 outline）
-├── sumeru-outline/        # 大纲设计（拆自 outline）
-├── sumeru-write/
-├── sumeru-scan/           # 扫榜分析与竞品拆解
-├── sumeru-review/
-├── sumeru-polish/
-├── sumeru-finalize/
-├── sumeru-migrate/        # 旧项目迁移与规整
-└── sumeru-rules/          # 全局约束（唯一来源）
+├── wq-worldbuilder/
+├── wq-topic/          # 选题策划（拆自 outline）
+├── wq-outline/        # 大纲设计（拆自 outline）
+├── wq-write/
+├── wq-scan/           # 扫榜分析与竞品拆解
+├── wq-review/
+├── wq-polish/
+├── wq-finalize/
+├── wq-migrate/        # 旧项目迁移与规整
+└── wq-rules/          # 全局约束（唯一来源）
 ```
 
 ## Canonical 路径
 
-以 `skills/sumeru-rules/SKILL.md` 第三部分·Canonical 路径为准。概要如下：
+以 `skills/wq-rules/SKILL.md` 第三部分·Canonical 路径为准。概要如下：
 
 ### 用户可见文件（项目根目录）
 - `NOVEL.md`：小说说明（名字、简介、类型、状态、进度）
@@ -54,4 +54,4 @@ skills/
 - 发布导出必须剥离 `SUMERU_STATUS` 注释。
 - 子Agent只读 context pack，只返回文本结果，不写项目文件。
 
-详细规则见 `skills/sumeru-rules/SKILL.md`。
+详细规则见 `skills/wq-rules/SKILL.md`。

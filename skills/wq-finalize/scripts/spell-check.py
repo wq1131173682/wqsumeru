@@ -110,16 +110,32 @@ SPELLING_ERRORS: Dict[str, str] = _load_spell_errors()
 # 重复字检测模式
 REPEATED_CHARS_PATTERN = re.compile(r'(.)\1{2,}')
 
-# 标点符号错误模式
-PUNCTUATION_ERRORS = {
-    '，，': '，',
-    '。。': '。',
-    '！！': '！',
-    '？？': '？',
-    '""': '"',
-    '：：': '：',
-    '；；': '；',
+# 允许重复的字符白名单（合法用法）
+REPEATED_CHARS_WHITELIST = {
+    "\u2026",   # …（省略号，常写作……）
+    "\u2014",   # —（破折号，常写作——）
+    "哈", "嘿", "呵", "啊", "嗯", "呃", "哇", "咦",   # 常见拟声词
 }
+
+# 共享标点规则配置
+_SHARED_PUNCT_RULES_PATH = _CONFIG_DIR / "punctuation-rules.json"
+
+def _load_punctuation_errors() -> Dict[str, str]:
+    """加载共享标点重复检测规则（与 format-validator.py 共享同一配置）"""
+    defaults = {
+        "，，": "，", "。。": "。", "！！": "！", "？？": "？",
+        '""': '"', "：：": "：", "；；": "；",
+    }
+    try:
+        if _SHARED_PUNCT_RULES_PATH.exists():
+            data = json.loads(_SHARED_PUNCT_RULES_PATH.read_text("utf-8"))
+            return data.get("punctuation_errors", defaults)
+    except Exception:
+        pass
+    return defaults
+
+# 标点符号错误模式（共享配置）
+PUNCTUATION_ERRORS: Dict[str, str] = _load_punctuation_errors()
 
 
 def check_spell_errors(text: str, chapter_id: str) -> List[Dict]:
@@ -149,6 +165,9 @@ def check_spell_errors(text: str, chapter_id: str) -> List[Dict]:
     # 检查重复字
     for match in REPEATED_CHARS_PATTERN.finditer(text):
         char = match.group(1)
+        # 跳过白名单中的合法重复字符
+        if char in REPEATED_CHARS_WHITELIST:
+            continue
         start = max(0, match.start() - 10)
         end = min(len(text), match.end() + 10)
         context = text[start:end]

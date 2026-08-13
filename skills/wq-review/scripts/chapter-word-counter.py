@@ -58,7 +58,8 @@ def scan_chapters(chapters_dir: str, pattern: str = DEFAULT_CHAPTER_PATTERN) -> 
     if not path.exists():
         raise FileNotFoundError(f"章节目录不存在: {chapters_dir}")
 
-    for file in path.iterdir():
+    # 递归扫描所有子目录下的章节文件
+    for file in path.rglob("*.md"):
         if file.is_file() and re.match(pattern, file.name, re.IGNORECASE):
             chapter_files.append(file)
 
@@ -150,7 +151,7 @@ def analyze_chapters(chapter_files: List[Path],
     }
 
 
-def generate_report(analysis_result: Dict, output_dir: str = ".sumeru/review") -> None:
+def generate_report(analysis_result: Dict, output_dir: str = ".sumeru/review", quiet: bool = False) -> None:
     """生成统计报告"""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -216,17 +217,18 @@ def generate_report(analysis_result: Dict, output_dir: str = ".sumeru/review") -
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write(md_content)
 
-    print(f"✅ 字数统计报告已生成：")
-    print(f"   JSON格式: {json_path}")
-    print(f"   Markdown格式: {md_path}")
-    print(f"\n📊 统计结果：")
-    print(f"   总章节数: {summary['total_chapters']}, 总字数: {summary['total_words']:,}")
-    print(f"   平均字数: {summary['average_words']:,}, 最短: {summary['min_words']:,}, 最长: {summary['max_words']:,}")
+    if not quiet:
+        print(f"✅ 字数统计报告已生成：")
+        print(f"   JSON格式: {json_path}")
+        print(f"   Markdown格式: {md_path}")
+        print(f"\n📊 统计结果：")
+        print(f"   总章节数: {summary['total_chapters']}, 总字数: {summary['total_words']:,}")
+        print(f"   平均字数: {summary['average_words']:,}, 最短: {summary['min_words']:,}, 最长: {summary['max_words']:,}")
 
-    if summary['too_short_count'] > 0:
-        print(f"⚠️  发现 {summary['too_short_count']} 章过短")
-    if summary['too_long_count'] > 0:
-        print(f"⚠️  发现 {summary['too_long_count']} 章过长")
+        if summary['too_short_count'] > 0:
+            print(f"⚠️  发现 {summary['too_short_count']} 章过短")
+        if summary['too_long_count'] > 0:
+            print(f"⚠️  发现 {summary['too_long_count']} 章过长")
 
 
 def main():
@@ -266,8 +268,8 @@ def main():
             warning_range=(args.warn_min, args.warn_max)
         )
 
-        if not args.quiet:
-            generate_report(analysis_result, args.output)
+        # 始终生成报告文件（无论是否静默模式）
+        generate_report(analysis_result, args.output, quiet=args.quiet)
 
         # 静默模式：只输出有问题的章节
         if args.quiet:

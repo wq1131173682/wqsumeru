@@ -18,27 +18,40 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 # 格式规则
+_SHARED_PUNCT_RULES_PATH = Path(__file__).resolve().parent.parent / "config" / "punctuation-rules.json"
+
+def _load_punctuation_errors() -> Dict[str, str]:
+    """加载共享标点重复检测规则（与 spell-check.py 共享同一配置）"""
+    defaults = {
+        "，，": "，", "。。": "。", "！！": "！", "？？": "？",
+        '""': '"', "：：": "：", "；；": "；",
+    }
+    try:
+        if _SHARED_PUNCT_RULES_PATH.exists():
+            data = json.loads(_SHARED_PUNCT_RULES_PATH.read_text("utf-8"))
+            return data.get("punctuation_errors", defaults)
+    except Exception:
+        pass
+    return defaults
+
 FORMAT_RULES = {
     # 章节标题格式
     "chapter_title_pattern": re.compile(r'^(第[一二三四五六七八九十\d]+章|CHAPTER\s+\d+)[\s：:]\s*.+'),
-    
+
     # 段落首行缩进检测（两个全角空格或两个半角空格）
     "indent_pattern": re.compile(r'^( {2}|　{1})[\u4e00-\u9fff]'),
-    
-    # 对话格式
-    "dialogue_pattern": re.compile(r'[""''"][^""''"]+[""''"]'),
-    
-    # 标点符号规范
-    "punctuation_errors": {
-        '，，': '，',
-        '。。': '。',
-        '！！': '！',
-        '？？': '？',
-        '""': '"',
-        '：：': '：',
-        '；；': '；',
-    },
-    
+
+    # 对话格式（区分引号对：中文双引号""、直角引号「」、单引号''）
+    # 支持嵌套引号（如：对话中包含嵌套引号内容）
+    "dialogue_pattern": re.compile(
+        r'(\u201c[^\u201c\u201d]+(?:\u201d[^\u201c\u201d]*\u201c[^\u201c\u201d]*)*\u201d'   # 中文双引号
+        r'|「[^」]+(?:」[^「]*「[^」]*)*」'                                                  # 直角引号
+        r'|\'\'[^\']+(?:\'\'[^\']*\'\'[^\']*)*\'\')'                                        # 单引号
+    ),
+
+    # 标点符号规范（从共享配置加载）
+    "punctuation_errors": _load_punctuation_errors(),
+
     # 英文标点误用
     "english_punctuation": {
         ',': '，',
@@ -48,7 +61,7 @@ FORMAT_RULES = {
         ':': '：',
         ';': '；',
         '"': '"',
-        "'": "'",
+        # 注：单引号 ' 不在此检测，因为英文撇号（it's）在中文文本中属合法用法
     },
 }
 

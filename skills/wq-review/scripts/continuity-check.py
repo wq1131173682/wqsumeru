@@ -31,7 +31,7 @@ CONFLICT_RULES = {
         "severity": "critical",
         "check": "check_destroyed_item_used"
     },
-    "foreshadowing_not_recycled": {
+    "foreshadowing_recycled": {
         "description": "已标记回收的伏笔不能再次标记为active",
         "severity": "high",
         "check": "check_foreshadowing_recycled"
@@ -291,15 +291,15 @@ def check_timeline_order(data: Dict) -> List[Dict]:
     conflicts = []
     
     timeline = data.get("timeline", [])
-    
-    # 按章节排序
-    timeline.sort(key=lambda x: x.get("chapter", 0))
-    
-    for i in range(1, len(timeline)):
-        prev_chapter = timeline[i-1].get("chapter")
-        curr_chapter = timeline[i].get("chapter")
-        prev_event = timeline[i-1].get("event")
-        curr_event = timeline[i].get("event")
+
+    # 使用 sorted 避免修改原始输入数据
+    sorted_timeline = sorted(timeline, key=lambda x: x.get("chapter", 0))
+
+    for i in range(1, len(sorted_timeline)):
+        prev_chapter = sorted_timeline[i-1].get("chapter")
+        curr_chapter = sorted_timeline[i].get("chapter")
+        prev_event = sorted_timeline[i-1].get("event")
+        curr_event = sorted_timeline[i].get("event")
         
         # 检查章节号是否有序
         if prev_chapter and curr_chapter and prev_chapter > curr_chapter:
@@ -309,7 +309,7 @@ def check_timeline_order(data: Dict) -> List[Dict]:
                 "message": f"时间线事件顺序错误：第{prev_chapter}章事件在第{curr_chapter}章事件之后",
                 "events": [prev_event, curr_event],
                 "chapters": [prev_chapter, curr_chapter],
-                "evidence": [timeline[i-1], timeline[i]]
+                "evidence": [sorted_timeline[i-1], sorted_timeline[i]]
             })
     
     return conflicts

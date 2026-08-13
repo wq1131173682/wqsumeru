@@ -67,6 +67,15 @@ def _load_thresholds() -> dict:
         cfg_file = _CONFIG_DIR / "anti-ai-thresholds.json"
         if cfg_file.exists():
             data = json.loads(cfg_file.read_text("utf-8"))
+            # 版本兼容性检查：若配置文件 version 与脚本预期不匹配，发出警告
+            cfg_version = data.get("version", "unknown")
+            expected_version = "1.3.0"
+            if cfg_version != expected_version:
+                print(
+                    f"⚠️  配置版本不匹配: anti-ai-thresholds.json version={cfg_version} "
+                    f"（脚本期望 {expected_version}），阈值可能不同步",
+                    file=sys.stderr,
+                )
             key_map = {"sentence_pattern_repeat": "SENTENCE_PATTERN_REPEAT", "sentence_opening_repeat": "SENTENCE_OPENING_REPEAT", "opening_similar_window": "OPENING_SIMILAR_WINDOW", "hook_similar_window": "HOOK_SIMILAR_WINDOW", "paragraph_buffer_min": "PARAGRAPH_BUFFER_MIN", "paragraph_buffer_max": "PARAGRAPH_BUFFER_MAX", "word_count_deviation": "WORD_COUNT_DEVIATION", "dialogue_ratio_min": "DIALOGUE_RATIO_MIN", "monologue_ratio_max": "MONOLOGUE_RATIO_MAX", "description_ratio_max": "DESCRIPTION_RATIO_MAX", "core_events_min": "CORE_EVENTS_MIN", "time_scene_switch_min": "TIME_SCENE_SWITCH_MIN", "transition_scene_max_ratio": "TRANSITION_SCENE_MAX_RATIO", "micro_arc_window": "MICRO_ARC_WINDOW", "micro_arc_min_repeat": "MICRO_ARC_MIN_REPEAT", "micro_arc_min_paragraphs": "MICRO_ARC_MIN_PARAGRAPHS", "dialog_marker_dominance": "DIALOG_MARKER_DOMINANCE", "dialog_marker_min_total": "DIALOG_MARKER_MIN_TOTAL", "dialog_emotion_commentary_min_hits": "DIALOG_EMOTION_COMMENTARY_MIN_HITS", "cliche_hit_threshold": "CLICHE_HIT_THRESHOLD", "description_paragraph_min_len": "DESCRIPTION_PARAGRAPH_MIN_LEN", "em_dash_density_per_1k": "EM_DASH_DENSITY_PER_1K", "em_dash_simple_continuation_min": "EM_DASH_SIMPLE_CONTINUATION_MIN", "ellipsis_format_mismatch_min": "ELLIPSIS_FORMAT_MISMATCH_MIN", "exclamation_stack_min": "EXCLAMATION_STACK_MIN", "exclamation_density_per_1k": "EXCLAMATION_DENSITY_PER_1K"}
             for jk, ck in key_map.items():
                 if jk in data:
@@ -199,10 +208,19 @@ def split_paragraphs(text: str) -> List[str]:
 
 
 def extract_dialogue_chars(text: str) -> int:
-    """对话字数：双引号 / 直角引号 包裹的字符总数。"""
+    """对话字数：双引号 / 直角引号 包裹的字符总数。
+
+    支持的引号类型：
+    - 英文双引号 \"...\"
+    - 中文双引号 \u201c...\u201d（""）
+    - 直角引号「...」
+    """
     total = 0
-    # 双引号对话
+    # 英文双引号对话
     for m in re.finditer(r"\"([^\"\\]*(?:\\.[^\"\\]*)*)\"", text):
+        total += len(m.group(1))
+    # 中文双引号对话（U+201C = "，U+201D = "）
+    for m in re.finditer(r"\u201c([^\u201d]*)\u201d", text):
         total += len(m.group(1))
     # 直角引号媒介内容
     for m in re.finditer(r"「([^」]*)」", text):
@@ -403,8 +421,12 @@ def detect_post_dialog_emotion_commentary(text: str) -> Tuple[int, List[str]]:
     """
     hits: List[str] = []
     # 匹配对话后的叙述（引号后50字内）
-    # 支持中文引号「」和英文引号""
-    for quote_pattern in [r'[」"][\s，。！？]?[\s]*.{0,50}', r'"[\s，。！？]?[\s]*.{0,50}']:
+    # 支持中文引号「」、中文双引号""（U+201D）、英文引号"
+    for quote_pattern in [
+        r'[\u300d\u201d\u201d][\s，。！？]?[\s]*.{0,50}',   # 」 / ""
+        r'"[\s，。！？]?[\s]*.{0,50}',                       # "
+        r'\u201d[\s，。！？]?[\s]*.{0,50}',                   # 中文右双引号"
+    ]:
         for match in re.finditer(quote_pattern, text):
             narration = match.group()
             for keyword in EMOTION_COMMENTARY_KEYWORDS:

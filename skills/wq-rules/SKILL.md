@@ -541,7 +541,7 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
     [--quiet]
 ```
 
-脚本实现 wq-review/SKILL.md §反 AI / 反水文扫描 中定义的 17 项检查 + 9 维反 AI 句式扫描（v1.2.3 新增 2 维：micro_arc + dialog_marker；v1.2.4 新增 1 维：dialog_emotion_commentary）。
+脚本实现 wq-review/SKILL.md §反 AI / 反水文扫描 中定义的 16 项检查 + 9 维反 AI 句式扫描（v1.2.3 新增 2 维：micro_arc + dialog_marker；v1.2.4 新增 1 维：dialog_emotion_commentary）。标点规范（破折号/省略号/感叹号）为附加检查，共 19 项。
 
 ### B. 9 维反 AI 句式扫描（v1.2.4 扩展，8→9 维；与脚本阈值同步）
 

@@ -176,30 +176,34 @@ def main():
             json.dump(result, f, ensure_ascii=False, indent=2)
         if not quiet:
             print(f"伏笔报告已保存到: {output_file}")
+        if "error" in result:
+            if not quiet:
+                print(f"错误: {result['error']}")
+            return result
     elif not quiet:
         print("\n" + "="*60)
         print("伏笔追踪报告")
         print("="*60)
-        
+
         if "error" in result:
             print(f"错误: {result['error']}")
-            return
-        
+            return result
+
         print(f"伏笔总数: {result.get('total', 0)}")
         print(f"  活跃: {result.get('active', 0)}")
         print(f"  待回收: {result.get('pending', 0)}")
         print(f"  已回收: {result.get('recycled', 0)}")
-        
+
         if result.get('overdue_count', 0) > 0:
             print(f"\n⚠️ 过期伏笔: {result['overdue_count']}个")
             for fs in result.get('overdue', [])[:5]:
                 print(f"   - [{fs.get('importance', 'unknown').upper()}] {fs.get('description')}")
                 print(f"     期望回收: 第{fs.get('expected_payoff_chapter', 'N/A')}章，已过期{fs.get('overdue_chapters', 0)}章")
-        
+
         print("\n管理建议:")
         for rec in result.get('recommendations', []):
             print(f"  {rec}")
-    
+
     # 静默模式：只输出过期提醒
     elif quiet and result.get('overdue_count', 0) > 0:
         print(f"⚠️ 有 {result['overdue_count']} 个伏笔已过期，建议尽快回收")

@@ -134,7 +134,7 @@ def read_chapter(file_path: Path) -> Optional[Dict]:
 
         # 去掉第一行标题（如果有），避免重复
         first_line = lines[0].strip()
-        body_start = 1 if re.search(r"第\d+章", first_line) else 0
+        body_start = 1 if re.search(r"第[\d一二三四五六七八九十百]+章", first_line) else 0
 
         # 从文件名提取章节号和标题
         stem = file_path.stem
@@ -146,9 +146,15 @@ def read_chapter(file_path: Path) -> Optional[Dict]:
             chapter_num = int(match.group(1))
             title = match.group(2)
         else:
-            match = re.match(r"第(\d+)章\s*(.*)", stem)
+            match = re.match(r"第([\d一二三四五六七八九十百]+)章\s*(.*)", stem)
             if match:
-                chapter_num = int(match.group(1))
+                num_str = match.group(1)
+                # 支持中文数字
+                cn_num_map = {"一":1,"二":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9,"十":10}
+                try:
+                    chapter_num = int(num_str)
+                except ValueError:
+                    chapter_num = cn_num_map.get(num_str, 0)
                 title = match.group(2) or ""
             else:
                 nums = re.findall(r"\d+", stem)

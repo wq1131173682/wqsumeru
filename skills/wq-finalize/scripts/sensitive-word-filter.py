@@ -43,8 +43,12 @@ def load_wordlib(custom_path: str = None) -> Dict[str, Any]:
             for level in ["level1", "level2", "level3"]:
                 if level in wordlib.get("custom", {}):
                     custom_words = wordlib["custom"][level]
-                    if level in wordlib:
-                        wordlib[level]["categories"]["custom"] = custom_words
+                    # 如果顶层 level 不存在则创建
+                    if level not in wordlib:
+                        wordlib[level] = {"categories": {}}
+                    if "categories" not in wordlib[level]:
+                        wordlib[level]["categories"] = {}
+                    wordlib[level]["categories"]["custom"] = custom_words
         
         return wordlib
     except json.JSONDecodeError as e:

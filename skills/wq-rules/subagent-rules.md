@@ -209,3 +209,4 @@ context pack 中嵌入了用户风格特征时，主动模仿其用词、句式�
 - ❌ 不使用 Glob/Grep/Read 搜索项目目录
 - ❌ 不在输出中包含状态更新指令
 - ❌ 不输出中间报告和技术细节
+- **🚫 绝对禁止再调度子Agent**：不得使用 subagent、ralph、workflow、task 或任何方式启动新的子Agent；所有任务必须在本Agent内独立完成

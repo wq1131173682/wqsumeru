@@ -130,10 +130,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |------|------|
 | **适用范围** | 章节写作、章节重写、剧情审查、轻量修复、内容润色、完稿校验、平台导出、章节细纲生成 |
 | **核心原则** | 写正文必须走子agent，单章续写也必须走子agent，父agent绝不写正文|
-| **并行上限** | 最大5 个子agent同时运行 |
+| **并行上限** | 最多3 个子agent同时运行（硬性上限，不可突破） |
+| **禁止嵌套** | 子agent 绝对不允许再调度任何子agent；子agent 内的所有工作必须由该子agent 自身完成，不得通过 task/Bash/子agent 工具发起二次调度 |
 | **分片约束** | 每个子Agent最多负责3 个连续章节|
-| **计算公式** | 所需Agent数= `min(ceil(总章节数 / 3), 5)` |
-| **分配策略** | 按章节顺序连续分组（1-3。-6。-9...）|
+| **计算公式** | 所需Agent数= `min(ceil(总章节数 / 3), 3)` |
+| **分配策略** | 按章节顺序连续分组（1-3、4-6、7-9...）|
 | **上下文约束** | 每个子Agent只接收完成任务所需的精简上下文|
 
 ## 批次间串行摘要
@@ -163,7 +164,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | Context pack 生成 | 集中生成 context pack，控制 1500-3000 中文字，分发给各子Agent |
 | Cache 摘要读取 | 集中读取 L1 cache 摘要 |
 | 任务卡读取 | 集中读取目标章节任务卡，仅提取本组章节所需字段 |
-| 任务分发 | 启动 N 个子Agent，每个传入精简 context pack |
+| 任务分发 | 启动 N 个子Agent（最多3个），每个传入精简 context pack；**不得启动超过3个并行子Agent** |
+| 嵌套校验 | 每个子Agent的输出不得包含启动新子Agent的指令或行为；如发现子Agent尝试调度子Agent → **立即终止该子Agent，记录 issue** |
 | 结果汇总 | 收集所有子Agent输出，检查完整性、顺序、命中 |
 | 文件写入 & 备份 | 子Agent写入后，父Agent校验文件存在性、SUMERU_STATUS 标记完整性；将原文件备份到 `.sumeru/write/original/`，每章仅保留最新 1 份 |
 | 状态更新 | 统一更新 `.sumeru/status.json`（章节状态、阶段状态） |
@@ -180,6 +182,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写入 `outlines/chapters.json`，无需经父Agent透传 |
 | 返回状态标记 | 只返回 `<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态 |
 | 不碰状态文件 | 不更新 status.json、changelog、cache、issues |
+| **禁止再调度** | **绝对不允许调用 subagent/ralph/workflow/task 等工具启动新的子Agent；所有工作必须在本Agent内独立完成** |
 
 ---
 

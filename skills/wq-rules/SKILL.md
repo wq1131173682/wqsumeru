@@ -1,7 +1,7 @@
 ---
 name: wq-rules
 description: WQ 写作全局约束规则（唯一来源）
-version: 1.2.4
+version: 1.2.5
 type: skill
 argument-hint: ""
 disable-model-invocation: true
@@ -214,7 +214,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ## Batch Summary (仅非第一执
 前N批实际摘要（≥00字）。
 ## Output Requirements
-文件命名、状态更新需求（由父agent执行）。
+**文件路径（必须明确写出，子Agent 按此路径写入）**：
+- 第X章 → `chapters/001-标题.md`
+- 第Y章 → `chapters/002-标题.md`
+- ...
+**状态更新**：由父Agent执行，子Agent 不碰状态文件。
 ## Opening & Style Diversity
 - 同一批次各章开场方式必须不同- 同一批次各章结尾钩子句式必须不同
 - 同一章内连续超过 5 句完整主谓宾结构 →必须插入破碎可口语短句

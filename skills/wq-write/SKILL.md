@@ -1,7 +1,7 @@
 ---
 name: wq-write
 description: 小说章节内容创作与创意落地
-version: 1.2.2
+version: 1.2.3
 type: skill
 argument-hint: '[章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]'
 disable-model-invocation: false
@@ -195,6 +195,12 @@ agent: build
 父Agent启动 write 子Agent时，在通用模板基础上补充：
 
 ```
+⚠️ 文件写入路径（必须严格使用，禁止自行推断）：
+- 第X章 → 写入 `chapters/001-标题.md`
+- 第Y章 → 写入 `chapters/002-标题.md`
+- 第Z章 → 写入 `chapters/003-标题.md`
+（文件名格式：`{三位章节号}-{章节标题}.md`，标题从任务卡的 title 字段取）
+
 角色：资深网文作者，主攻{题材}题材
 
 写作风格：
@@ -432,13 +438,14 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 父Agent在子Agent写入**后**必须执行：
 
-1. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比。**分卷模式**：从 `.sumeru/volumes/vol-N/continuity/consistency-rules.json` 读取，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`。
-2. **foreshadowing 增量更新**：遍历 `plot_update.foreshadowing`，对每个提及的伏笔 ID 同步写入 `consistency-rules.json.foreshadowing.<id>.last_mentioned = current_chapter` 且 `mentionCount += 1`（新伏笔初始化 `{status: "active", last_mentioned: current_chapter, mentionCount: 1, first_appeared: current_chapter}`）。**分卷模式**：写入 `.sumeru/volumes/vol-N/continuity/consistency-rules.json`。
-3. **反AI / 反水文扫描（v1.2.2 强约束）**：**必须**调用 `python skills/wq-review/scripts/anti-ai-scan.py chapters --outlines outlines/chapters.json --output .sumeru/review --quiet`。脚本退出码：
+1. **文件路径校验（必须通过才继续）**：扫描 `chapters/` 目录，检查每章文件名是否符合 `{三位章节号}-{章节标题}.md` 格式（正则：`^\d{3}-.+\.md$`）。发现异常文件名（如 `nul`、`null`、空字符串、缺少章节号等）→ **删除该文件，报错终止当前批次，记录 issue**：`⚠️ write: 发现异常文件名 {filename}，已删除，子Agent 需重新写入`。
+2. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比。**分卷模式**：从 `.sumeru/volumes/vol-N/continuity/consistency-rules.json` 读取，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`。
+3. **foreshadowing 增量更新**：遍历 `plot_update.foreshadowing`，对每个提及的伏笔 ID 同步写入 `consistency-rules.json.foreshadowing.<id>.last_mentioned = current_chapter` 且 `mentionCount += 1`（新伏笔初始化 `{status: "active", last_mentioned: current_chapter, mentionCount: 1, first_appeared: current_chapter}`）。**分卷模式**：写入 `.sumeru/volumes/vol-N/continuity/consistency-rules.json`。
+4. **反AI / 反水文扫描（v1.2.2 强约束）**：**必须**调用 `python skills/wq-review/scripts/anti-ai-scan.py chapters --outlines outlines/chapters.json --output .sumeru/review --quiet`。脚本退出码：
    - `0` = 通过，继续下一步
    - `1` = warning，写入 fix-plan.json `type=anti_ai_warning`；可选触发 polish 轻量级
    - `2` = 含阻断（`narrative_high_description` / `narrative_low_event_density` / `water_text_cliche_density` 命中）→ **禁止更新状态文件**，必须将当前章节打回子 Agent 重写。父 Agent **不得**用"插入 2-4 段描写"方式补字数或绕过阻断。
-4. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`；跨卷冲突写入 `.sumeru/cross-volume/dependency-table.md` 的「已发现冲突」section。
+5. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`；跨卷冲突写入 `.sumeru/cross-volume/dependency-table.md` 的「已发现冲突」section。
 
 校验通过后才允许更新 `chapters/` 和状态文件。
 

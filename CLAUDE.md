@@ -13,6 +13,8 @@ skills/
 ├── wq-scan/           # 扫榜分析与竞品拆解
 ├── wq-review/
 ├── wq-polish/
+├── wq-score/          # 完稿评分（五维）
+├── wq-revise/         # 评分驱动·收敛式修稿（硬收敛，杜绝低分回头改死循环）
 ├── wq-finalize/
 ├── wq-migrate/        # 旧项目迁移与规整
 └── wq-rules/          # 全局约束（唯一来源）

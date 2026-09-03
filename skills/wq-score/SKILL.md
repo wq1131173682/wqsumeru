@@ -144,9 +144,24 @@ agent: build
   "total": { "score": 85, "max": 100, "grade": "A" },
   "weakestDimension": "technical",
   "strongestDimension": "narrative",
-  "improvementTips": ["建议优先解决反AI句式重复问题"]
+  "improvementTips": ["建议优先解决反AI句式重复问题"],
+  "deficientChapters": [
+    {
+      "chapter": "015",
+      "chapterFile": "chapters/015-拍卖会冲突.md",
+      "totalScore": 6.5,
+      "grade": "C",
+      "threshold": 7.5,
+      "deficiencies": [
+        { "dimension": "narrative", "item": "pacing", "score": 3, "evidence": "第30-35章略拖" },
+        { "dimension": "completeness", "item": "word_count", "current": 1800, "target": 2500 }
+      ]
+    }
+  ]
 }
 ```
+
+> **`deficientChapters` 字段**：低于 `config/scoring-criteria.json.gradeThresholds` 中对应等级阈值的章节清单，供 `wq-revise` 消费做收敛式修稿。每章含 `deficiencies` 明细（维度 + 评分项 + 当前值 + 证据），revise 据此映射 allowedOps。**创意性/市场契合度**类缺陷也写入此字段，由 revise 标 `escalate` 交人工，不自动修。
 
 ## 使用示例
 
@@ -173,6 +188,7 @@ agent: build
 | 输出渲染 | 按指定输出模式（score-card/report/data）渲染结果 |
 | 存储与同步 | 写入 `.sumeru/score/`，更新 `status.json` 中评分记录 |
 | 改进建议 | 输出排序后的改进建议（高→低优先级） |
+| **低分章节清单** | 按等级阈值筛选低于阈值的章节，写入 `score-snapshot.json.deficientChapters`，每章含维度/评分项/当前值/证据，供 `wq-revise` 消费 |
 
 ### subAgent 并行评分规则
 
@@ -227,6 +243,7 @@ agent: build
 6. 全局强项 = 各子Agent报告的 strengthItems 中得分最高的
 7. 全局弱项 = 各子Agent报告的 weaknessItems 中得分最低的
 8. 改进建议 = 所有子Agent的 suggestions 按关联维度权重排序
+9. **低分章节清单** = 遍历各子Agent返回的 per-chapter 评分（item 级 evidence 含 chapter 字段时），筛选低于 `gradeThresholds` 阈值的章节，聚合为 `deficientChapters`，每章 `deficiencies` 列出失分项（dimension + item + score + current/target + evidence）
 
 **并行上限**：最大5个子Agent同时运行（每维度一个）。
 
@@ -280,6 +297,7 @@ agent: build
 | `wq-finalize` | score 结果可作为 build 前门禁（S/A级允许发布，B级建议先polish，C/D级阻断） |
 | `wq-review` | score 复用 review 的 continuity check / foreshadowing tracking 数据 |
 | `wq-worldbuilder` | 编排时在 `polish → finalize` 之间可选择插入 score 阶段 |
+| `wq-revise`（下游） | score 输出 `deficientChapters` 字段供 revise 做评分驱动·收敛式修稿；**低分回头改的唯一合法入口是 revise，禁止 `score → write` 回环** |
 
 ## 版本历史
 

@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.4.1 (2026-08-13)
+
+### 新增 wq-revise：评分驱动·收敛式修稿技能
+
+> **背景**：`wq-score` 评出低分章节后，直接调 `wq-write` 重写会产生无限循环——没有"已处理"记忆、没有每章重试上限、全书重评引发级联、没有收敛判定、子Agent自决范围、没有全局硬停。任意一条都足以卡死流程。新增 `wq-revise` 作为唯一带收敛约束的修改技能，把"评分不足回头改"变成必然终止的流程。
+
+**改动**（6 个文件，新增 1 技能）：
+
+- **A. 新建 `skills/wq-revise/SKILL.md`**（v1.0.0）
+  - 六大核心机制：①诊断驱动任务卡（不靠"重写整章"）②已处理集合锁定（防重复）③定向重评不全书重评（防级联）④单调改进+最佳快照（防震荡）⑤每章硬重试上限+全局硬停 ⑥父Agent独占调度权
+  - `revise-plan.json` schema：每章任务卡含 deficiencies / allowedOps / forbiddenOps / scope / maxRetries / successCriterion / protectedElements
+  - `revise-status.json` schema：每章状态 pending→in-progress→converged|best-effort|escalated|skipped，含 retryCount + best 指标 + history
+  - 收敛门六步校验：文件路径 / scope / protectedElements / 定向重评 / 判定 / 写回备份
+  - allowedOps 取值：expand / compress / restructure / replace-segment / patch-foreshadow / escalate
+  - 默认每章 2 次重试、全局 3 轮硬停（用户可 `上限N轮`/`每章N次` 覆盖）
+  - 边界：句式/反AI 交回 polish，剧情bug 交回 review，创意/市场不足标 escalate 不自动修
+  - 分卷模式支持 + 自举协议
+
+- **B. `wq-score/SKILL.md`**：snapshot 新增 `deficientChapters` 字段（chapter + deficiencies 明细）；父Agent职责新增"低分章节清单"步骤；合并规则第 9 步；集成表新增 wq-revise 下游关系
+
+- **C. `wq-worldbuilder/SKILL.md`**：状态机 `polish → [score?] → [revise?] → finalize`；核心功能新增 5.6 评分驱动修稿（条件）；Skill 协调流程插入 `[revise?]`；推进规则新增 revise 完成判定
+
+- **D. 文档同步**：CLAUDE.md / README.md / QWEN.md 技能列表与调用链路同步；版本升至 v1.4.1
+
+**不破坏项**：
+- revise 不改章节状态机值（章节仍为 `polished`），是 `polished → finalize` 之间的质量修补层
+- 低分回头改的唯一合法入口是 revise，禁止 `score → write` 回环
+- 创意性/市场契合度不自动修，标 escalate 交人工，避免强行修引发新循环
+
+---
+
 ## 1.4.0 (2026-08-06)
 
 ### 品牌重命名：sumeru-* → wq-* 全量迁移

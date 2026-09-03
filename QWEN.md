@@ -1,6 +1,6 @@
 # QWEN.md — WQ 写作 (WQ Writing) 项目上下文
 
-> **版本**: v1.4.0 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
+> **版本**: v1.4.1 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
 > **全局约束唯一来源**: `skills/wq-rules/SKILL.md`
 
 ## 项目概述
@@ -13,7 +13,7 @@ WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 
 
 ### Skill 模块化架构
 
-10 个独立 Skill 模块，可单独调用也可全流程自动编排：
+11 个独立 Skill 模块，可单独调用也可全流程自动编排：
 
 | Skill | 职责 | 触发关键词 |
 |-------|------|-----------|
@@ -25,6 +25,7 @@ WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 
 | `wq-review` | 逻辑审查与创意疲劳检测 | "检查bug、时间线矛盾、人物OOC" |
 | `wq-polish` | 文笔润色与创意强化 | "润色、改文笔、强化爽点" |
 | `wq-score` | 完稿评分系统（五维评分） | "评分、打分、评估作品质量" |
+| `wq-revise` | 评分驱动·收敛式修稿（硬收敛） | "评分不足修稿、定向扩写、收敛式修稿" |
 | `wq-finalize` | 完稿校验与发布导出 | "检查错别字、检测敏感词、导出" |
 | `wq-migrate` | 旧项目迁移与规整 | "规整项目、迁移旧项目、查缺补漏" |
 | `wq-rules` | 全局约束规则（不直接调用） | — |
@@ -32,7 +33,7 @@ WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 
 ### 调用链路
 
 ```
-用户需求 → worldbuilder → scan(可选) → topic → outline → intro → anchor → write → review → fix → polish → [score?] → finalize → build/release
+用户需求 → worldbuilder → scan(可选) → topic → outline → intro → anchor → write → review → fix → polish → [score?] → [revise?] → finalize → build/release
 ```
 
 每个 Skill 都可脱离 worldbuilder 单独启动，执行自举协议（自动定位项目、读/生成配置、补齐目录）。
@@ -46,7 +47,7 @@ WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 
 
 ### 状态机
 
-- **项目阶段**: `init → scan(可选) → topic → outline → intro → anchor → write → review → fix → polish → [score?] → finalize → build/release`
+- **项目阶段**: `init → scan(可选) → topic → outline → intro → anchor → write → review → fix → polish → [score?] → [revise?] → finalize → build/release`
 - **章节状态**: `planned → drafted → reviewed → fixed → polished → finalized → exported`
 - 断点恢复：所有创作数据持久化到 `.sumeru/`，中断后可直接续作
 
@@ -56,7 +57,7 @@ WQ 写作是一个网文（网络小说）创作 AI Agent 技能集合，适配 
 
 ```
 wqsumeru/
-├── skills/                    # 10个 Skill 模块
+├── skills/                    # 11个 Skill 模块
 │   ├── wq-rules/          # 全局约束（唯一来源）
 │   │   ├── SKILL.md           # 主约束文件
 │   │   └── subagent-rules.md  # 子Agent精简版规则
@@ -77,6 +78,7 @@ wqsumeru/
 │   │       └── foreshadowing-tracker.py
 │   ├── wq-polish/         # 内容润色
 │   ├── wq-score/          # 完稿评分
+│   ├── wq-revise/        # 评分驱动·收敛式修稿
 │   ├── wq-finalize/       # 完稿校验与导出
 │   │   ├── SKILL.md
 │   │   ├── config/            # 拼写/敏感词配置（JSON外置）

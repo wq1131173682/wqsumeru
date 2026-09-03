@@ -34,7 +34,8 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 4.5 **修复**：根据审查结果修复问题（轻量 auto-fix 或重写），章节状态更新为 `fixed`
 5. **内容润色**：调用 `wq-polish` 对已修复章节进行文笔优化
 5.5 **完稿评分（可选）**：调用 `wq-score` 对已润色作品进行五维评分，输出评分报告（不修改章节文件）
-6. **完稿构建**：调用 `wq-finalize` 对已润色/已评分章节完成技术校验、平台格式 build 和 release
+5.6 **评分驱动修稿（条件）**：若 score 产出 `deficientChapters`，调用 `wq-revise` 做收敛式修稿（硬重试上限+定向重评+全局硬停）；无低分章节则跳过
+6. **完稿构建**：调用 `wq-finalize` 对已润色/已评分/已修稿章节完成技术校验、平台格式 build 和 release
 
 ### 项目初始化协议
 当用户要求初始化小说项目或当前目录缺失 `.sumeru/project.json` 时：
@@ -116,13 +117,15 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - 每次接续动作追加一条到 `.sumeru/changelog.md`（时间戳 + 接续状态 + 实际走的分支）
 
 ### 项目状态机
-**阶段顺序（扁平模式）**：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → [score?] → finalize → build/release`
+**阶段顺序（扁平模式）**：`[migrate? →] init → topic → outline → intro → anchor → write → review → fix → polish → [score?] → [revise?] → finalize → build/release`
 
-**阶段顺序（分卷模式，`volumeCount >= 2`）**：`[migrate? →] init → topic → outline → intro → anchor → write → [volume_handoff? → write → ...] → review → fix → polish → [score?] → finalize → build/release`
+**阶段顺序（分卷模式，`volumeCount >= 2`）**：`[migrate? →] init → topic → outline → intro → anchor → write → [volume_handoff? → write → ...] → review → fix → polish → [score?] → [revise?] → finalize → build/release`
 
 > **migrate 前缀**：对于已有旧项目（存在 `chapters/` 但缺少 `.sumeru/` 规范目录的项目），第一阶段应为调用 `wq-migrate` 完成旧项目迁移规整，再进入 `init`。新项目直接跳过此步。
 >
 > **score 可选节点**：在 `polish` 完成后、`finalize` 之前，worldbuilder 可选择插入评分阶段。评分由 `wq-score` 执行，不修改章节文件，仅输出评估报告至 `.sumeru/score/`。用户可在流程中手动调用 `/wq-score` 触发评分。
+>
+> **revise 条件节点**：score 产出 `deficientChapters` 后，worldbuilder 插入 `wq-revise` 做评分驱动·收敛式修稿。revise 自带硬收敛（每章默认 2 次重试、全局 3 轮硬停），**低分回头改的唯一合法入口是 revise，禁止 `score → write` 回环**。无低分章节则跳过 revise 直接进 finalize。
 >
 > **volume_handoff 中间态**：仅当分卷模式下写完当前卷最后一章时插入，详见"分卷模式编排"节。扁平模式永不触发。
 
@@ -139,6 +142,7 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 - `fix` 完成：轻量问题已修复，重写问题已转为 `needs-rewrite` 或完成重写；反审验证通过后章节状态更新为 `fixed`
 - `polish` 完成：章节状态更新为 `polished`；发现逻辑硬伤时自动触发反审
 - `score` 完成（可选）：评分报告存入 `.sumeru/score/`，章节状态不变；评分为建议性质，不阻断后续流程
+- `revise` 完成（条件）：`deficientChapters` 中章节经收敛式修稿达 converged/best-effort，或全局硬停收尾；`revise-status.json` 写终态；章节状态机值不变（仍为 `polished`），修订写入 `chapters/`
 - `finalize` 完成：技术校验通过，章节状态更新为 `finalized`
 
 > 子 Agent 并行规则、分片策略、输出级别见 `wq-rules`。
@@ -191,12 +195,14 @@ worldbuilder 是网文创作的一站式主控技能，负责统筹协调从创�
 
 ### Skill 协调流程
 ```
-用户需求→收集需求→[migrate? →] topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →[volume_handoff? 分卷模式触发时插入] →review →[fix] →polish →[score? 可选评分] →finalize →build/release
+用户需求→收集需求→[migrate? →] topic[选题策划+平台定向] →outline[大纲设计] →intro[简介生成] →anchor[创意锚点确认] →write →[volume_handoff? 分卷模式触发时插入] →review →[fix] →polish →[score? 可选评分] →[revise? 有低分章节才进] →finalize →build/release
                                        →
                                阶段检查点验证
 ```
 
 > `[score?]` 为可选评分节点：worldbuilder 可在 polish 完成后询问用户是否需要评分，或根据 `project.json.workflowLevel ≥ long` 自动建议。评分阶段由 `wq-score` 执行，不修改章节文件，输出结果存入 `.sumeru/score/`。
+>
+> `[revise?]` 为**条件节点**：score 产出 `deficientChapters` 后才插入，由 `wq-revise` 执行评分驱动·收敛式修稿。revise 自带硬收敛（每章默认 2 次重试、全局 3 轮硬停），杜绝"低分回头改"无限循环。无低分章节则跳过直接进 finalize。
 
 > `[volume_handoff?]` 为分卷模式（`volumeCount >= 2`）的**条件中间节点**：仅当写完当前卷最后一章时插入，执行 Phase A→B→C 卷切换后回到 `write`；扁平模式不出现。详见"分卷模式编排"节与 `wq-rules/SKILL.md` 第十五部分·分卷隔离与卷切换协议。
 

@@ -45,6 +45,10 @@ user-invocable: true
 
 ### Build 前检查
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
+- **读取修稿与评分状态（质量门禁）**：读取 `.sumeru/revise/revise-status.json` 与 `.sumeru/score/score-snapshot.json`，把以下章节列入 `build-quality-report.md` 风险项：
+  - `revise-status` 中 `best-effort` 章节（撞重试上限的次品）→ 标 `⚠️ build_best_effort`，附 `stopReason`；
+  - `revise-status` 中 `escalated` 章节（创意/市场不足需人工）→ 标 `🚫 build_escalated`，**默认阻断发布**，除非用户显式 `允许发布未修章节` 放行；
+  - `score-snapshot.deficientChapters` 中仍 `resolved != true` 的项 → 标 `⚠️ build_score_unresolved`。
 - 检查 `chapters/` 是否缺章、重章、命名不规范
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
 - **检查正文是否残留元信息标注**：扫描"视角：""伏笔：""伏笔设置""下一章""下章""预告""本章完""章节小结""剧情推进"等模式，命中则警告并从导出中剥离
@@ -93,7 +97,16 @@ user-invocable: true
 - **七猫/番茄**：不推荐直接投递。开篇钩子不足 + 首章节奏过慢
 - **晋江**：可投递，建议优化对话占比后发布
 - **起点**：可投递，章节字数偏短但精品文可接受
+
+### 修稿风险项（读取 revise-status + score-snapshot）
+| 章节 | 风险 | 来源 | 处理 |
+|------|------|------|------|
+| 第015章 | ⚠️ build_best_effort | revise-status（max-retries-reached）| 列入风险，允许发布但建议人工复核 |
+| 第099章 | 🚫 build_escalated | revise-status（创意性不足，需人工）| **默认阻断**，用户 `允许发布未修章节` 才导出 |
+| 第022章 | ⚠️ build_score_unresolved | score-snapshot（deficientChapters 未 resolved）| 列入风险 |
 ```
+
+> escalated 章节默认阻断发布是质量兜底——创意性/市场契合度不可逐章自动修复，强行发布会把已知低质内容带到平台。用户须显式放行才会导出，并记录到 `.sumeru/decisions.md`。
 
 ### 子Agent并行校验机制
 

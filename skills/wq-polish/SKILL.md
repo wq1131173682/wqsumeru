@@ -274,7 +274,11 @@ agent: build
 - 启动子Agent，传入精简 context pack
 - 收集子Agent输出，检查完整性、顺序、命名
 - **剧情统一校验**：承接检查、人物检查、道具检查、时间线检查、伏笔检查（详见 `wq-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"）
-- **反AI句式扫描**（详见 `wq-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"）
+- **反AI句式扫描（修订后回归门，强制）**：润色写回 `chapters/` **前**，对润色后章节强制跑 `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本批次章> --output .sumeru/polish --quiet`，按退出码处理（与 `wq-write` 同协议）：
+  - `0` = 通过，允许写回；
+  - `1` = warning，写入 `.sumeru/issues.md`，可写回但标记 `anti_ai_warning`；
+  - `2` = 含阻断（`narrative_high_description` / `narrative_low_event_density` / `water_text_cliche_density` 命中）→ **禁止写回**，回退子Agent重润色；父Agent不得用"插入描写段"方式绕过阻断。
+  - 此回归门防止润色把文本改回 AI 句式/水文/标点问题，与 `wq-write`/`wq-revise` 的修订后回归扫描保持一致。
 - 备份原文件到 `.sumeru/polish/original/`（每章仅保留最新份）
 - 写入润色后正文到 `chapters/`
 - 更新 `.sumeru/status.json`（章节状态改为`polished`）

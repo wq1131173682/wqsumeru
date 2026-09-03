@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.4.2 (2026-08-13)
+
+### 整体优化：修订后回归门 / 质量闭环 / 工程化基建
+
+> **背景**：整体审视后发现若干设计缺口与一致性遗漏——wq-rules 未同步 revise、修订后无统一回归扫描、finalize 门禁不读 score/revise、脚本重复实现、无测试套件。本批次闭环这些问题。
+
+**改动**（9 个文件）：
+
+- **A. wq-rules/SKILL.md（P0/P2）**：技能清单补 wq-revise；调用链路补 `→revise(条件)`；状态机 `[score?] → [revise?] → finalize`；推进规则补 `score→revise`/`revise→finalize`/`score→finalize(无低分)` 三条转移条件；canonical 路径补 `.sumeru/revise/`；反AI扫描表补第 10/11 项（全书开场/钩子模板化）
+- **B. subagent-rules.md（P2）**：子Agent I/O 表补 wq-score、wq-revise 两行
+- **C. wq-migrate/SKILL.md（P2）**：目录补齐清单补 `.sumeru/score/`、`.sumeru/revise/`、`reviews/`、`tests/`
+- **D. wq-revise/SKILL.md（P1）**：收敛门新增第 6 步"回归扫描"（anti-ai + continuity 轻量，退出码 2 回退 best）；新增"收尾：快照回写"节，每章 best 指标回写 `score-snapshot.deficientChapters`，escalated 项标记，重算 total/强弱项
+- **E. wq-polish/SKILL.md（P1）**：父Agent职责新增"反AI句式扫描（修订后回归门，强制）"——写回前跑 anti-ai-scan.py，退出码 0/1/2 同 write 协议，退出码 2 禁止写回；消除 polish 改回 AI 句式的盲区
+- **F. wq-finalize/SKILL.md（P1）**：Build 前检查读 `revise-status.json` + `score-snapshot.json`，build-quality-report 新增"修稿风险项"表，best-effort 标警告、escalated 默认阻断发布（用户显式放行才导出）
+- **G. skills/wq-rules/scripts/text_utils.py（P3，新建）**：共享文本工具——对话提取（P1-1/P1-2 关键函数集中维护）、句子/段落切分、章节文件递归扫描；带自检
+- **H. skills/wq-review/scripts/anti-ai-scan.py（P3）**：split_sentences/split_paragraphs/extract_dialogue_chars 改为优先用共享 text_utils，带本地回退（零风险）；新增 `detect_global_template_repeat` 全书跨章开头/钩子模板重复检测，补邻域窗口=2 的盲区
+- **I. tests/run_smoke.py + fixtures（P3，新建）**：冒烟测试套件，守 P1-1/P1-2 中文双引号回归，验证 anti-ai/format-validator/spell-check/continuity/foreshadowing 脚本可跑通；10 项全过
+
+**不破坏项**：
+- text_utils 优先用、本地回退，anti-ai-scan 行为不变
+- 章节状态机不改（revise 用 revise-status.json 而非章节状态值）
+- escalated 阻断发布是质量兜底，用户可显式放行
+
+---
+
 ## 1.4.1 (2026-08-13)
 
 ### 新增 wq-revise：评分驱动·收敛式修稿技能

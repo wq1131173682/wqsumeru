@@ -188,8 +188,27 @@ EVENT_VERBS = [
 # 文本基础工具
 # ---------------------------------------------------------------------------
 
+# 共享文本工具（skills/wq-rules/scripts/text_utils.py）
+# 对话引号匹配是 P1-1/P1-2 修复的关键，集中维护避免散落多处遗漏同步
+_SHARED_SCRIPTS = Path(__file__).resolve().parent.parent.parent / "wq-rules" / "scripts"
+if str(_SHARED_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SHARED_SCRIPTS))
+try:
+    from text_utils import (  # type: ignore
+        split_sentences as _shared_split_sentences,
+        split_paragraphs as _shared_split_paragraphs,
+        extract_dialogue_chars as _shared_extract_dialogue_chars,
+    )
+except Exception:  # 共享模块不可用时回退到本地实现，行为不变
+    _shared_split_sentences = None
+    _shared_split_paragraphs = None
+    _shared_extract_dialogue_chars = None
+
+
 def split_sentences(text: str) -> List[str]:
     """中文句子切分（中英文标点）。"""
+    if _shared_split_sentences is not None:
+        return _shared_split_sentences(text)
     if not text:
         return []
     # 合并多空白
@@ -201,6 +220,8 @@ def split_sentences(text: str) -> List[str]:
 
 def split_paragraphs(text: str) -> List[str]:
     """按空行切分段落。"""
+    if _shared_split_paragraphs is not None:
+        return _shared_split_paragraphs(text)
     if not text:
         return []
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p and p.strip()]
@@ -215,6 +236,8 @@ def extract_dialogue_chars(text: str) -> int:
     - 中文双引号 \u201c...\u201d（""）
     - 直角引号「...」
     """
+    if _shared_extract_dialogue_chars is not None:
+        return _shared_extract_dialogue_chars(text)
     total = 0
     # 英文双引号对话
     for m in re.finditer(r"\"([^\"\\]*(?:\\.[^\"\\]*)*)\"", text):
@@ -918,6 +941,40 @@ def scan_batch_relations(chapter_results: List[Dict[str, Any]]) -> List[Dict[str
     return batch_issues
 
 
+def detect_global_template_repeat(chapter_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """全书跨章开头/钩子模板重复检测。
+
+    scan_batch_relations 只在 OPENING_SIMILAR_WINDOW=2 的邻域窗口内查雷同，
+    查不到"第1章与第50章都以'被X叫醒'开头"这种远距离模板复用。
+    本函数扫全书：任意 8 字前缀在 ≥3 章重复出现 → 标记模板化。
+    """
+    issues: List[Dict[str, Any]] = []
+    if len(chapter_results) < 3:
+        return issues
+
+    GLOBAL_PREFIX_THRESHOLD = 3  # 全书 ≥3 章重复同一前缀才算模板化
+
+    def _scan(field: str, code: str, label: str):
+        prefix_to_chapters: Dict[str, List[str]] = defaultdict(list)
+        for c in chapter_results:
+            line = c.get(field) or ""
+            prefix = line[:8]
+            if prefix:
+                prefix_to_chapters[prefix].append(c["chapter"])
+        for prefix, chs in prefix_to_chapters.items():
+            if len(chs) >= GLOBAL_PREFIX_THRESHOLD:
+                issues.append({
+                    "code": code,
+                    "severity": "medium",
+                    "scope": f"global {field}",
+                    "detail": f"{label}前缀 '{prefix}' 在 {len(chs)} 章重复：{','.join(chs[:6])}{'…' if len(chs) > 6 else ''}"
+                })
+
+    _scan("opening", "anti_ai_global_opening_template", "开场")
+    _scan("closing", "anti_ai_global_hook_template", "结尾钩子")
+    return issues
+
+
 # ---------------------------------------------------------------------------
 # 报告生成
 # ---------------------------------------------------------------------------
@@ -1051,8 +1108,10 @@ def main() -> int:
         card = outline_meta.get(chap_no)
         chapter_results.append(scan_chapter(fp, card))
 
-    # 批次扫描
+    # 批次扫描（邻域窗口）
     batch_issues = scan_batch_relations(chapter_results)
+    # 全书跨章模板重复扫描（远距离，补窗口=2 的盲区）
+    batch_issues.extend(detect_global_template_repeat(chapter_results))
 
     # 报告
     report = build_report(chapter_results, batch_issues)

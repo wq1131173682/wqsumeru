@@ -1,6 +1,6 @@
 # WQ 写作 (WQ Writing) - 二次开发版
 
-> **当前版本**: v1.4.1 · **更新日期**: 2026-08-13 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.4.2 · **更新日期**: 2026-08-13 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
 基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode、Qwen Code等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 
@@ -10,6 +10,7 @@
 
 ## 🆕 最新更新
 
+- **v1.4.2** (2026-08-13) — 整体优化：wq-rules 同步 revise（技能清单/状态机/推进规则/canonical路径）；wq-revise 收尾回写 score-snapshot + 修订后回归扫描（anti-ai+continuity）；wq-polish 写回前强制 anti-ai 回归；wq-finalize 读 revise-status/score-snapshot 做风险门禁（escalated 默认阻断发布）；抽共享 text_utils.py（对话提取集中维护）；anti-ai-scan 增全书跨章开头/钩子模板重复检测；新建 tests/ 冒烟测试套件（10 项全过）
 - **v1.4.1** (2026-08-13) — 新增 `wq-revise` 评分驱动·收敛式修稿技能：六机制（诊断驱动任务卡 / 已处理锁 / 定向重评 / 单调改进+best快照 / 每章硬重试上限+全局硬停 / 父Agent独占调度）；默认每章 2 次重试、全局 3 轮硬停；`wq-score` 输出 `deficientChapters` 字段供下游消费；`wq-worldbuilder` 编排链插入 `score → revise` 条件分支，杜绝"低分回头改"无限循环
 - **v1.4.0** (2026-08-06) — 品牌重命名：`sumeru-*` 技能前缀统一改为 `wq-*`；11 个技能目录全部重命名；项目名称更新为 "WQ 写作 (WQ Writing)"；保留 xindoo/sumeru 原项目致谢；补入评分模块到架构图
 - **v1.3.7** (2026-07-20) — 标点符号规范体系：新增10类标点检测规则（破折号滥用/省略号格式/感叹号问号叠用/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点）；`anti-ai-scan.py` 新增3维标点检测（破折号密度+简单承接型误用、省略号格式、感叹号叠用+密度）；`format-validator.py` 新增4个验证函数（标点空格、引号闭合、书名号、标点格式）；`wq-rules/SKILL.md` 新增第六点五部分标点规范章节；修复 `spell-check.py` 标点严重度不一致

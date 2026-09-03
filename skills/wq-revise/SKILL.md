@@ -206,13 +206,31 @@ pending → in-progress → converged      （达 successCriterion）
    - 优于 best 但未达 criterion → 覆盖 best，`retryCount` 不增，若 `retryCount < maxRetries` 续派下一轮（带 refined 诊断），否则标 `best-effort`；
    - 不优于 best → 恢复 best，`retryCount++`，震荡计数 +1；震荡计数 ≥ 2 → 立即冻结 best，标 `best-effort`；
    - `retryCount >= maxRetries` → 标 `best-effort`，记 `stopReason`。
-6. **写回**：converged/best-effort 才把 best 版本写回 `chapters/`；写前备份原稿到 `.sumeru/revise/original/`。
+6. **回归扫描（修订后强制）**：对改过的章节跑轻量回归，防止 polish/revise 改稿重新引入 AI 句式/标点/一致性问题：
+   - `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本章> --output .sumeru/revise --quiet`；退出码 2（阻断）→ 回退 best，`retryCount++`，记 issue；退出码 1（warning）→ 写入 `.sumeru/issues.md`，不阻断；
+   - `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --chapters <本章> --quiet`（分卷模式先 `export SUMERU_CURRENT_VOLUME=vol-N`，输入 `.sumeru/volumes/vol-N/continuity`）；critical 冲突 → 回退 best，`retryCount++`；
+   - 回归扫描与定向重评（第 4 步）可合并为一次子Agent回收后的双校验：先回归扫描通过，再跑定向重评。
+7. **写回**：converged/best-effort 才把 best 版本写回 `chapters/`；写前备份原稿到 `.sumeru/revise/original/`。
 
 ## 全局硬停
 
 - `globalRound` 每完成一轮（所有 pending 任务各跑一次）+1；
 - `globalRound >= globalMaxRounds` → 无论是否全 converged，强制收尾，剩余 pending 标 `best-effort`，进 finalize；
 - 用户可用 `上限N轮` 覆盖 `globalMaxRounds`。
+
+## 收尾：快照回写
+
+所有任务达终态后，父Agent**回写全局 `score-snapshot.json`**，避免下游 finalize/worldbuilder 看到修稿前的失真快照：
+
+1. 遍历 `revise-status.json.chapters`，对每个 `converged`/`best-effort` 章节：
+   - 在 `score-snapshot.json.deficientChapters` 中找到对应 `chapter` 项；
+   - 用 `bestMetrics` 更新该项的 `currentMetrics` / 评分 / `totalScore`，并把 `deficiencies` 中已解决项标记 `resolved: true`；
+   - `best-effort` 章节额外写 `stopReason`（`max-retries-reached` / `oscillation-frozen`）。
+2. 重算 snapshot 的 `total` / `weakestDimension` / `strongestDimension`（按更新后的章节分重新聚合）。
+3. `escalated` 章节**不更新**指标（未改），但在该项追加 `escalated: true` + `reason`，供 finalize 门禁识别。
+4. 回写后追加 `.sumeru/changelog.md`：`ℹ️ revise: 回写 {n} 章 best 指标到 score-snapshot，{m} 章 escalated 待人工`。
+
+> 若 revise 未运行（无 deficientChapters）或用户手动跳过，snapshot 保持 score 原样，不回写。
 
 ## 子Agent调度协议
 

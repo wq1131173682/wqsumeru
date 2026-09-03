@@ -28,6 +28,7 @@ agent: build
 | `wq-review` | 逻辑审查与创意疲劳检测| "检查bug"、时间线矛盾、人物OOC" | ✅|
 | `wq-polish` | 文笔润色与创意强化| "润色"、改文笔、优化节奏"、强化爽点" | ✅|
 | `wq-score` | 完稿评分系统（五维评分）| "评分"、打分"、评估作品质量" | ✅|
+| `wq-revise` | 评分驱动·收敛式修稿（硬收敛）| "评分不足修稿"、定向扩写"、收敛式修稿" | ✅|
 | `wq-finalize` | 完稿校验与发布导出| "检查错别字"、检测敏感词"、导出平台格式" | ✅|
 | `wq-migrate` | 旧项目迁移与规整 | "规整项目"、迁移旧项目、补齐缺失文件"、查缺补漏" | ✅|
 | `wq-rules` | 全局约束规则（不直接调用）| —| ❌|
@@ -42,7 +43,8 @@ agent: build
                          → review(→issues.md + fix-plan.json, 子Agent并行审查)
                          → write(修复重写, 读 fix-plan.json)
                          → polish(→chapters/*.md, 子Agent并行润色)
-                         → score(可选,→.sumeru/score/)
+                         → score(可选,→.sumeru/score/, 输出 deficientChapters)
+                          → revise(条件,→.sumeru/revise/, 消费 deficientChapters 收敛式修稿)
                          → finalize(→publish/)
 ```
 
@@ -51,9 +53,11 @@ agent: build
 
 ### 项目状态流转
 ```
-init →scan(可选) →topic →outline →intro →anchor →write →review →fix →polish →[score?] →finalize →build/release
+init →scan(可选) →topic →outline →intro →anchor →write →review →fix →polish →[score?] →[revise?] →finalize →build/release
 
-> `[score?]` 为可选中间节点：worldbuilder 编排时可选择在 polish 完成后、finalize 前插入评分阶段；用户也可手动调用 `/wq-score` 触发。评分阶段不修改章节文件，仅输出评估报告。
+> `[score?]` 为可选中间节点：worldbuilder 编排时可选择在 polish 完成后、finalize 前插入评分阶段；用户也可手动调用 `/wq-score` 触发。评分阶段不修改章节文件，仅输出评估报告（含 `deficientChapters` 字段）。
+>
+> `[revise?]` 为条件中间节点：score 产出 `deficientChapters`（低于等级阈值的章节）后才插入，由 `wq-revise` 执行评分驱动·收敛式修稿。revise 自带硬收敛（每章默认 2 次重试、全局 3 轮硬停），**低分回头改的唯一合法入口是 revise，禁止 `score → write` 回环**。无低分章节则跳过直接进 finalize。
 >
 > 旧项目需先执行 `wq-migrate` 完成迁移规整（参见 `wq-migrate/SKILL.md`），再进入 `init` 阶段。
 ```
@@ -78,9 +82,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `review` →`fix` | 问题写入 `issues.md`，重写项写入 `fix-plan.json` |
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
 | `polish` →`finalize` | 章节状态`polished` |
-| `polish` →`score`(可选) | 评分范围确定，评分数据收集就绪 |
-| `score` →`finalize` | 评分完成（无阻塞条件，评分仅建议不阻断） |
-| `finalize` →`build` | 技术校验通过，章节状态`finalized` |
+| `polish` →`score`(可选) | 评分范围确定，评分数据收集就绪；snapshot 含 `deficientChapters` |
+| `score` →`revise`(条件) | snapshot 中 `deficientChapters` 非空（存在低于等级阈值的章节）|
+| `score` →`finalize` | 评分完成且 `deficientChapters` 为空（无低分章节，跳过 revise）|
+| `revise` →`finalize` | 所有任务达终态（converged/best-effort/escalated）或全局硬停收尾；每章 best 指标回写 snapshot |
+| `finalize` →`build` | 技术校验通过，章节状态`finalized`；读取 `revise-status.json` 把 best-effort/escalated 列入 build-quality-report 风险项 |
 
 ### 状态字段语义对照
 
@@ -112,7 +118,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `.sumeru/topic/` | 选题阶段数据 |
 | `.sumeru/write/` | 写作阶段数据 |
 | `.sumeru/polish/` | 润色阶段数据 |
-| `.sumeru/score/` | 评分阶段数据（latest.json、score-snapshot.json、history/、report.md） |
+| `.sumeru/score/` | 评分阶段数据（latest.json、score-snapshot.json、history/、report.md，snapshot 含 deficientChapters）|
+| `.sumeru/revise/` | 修稿阶段数据（revise-plan.json、revise-status.json、best-snapshots/、original/、revise-report.md）|
 | `.sumeru/finalize/` | 完稿阶段数据 |
 
 ### 旧路径兼容（只读）
@@ -563,6 +570,8 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 | 7 | **段间 micro-arc 模板**（v1.2.3 新增）：4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次| 8+ 段章节 | medium | polish 中度 + 重排段落 |
 | 8 | **对话标记词集中**（v1.2.3 新增）：单一标记词（"说"/"道"/"问道"等）占全部对话标记 ≥ 80% | 总标记 ≥ 5 | medium | polish 中度 + 替换标记词 |
 | 9 | **对话后旁白解说**（v1.2.4 新增）：对话已表达情绪（愤怒/悲伤/冷漠等），紧接的叙述又用散文"翻译"同一情绪——如"你给我滚！"他愤怒地说 / "我不知道怎么办……"她的话语里满是无奈 | ≥ 3 处 | medium | polish 中度：删除情绪旁白解说，保留对话本身；若情绪暗示不足则改为动作细节 |
+| 10 | **全书开场模板化**（v1.4.1 新增）：任意 8 字开场前缀在全书 ≥ 3 章重复出现（补邻域窗口=2 的盲区，查"第1章与第50章都以'被X叫醒'开头"这类远距离模板复用） | ≥ 3 章 | medium | polish 中度 + 重写开场 |
+| 11 | **全书钩子模板化**（v1.4.1 新增）：任意 8 字结尾前缀在全书 ≥ 3 章重复出现 | ≥ 3 章 | medium | polish 中度 + 重写结尾 |
 
 ### C. 水文硬指标（v1.2.2 新增，v1.2.3 扩展黑名单，v1.2.4 编号顺延；与脚本同步）
 

@@ -53,6 +53,10 @@ agent: build
 | `.sumeru/cache/` 不存在| 创建空目录|
 | `.sumeru/context-packs/` 不存在| 创建空目录|
 | `.sumeru/continuity/` 不存在| 创建空目录|
+| `.sumeru/score/` 不存在| 创建空目录（history/ 子目录一并创建）|
+| `.sumeru/revise/` 不存在| 创建空目录（best-snapshots/、original/ 子目录一并创建）|
+| `reviews/` 不存在| 创建空目录（canonical，供审查报告）|
+| `tests/` 不存在| 创建空目录（canonical，供检查报告）|
 | `.sumeru/volumes/` 不存在且 chapters ≥ 150 | 提示用户进入「分卷迁移」模式（见第十部分）；非分卷模式可忽略 |
 | `.sumeru/cross-volume/` 不存在且启用分卷模式 | 按 outline.md 推断并初始化（见第十部分·c） |
 

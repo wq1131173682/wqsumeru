@@ -1,11 +1,11 @@
 ---
 name: wq-rules
 description: WQ 写作全局约束规则（唯一来源）
-version: 1.2.5
+version: 1.2.6
 type: skill
 argument-hint: ""
-disable-model-invocation: true
-user-invocable: false
+disable-model-invocation: false
+user-invocable: true
 allowed-tools: Read
 context: project
 agent: build

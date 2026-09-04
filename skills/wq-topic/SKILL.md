@@ -9,6 +9,7 @@ user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, task
 context: project
 agent: build
+requires: [wq-rules]
 ---
 
 > 依赖 `wq-rules`，默认 `quiet` 模式。

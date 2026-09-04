@@ -9,6 +9,7 @@ user-invocable: true
 allowed-tools: Read, Write, Edit, Glob, Grep, task
 context: project
 agent: build
+requires: [wq-rules]
 ---
 
 > 依赖 `wq-rules`，默认`quiet` 模式。所有子Agent并行规则、状态标记格式、Context Pack 格式、剧情统一门禁均遵循`wq-rules`。

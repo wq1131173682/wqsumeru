@@ -4,6 +4,7 @@ description: 小说完稿校验与导出。用户说小说写完了、要检查�
 version: 1.2.3
 type: skill
 user-invocable: true
+requires: [wq-rules]
 ---
 
 > 依赖 `wq-rules`，默认 `quiet` 模式。

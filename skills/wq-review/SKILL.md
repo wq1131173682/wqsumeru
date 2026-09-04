@@ -9,6 +9,7 @@ user-invocable: true
 allowed-tools: Read, Glob, Grep, Bash(python scripts/*.py), task
 context: project
 agent: build
+requires: [wq-rules]
 ---
 
 > 依赖 `wq-rules`，默认`quiet` 模式。附检查脚本：`scripts/continuity-check.py`、`scripts/foreshadowing-tracker.py`。

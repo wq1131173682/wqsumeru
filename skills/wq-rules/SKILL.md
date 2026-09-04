@@ -78,7 +78,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平可|
 | `outline` →`anchor` | `outline.md`、`chapters.json`、`.sumeru/intro.md` 存在 |
 | `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确认|
-| `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章 |
+| `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章，且字数达标率≥80%（anti-ai-scan exit 3=阻断，写阶段就拦住短板）|
 | `review` →`fix` | 问题写入 `issues.md`，重写项写入 `fix-plan.json` |
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
 | `polish` →`finalize` | 章节状态`polished` |
@@ -894,5 +894,64 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 ```
 
 ---
+
+## 六、子Agent 负载策略（v1.4.4 新增）
+
+### 代价模型
+
+每次子Agent 调用成本 ≈ 3-5 分钟（上下文加载 + 模型推理 + 结果回传），每轮 token 消耗：
+
+| 阶段 | 输入 tokens | 输出 tokens | 单次成本 |
+|------|------------|------------|---------|
+| context pack 生成 | — | — | 约 3000-5000（共享） |
+| 子Agent 推理（单章） | 3000-5000 | 2000-3000 | 约 1.5 分钟 |
+| 父Agent 验证（脚本） | — | — | 约 30 秒（anti-ai + continuity） |
+| 父Agent 验证（score） | — | — | 约 1 分钟（全章节评分） |
+
+**关键约束**：模型 API 有并发限制（通常 3-10 路），超出会触发限流或排队。
+
+### 并行度推荐
+
+| 任务类型 | 推荐并行度 | 每批次章节数 | 原因 |
+|----------|-----------|-------------|------|
+| **轻量字数路径**（revise mode=lightweight） | **5** | 每子 Agent 1 章 | 无剧情依赖，单次往返，安全 |
+| **wq-write 批量创作** | 3 | 每子 Agent 2-3 章 | 已有规范，token 预算已知 |
+| **wq-revise 收敛门**（mode=convergence） | **2** | 每子 Agent 1 章 | 有剧情连续性，需父Agent 逐章验证 |
+| **wq-review 审查** | 3 | 每子 Agent 3-5 章 | 只读不写，并行安全 |
+| **wq-polish 润色** | 2 | 每子 Agent 2-3 章 | 改文笔后需 anti-ai 回归验证 |
+| **wq-score 评分** | 5 | 每子 Agent 评 1 维度 | 独立维度，完全并行 |
+
+### 分流原则
+
+```
+纯字数不足（deficiencies == ["字数不足"]）
+  → wq-revise 轻量路径：5 并发，单次往返，不占收敛门轮次
+
+有质量缺陷（叙事/节奏/伏笔）
+  → wq-revise 收敛门：2 并发，允许 1-2 轮迭代
+
+写新章节（wq-write）
+  → 3 并发，每子 Agent 2-3 章
+
+审查（wq-review）
+  → 3 并发，每子 Agent 3-5 章
+```
+
+### 避免的陷阱
+
+1. **不要全并发**：3+ 个收敛门任务同时跑会耗尽 token 配额，导致 API 限流
+2. **不要混用批次大小**：轻量路径用 1 章/子Agent，write 用 2-3 章/子Agent——混用会让调度混乱
+3. **不要让子Agent 自决下一步**：收敛判定归父Agent，子Agent 只负责"改这一轮"
+4. **不要超过 globalMaxRounds**：轻量路径也受全局硬停约束（默认 3 轮），防止死循环
+
+### 时间估算参考
+
+| 场景 | 章节数 | 并行度 | 轮次 | 预估耗时 |
+|------|--------|--------|------|---------|
+| 65 章纯字数不足（轻量路径） | 65 | 5 | 13 | ~65 分钟 |
+| 65 章走收敛门（旧方式） | 65 | 2 | ~22 | ~220 分钟 |
+| **节省** | — | — | — | **70%** |
+
+> 轻量路径节省的核心原因：收敛门每章平均 1.5 轮 × 每轮 2 个子Agent（2 并发）× 3 分钟 = 9 分钟/章；轻量路径 1 轮 × 5 个子Agent（5 并发）× 3 分钟 = 0.6 分钟/章。
 
 

@@ -1,6 +1,6 @@
 # WQ 写作 (WQ Writing) - 二次开发版
 
-> **当前版本**: v1.4.3 · **更新日期**: 2026-09-06 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
+> **当前版本**: v1.4.4 · **更新日期**: 2026-09-06 · **完整变更**: [CHANGELOG.md](./CHANGELOG.md)
 
 基于 [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发的网文创作AI Agent技能集合，适配Claude Code、OpenCode、Qwen Code等AI编程工具，通过Vibe Coding的方式一站式完成从创意到完稿的全流程小说写作。
 

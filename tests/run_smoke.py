@@ -20,6 +20,7 @@ WQ 写作技能集 · 冒烟测试套件
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -84,10 +85,27 @@ def test_anti_ai_scan_runs():
         [sys.executable, str(script), str(CHAPTERS), "--output", str(out), "--quiet"],
         capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
     )
-    check("anti-ai-scan exit code in {0,1,2}", proc.returncode in (0, 1, 2),
+    check("anti-ai-scan exit code in {0,1,2,3}", proc.returncode in (0, 1, 2, 3),
           f"exit={proc.returncode} stderr={proc.stderr[:200]}")
     # 中文双引号样本不应触发 narrative_low_dialogue 误报（P1-1 守卫）
     # 此处只确保不崩；误报判定在文本断言里
+
+    # v1.4.4: 字数不足触发 exit 3
+    short_dir = REPO / "tests" / "_tmp_short"
+    short_dir.mkdir(exist_ok=True)
+    (short_dir / "001-短.md").write_text("第1章 短\n\n很小的内容。", encoding="utf-8")
+    # 创建临时 project.json 设定字数目标 2000
+    tmp_proj = REPO / "tests" / "_tmp_proj"
+    tmp_proj.mkdir(exist_ok=True)
+    (tmp_proj / "project.json").write_text('{"chapterWordRange": [2000, 3000]}', encoding="utf-8")
+    proc3 = subprocess.run(
+        [sys.executable, str(script), str(short_dir), "--project", str(tmp_proj), "--output", str(out), "--quiet"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
+    )
+    check("anti-ai-scan exit 3 on word shortage", proc3.returncode == 3,
+          f"expected 3, got {proc3.returncode} stderr={proc3.stderr[:200]}")
+    shutil.rmtree(short_dir, ignore_errors=True)
+    shutil.rmtree(tmp_proj, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.4.4 (2026-09-06)
+
+### 字数门槛硬化 + 轻量修稿路径
+
+> **背景**：多本小说修稿阶段字数短板集中爆发（65+ 章），跑收敛门每章平均 1.5 轮 × 2 并发 = ~9 分钟/章，总耗时 220+ 分钟。根源在于字数检查贯穿全流程太松——write 阶段软自检不阻断，review/polish 不查字数，全部堆到 revise。
+
+**改动**（5 个文件）：
+
+- **A. `skills/wq-review/scripts/anti-ai-scan.py`**
+  - 新增 `_load_word_range()` 从 project.json.chapterWordRange 读取字数目标
+  - 扫描后加字数门槛检查：汉字数 < target × 80% 标 `word_count_shortage`（critical/high）
+  - `blocking_codes` 加入 `"word_count_shortage"`
+  - 新增 `--project` CLI 参数
+  - 退出码逻辑：exit 3 = 字数不足（需扩写），与 exit 2（anti-AI 阻断）分离
+  - strict 模式也覆盖 word_count_shortage
+
+- **B. `skills/wq-write/SKILL.md`**：父Agent 反AI扫描第 4 步退出码新增 `3 = 字数未达标 → 强制回写本章任务卡 for_revision=true，禁止更新状态文件`
+
+- **C. `skills/wq-rules/SKILL.md`**：状态机推进规则 `write→review` 加"字数达标率≥80%"条件；新增「六、子Agent负载策略」节（代价模型、并行度推荐、分流原则、时间估算）
+
+- **D. `skills/wq-revise/SKILL.md`**：新增"轻量字数路径"节——纯字数不足任务走 5 并发 × 单次往返，跳过收敛门（不跑定向重评/anti-ai回归/best-snapshot），只做字数验证；mode 字段注入 context pack；队列管理优先排 lightweight 任务
+
+- **E. `tests/run_smoke.py`**：新增 exit 3 守卫（字数不足触发 exit 3）
+
+**预期效果**：65 章纯字数不足从 ~220 分钟降至 ~65 分钟（节省 70%）；新写项目 write 阶段就拦住短板，不再积累到 revise。
+
+---
+
 ## 1.4.3 (2026-09-06)
 
 ### wq-finalize 导出结构统一

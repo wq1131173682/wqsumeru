@@ -591,6 +591,40 @@ def load_outline_meta(outlines_path: Optional[Path]) -> Dict[str, Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
+# 字数目标读取
+# ---------------------------------------------------------------------------
+
+def _load_word_range(chapters_dir: Path, project_root: Optional[str] = None) -> Optional[Tuple[int, int]]:
+    """读取 project.json.chapterWordRange，返回 (min, max) 或 None。
+
+    按优先级查找：
+    1. args.project 指定的项目根目录
+    2. chapters_dir 的父级（通常就是项目根）
+    3. 当前工作目录
+    """
+    candidates = []
+    if project_root:
+        candidates.append(Path(project_root))
+    candidates.append(chapters_dir.parent)
+    candidates.append(Path(".").resolve())
+
+    for base in candidates:
+        pj = base / ".sumeru" / "project.json"
+        if not pj.exists():
+            pj = base / "project.json"
+        if pj.exists():
+            try:
+                with open(pj, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                wr = data.get("chapterWordRange")
+                if isinstance(wr, list) and len(wr) >= 2:
+                    return (int(wr[0]), int(wr[1]))
+            except Exception:
+                pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 单章扫描
 # ---------------------------------------------------------------------------
 
@@ -995,10 +1029,12 @@ def build_report(
     code_counts: Counter = Counter(i["code"] for i in all_issues)
 
     # 阻断规则：以下任一出现即 critical，触发重写（write 阶段）
+    # v1.4.4: 加入 word_count_shortage（字数低于目标 80%）
     blocking_codes = {
         "narrative_high_description",
         "narrative_low_event_density",
         "water_text_cliche_density",
+        "word_count_shortage",
     }
     # v1.3.4: micro_arc / dialog_marker 留 medium，不进阻断（先观察一轮）
     has_blocking = any(i["code"] in blocking_codes and i["severity"] in ("high", "critical") for i in all_issues)
@@ -1077,6 +1113,7 @@ def main() -> int:
     parser.add_argument("--quiet", action="store_true", help="静默模式：只在有问题时输出摘要")
     parser.add_argument("--strict", action="store_true", help="严格模式：medium 视作 high")
     parser.add_argument("--filter", default=None, help="只输出指定 chapter 范围，逗号分隔，如 001,002,005")
+    parser.add_argument("--project", default=None, help="项目根目录（用于读取 project.json.chapterWordRange）")
     args = parser.parse_args()
 
     chapters_dir = Path(args.chapters_dir)
@@ -1096,6 +1133,9 @@ def main() -> int:
         print(f"❌ 在 {chapters_dir} 中未找到 .md 章节文件", file=sys.stderr)
         return 2
 
+    # 读取字数目标阈值（project.json.chapterWordRange）
+    word_range = _load_word_range(chapters_dir, args.project)
+
     # 过滤章节
     if args.filter:
         wanted = {x.strip() for x in args.filter.split(",") if x.strip()}
@@ -1113,6 +1153,21 @@ def main() -> int:
     # 全书跨章模板重复扫描（远距离，补窗口=2 的盲区）
     batch_issues.extend(detect_global_template_repeat(chapter_results))
 
+    # 字数门槛检查（v1.4.4 新增）：低于 target*0.8 标 critical 阻断
+    if word_range:
+        min_target = int(word_range[0] * 0.8)
+        for cr in chapter_results:
+            wc = cr["metrics"].get("hanzi_count", 0)
+            if wc > 0 and wc < min_target:
+                deficit_pct = (min_target - wc) / min_target
+                severity = "critical" if deficit_pct > 0.3 else "high"
+                cr["issues"].append({
+                    "code": "word_count_shortage",
+                    "severity": severity,
+                    "scope": f"chapter {cr['chapter']}",
+                    "detail": f"字数 {wc} 低于目标下限 {word_range[0]} 的 80%（缺口 {deficit_pct:.0%}）"
+                })
+
     # 报告
     report = build_report(chapter_results, batch_issues)
 
@@ -1122,7 +1177,7 @@ def main() -> int:
             if issue["severity"] == "medium":
                 issue["severity"] = "high"
         report["blocking"] = any(
-            i["code"] in {"narrative_high_description", "narrative_low_event_density", "water_text_cliche_density"}
+            i["code"] in blocking_codes
             and i["severity"] in ("high", "critical")
             for i in report["all_issues_sorted"]
         )
@@ -1143,6 +1198,12 @@ def main() -> int:
     med = report["severity_counts"].get("medium", 0)
     low = report["severity_counts"].get("low", 0)
 
+    # v1.4.4: 字数不足单独 exit 3（与 anti-AI 阻断 exit 2 分离）
+    has_word_shortage = any(
+        i["code"] == "word_count_shortage" and i["severity"] in ("high", "critical")
+        for i in report["all_issues_sorted"]
+    )
+
     if args.quiet:
         if total == 0:
             print(f"✅ 反 AI 扫描通过 ({report['total_chapters']} 章无问题)")
@@ -1150,11 +1211,14 @@ def main() -> int:
             print(f"⚠️ 反 AI 扫描发现 {total} 项问题 (critical={crit} high={high} medium={med} low={low})")
             if blocking:
                 print(f"🚨 含阻断规则，建议重写")
+            if has_word_shortage:
+                print(f"📏 含字数不足章节，建议扩写")
             print(f"   详见: {md_path}")
     else:
         print(f"🔍 反 AI 扫描完成: {report['total_chapters']} 章 / {total} 项问题")
         print(f"   严重程度: critical={crit} high={high} medium={med} low={low}")
         print(f"   阻断: {'是' if blocking else '否'}")
+        print(f"   字数不足: {'是' if has_word_shortage else '否'}")
         print(f"   报告: {md_path}")
         print(f"   JSON: {json_path}")
         if report["all_issues_sorted"]:
@@ -1163,6 +1227,9 @@ def main() -> int:
                 print(f"  [{issue['severity'].upper()}] {issue['code']} @ {issue['scope']}")
                 print(f"      {issue['detail']}")
 
+    # 退出码：3=字数不足（需扩写） 2=anti-AI阻断（需重写） 1=warning 0=通过
+    if has_word_shortage:
+        return 3
     if blocking:
         return 2
     if high or crit:

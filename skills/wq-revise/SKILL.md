@@ -218,6 +218,27 @@ pending → in-progress → converged      （达 successCriterion）
 - `globalRound >= globalMaxRounds` → 无论是否全 converged，强制收尾，剩余 pending 标 `best-effort`，进 finalize；
 - 用户可用 `上限N轮` 覆盖 `globalMaxRounds`。
 
+## 轻量字数路径（v1.4.4 新增）
+
+**适用场景**：任务 deficiencies **只有** `["字数不足"]`（无叙事/节奏/伏笔等其他缺陷）。
+
+**为什么需要**：纯字数不足是量变不是质变，跑完整收敛门（定向重评 + anti-ai 回归 + continuity 检查 + best-snapshot）是过度工程，每章平均多花 2-3 轮。轻量路径一次性搞定，节省 60%+ 修稿时间。
+
+**流程**：
+1. 诊断阶段自动识别：`deficiencies == ["字数不足"]` → 标 `mode=lightweight`
+2. 派发子 Agent：context pack 注入 `mode=lightweight`，指示"按缺口比例扩写 scope 段落"
+3. 回收后**跳过收敛门**（不跑定向重评、不回写 best-snapshot、不跑 anti-ai 回归）
+4. 只做单一验证：父Agent读 `chapters/{chapter}.md`，用 `len(re.findall(r"[\u4e00-\u9fa5]", body))` 计数汉字数，≥ target 即标 `converged`，否则标 `best-effort`
+5. 直接写回 chapters/，回写 revise-status.json
+
+**效果对比**：
+| 路径 | 单章往返 | 检查项 | 适用场景 |
+|------|---------|--------|---------|
+| 轻量路径 | 1 轮 | 字数验证 | 纯字数不足 |
+| 收敛门 | 1-2 轮 | 定向重评 + anti-ai + continuity | 叙事/节奏/伏笔等质量缺陷 |
+
+> 如果任务同时含 `字数不足` 和其他缺陷（如 `["字数不足", "叙事质量低"]`），走**收敛门**，不走轻量路径——因为质量缺陷需要多轮迭代才能收敛。
+
 ## 收尾：快照回写
 
 所有任务达终态后，父Agent**回写全局 `score-snapshot.json`**，避免下游 finalize/worldbuilder 看到修稿前的失真快照：
@@ -238,11 +259,12 @@ pending → in-progress → converged      （达 successCriterion）
 
 | 职责 | 说明 |
 |------|------|
-| 诊断 | 读 score snapshot + chapters + outlines，生成 revise-plan.json |
-| 队列管理 | 按 taskId 顺序派发，维护已处理锁，绝不重挑终态章节 |
-| context pack 生成 | 每任务生成 `shared-revise.md` + `cards-rev-{chapter}.md`，注入任务卡 + scope 段落原文 + protectedElements |
-| 派发 | 最多 3 个子Agent并行（沿用 wq-rules 上限），每子Agent只负责 1 个章节的 1 张任务卡 |
-| 收敛门 | 回收后执行上文六步校验与判定 |
+| 诊断 | 读 score snapshot + chapters + outlines，生成 revise-plan.json；按 deficiencies 分类任务：纯 `字数不足` → `mode=lightweight`，其他 → `mode=convergence` |
+| 队列管理 | 按 taskId 顺序派发，维护已处理锁，绝不重挑终态章节；lightweight 任务优先排（一次过，不占收敛门轮次） |
+| context pack 生成 | 每任务生成 `shared-revise.md` + `cards-rev-{chapter}.md`，注入任务卡 + scope 段落原文 + protectedElements；lightweight 任务额外注入 `mode=lightweight` 和缺口比例 |
+| 派发 | 最多 3 个子Agent并行（沿用 wq-rules 上限），每子Agent只负责 1 个章节的 1 张任务卡；lightweight 任务可提高到 5 并发（无质量风险） |
+| 轻量路径回收 | 字数验证 ≥ target → 直接标 `converged`，写回；< target → 标 `best-effort`，不重试 |
+| 收敛门 | 回收后执行上文六步校验与判定（仅 mode=convergence 任务） |
 | 写回与备份 | 仅 best/converged 写回 chapters/，写前备份到 `.sumeru/revise/original/` |
 | 状态同步 | 更新 revise-status.json、status.json、changelog、issues（escalated 项） |
 | 全局硬停判定 | 每轮末检查 globalRound，撞顶强制收尾 |
@@ -273,6 +295,7 @@ pending → in-progress → converged      （达 successCriterion）
 - scope: 第 {paragraphs} 段（{reason}）
 - protectedElements: {列表}
 - 重试上限: {maxRetries}（父Agent判定收敛，你只管这一轮）
+- 模式: {mode}  ← lightweight(只扩字数) / convergence(全量修复)
 ```
 
 `cards-rev-{chapter}.md`：scope 段落原文 + 上下各 1 段衔接 + 评分失分证据摘录（来自 score report 的 issues/suggestions）。

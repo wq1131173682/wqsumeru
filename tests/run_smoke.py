@@ -136,6 +136,47 @@ def test_continuity_scripts_dont_crash():
               f"exit={proc.returncode} stderr={proc.stderr[:200]}")
 
 
+# ---------------------------------------------------------------------------
+# 5. platform-export 新结构守卫（v1.4.3：md/txt 直写、无 chapters/、无 clean）
+# ---------------------------------------------------------------------------
+def test_platform_export_structure():
+    import subprocess
+    import shutil
+    out = REPO / "tests" / "_tmp_export"
+    if out.exists():
+        shutil.rmtree(out, ignore_errors=True)
+    script = SKILLS / "wq-finalize" / "scripts" / "platform-export.py"
+    proc = subprocess.run(
+        [sys.executable, str(script), str(CHAPTERS), "md", "--output", str(out), "--quiet"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
+    )
+    check("platform-export md exit 0", proc.returncode == 0, f"exit={proc.returncode} stderr={proc.stderr[:200]}")
+    md_dir = out / "md"
+    # 章节文件直接在 md/ 下，文件名 第001章-XXX.md
+    ch_files = [f.name for f in md_dir.glob("第*.md")] if md_dir.exists() else []
+    check("chapter file named 第001章-标题.md directly in md/", len(ch_files) >= 1, f"got {ch_files}")
+    # 不应再有 chapters/ 子目录
+    check("no chapters/ subfolder", not (md_dir / "chapters").exists(), "chapters/ still present")
+    # full.md 整文存在
+    check("full.md present", (md_dir / "full.md").exists(), "missing full.md")
+    # clean/ 不应再生成
+    check("no clean/ folder", not (out / "clean").exists(), "clean/ still present")
+    # repair 模式清理旧结构
+    old_md = out / "md"
+    (old_md / "chapters").mkdir(exist_ok=True)
+    (old_md / "chapters" / "001.md").write_text("x", encoding="utf-8")
+    (out / "clean").mkdir(exist_ok=True)
+    (out / "clean" / "full.md").write_text("x", encoding="utf-8")
+    proc2 = subprocess.run(
+        [sys.executable, str(script), str(CHAPTERS), "repair", "--output", str(out), "--quiet"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
+    )
+    check("repair exit 0", proc2.returncode == 0, f"exit={proc2.returncode}")
+    check("repair removed clean/", not (out / "clean").exists(), "clean/ remained")
+    check("repair removed chapters/ subfolder", not (old_md / "chapters").exists(), "chapters/ remained")
+    shutil.rmtree(out, ignore_errors=True)
+
+
 def main():
     print("WQ 写作技能集 · 冒烟测试")
     print("=" * 50)
@@ -144,6 +185,7 @@ def main():
         test_anti_ai_scan_runs,
         test_finalize_scripts_run,
         test_continuity_scripts_dont_crash,
+        test_platform_export_structure,
     ]
     for t in tests:
         print(f"\n[{t.__name__}]")

@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.4.3 (2026-09-06)
+
+### wq-finalize 导出结构统一
+
+> **背景**：多本小说完稿导出格式不一致——有的嵌套 `chapters/` 子目录、有的文件名纯数字无标题、有的多一个 `clean/` 文件夹、分卷时顶层与卷内分章重复。用户要求完稿只有 `md/` 和 `txt/` 两个文件夹，分卷时再一层 `vol-NNN/`，章节文件直接以章节名命名。
+
+**改动**（4 个文件）：
+
+- **A. `skills/wq-finalize/scripts/platform-export.py`**
+  - 新结构：非分卷 `publish/md/第001章-标题.md + full.md`；分卷 `publish/md/vol-001/第001章-标题.md + vol-001/full.md + full.md`（全书），顶层不再平铺分章避免与卷内重复
+  - 章节文件名 `第{三位章号}章-{标题}.{ext}`，直接写格式目录（不再嵌套 `chapters/`），标题非法字符自动替换 `_`，空标题退化为 `第XXX章.md`
+  - 删除 `clean` 格式整段分支；SUMERU_STATUS 剥离并入 md/txt 常规清理
+  - `repair` 重构：先 `_clean_old_publish()` 清理旧结构（`clean/` 目录、`chapters/` 子目录、纯数字旧命名 `001.md`），再重新导出 md + txt
+  - CLI 拒绝已废弃的 `clean` 格式并提示用 repair；更新帮助文本与目录结构示例
+  - 新增 `sanitize_title()` 标题清洗函数
+
+- **B. `skills/wq-finalize/SKILL.md`**（v1.2.2→1.2.3）：重写"导出格式规则"全段；删除"正本导出 clean"节；按模式导出表/父Agent任务表/数据持久化列表去除 clean 引用；修复导出说明改为"清理旧结构 + 重新导出"
+
+- **C. `skills/wq-rules/subagent-rules.md`**：finalize 子Agent I/O 表更新为 md/txt 分章 + 文件名 `第001章-标题.md`
+
+- **D. `README.md`**：导出格式说明表更新为新结构路径；publish/ 产物描述更新；新增分卷结构说明 + 旧小说用 `/wq-finalize 修复导出` 统一的提示
+
+**不破坏项**：
+- `repair` 是已有小说结构不一致的兜底——旧 publish/ 跑一次 `/wq-finalize 修复导出` 即统一成新结构
+- 整文 full.md/full.txt 保留（用户选择保留为默认）
+- 分卷目录名仍为 `vol-001`（用户选择保留）
+
+---
+
 ## 1.4.2 (2026-08-13)
 
 ### 整体优化：修订后回归门 / 质量闭环 / 工程化基建

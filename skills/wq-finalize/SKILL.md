@@ -1,7 +1,7 @@
 ---
 name: wq-finalize
 description: 小说完稿校验与导出。用户说小说写完了、要检查错别字/标点/语法、检测敏感词、整理发布版、排版、导出md/txt分章格式、导出整文、修复已有导出时必须使用本技能。
-version: 1.2.2
+version: 1.2.3
 type: skill
 user-invocable: true
 ---
@@ -41,7 +41,7 @@ user-invocable: true
 |------|----------|
 | `short/light` | `publish/full.md` + `publish/full.txt`，基础检查 |
 | `medium/standard` | 分章 + 整文（md + txt），生成 `publish/` 和 release 检查报告 |
-| `long/full` | 完整 build/release，生成 `publish/md/` + `publish/txt/` + `publish/clean/`、`tests/release-check-report.md`、`build-manifest.json` |
+| `long/full` | 完整 build/release，生成 `publish/md/` + `publish/txt/`、`tests/release-check-report.md`、`build-manifest.json` |
 
 ### Build 前检查
 - 读取 `.sumeru/status.json`，默认只导出状态为 `finalized` 的章节
@@ -53,7 +53,7 @@ user-invocable: true
 - 检查正文是否包含 `TODO`、`FIXME`、未替换占位符
 - **检查正文是否残留元信息标注**：扫描"视角：""伏笔：""伏笔设置""下一章""下章""预告""本章完""章节小结""剧情推进"等模式，命中则警告并从导出中剥离
 - 检查 `.sumeru/issues.md` 是否存在未关闭的 `critical` 或 `major` issue；旧版 `.sumeru/issues/index.json` 只读兼容
-- 导出到 `publish/`（包括 `publish/md/`、`publish/txt/`、`publish/clean/`）时必须剥离章节首行的 `SUMERU_STATUS` 注释
+- 导出到 `publish/`（包括 `publish/md/`、`publish/txt/`）时必须剥离章节首行的 `SUMERU_STATUS` 注释
 - 若存在 `.sumeru/intro.md`，将简介写入各导出版本的开头
 
 #### 平台内容适配检查
@@ -133,8 +133,8 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 | 错别字检查 | `scripts/spell-check.py` | 词典匹配 + 上下文验证 |
 | 敏感词初筛 | `scripts/sensitive-word-filter.py` | 正则匹配 + 三级分类 |
 | 格式规范 | `scripts/format-validator.py` | 章节标题、段落格式、10类标点规范检测（破折号/省略号/感叹号问号/中英文混排/标点空格/引号闭合/书名号/括号/顿号逗号边界/重复标点） |
-| 格式导出 | `scripts/platform-export.py` | md/txt/clean 分章 + 整文 + 按卷导出 |
-| 修复导出 | `scripts/platform-export.py repair` | 按当前规则重新导出 md + txt + clean |
+| 格式导出 | `scripts/platform-export.py` | md/txt 分章 + 整文 + 按卷导出（章节文件直接写格式目录，文件名 `第001章-标题.md`）|
+| 修复导出 | `scripts/platform-export.py repair` | 清理旧结构（clean/、chapters/ 子目录、纯数字旧命名）后重新导出 md + txt |
 | Build前检查 | 内置逻辑 | 缺章检查、TODO检查、issue检查 |
 
 #### 子Agent处理的任务
@@ -173,99 +173,88 @@ finalize 采用**父Agent脚本预处理 + 子Agent待定项判断**的两阶段
 
 ### 导出格式规则
 
-#### 目录结构
+#### 目录结构（v1.4.3）
 
-导出文件按格式分目录存放：
+完稿导出**只有 `md/` 和 `txt/` 两个文件夹**，章节文件直接写在格式目录下（不再嵌套 `chapters/` 子目录），文件名 `第001章-标题.md`。`clean/` 已废弃——SUMERU_STATUS 注释的剥离并入 md/txt 导出的常规清理流程。
 
 ```
+非分卷:
 publish/
-├── md/             ← Markdown 格式
-│   ├── chapters/   ← 分章导出（每个章节独立文件）
-│   ├── full.md     ← 整文导出（所有章节合并）
-│   ├── vol-001/    ← 按卷导出（如有卷信息）
-│   │   ├── chapters/
-│   │   ├── full.md
+├── md/
+│   ├── 第001章-标题.md
+│   ├── 第002章-标题.md
+│   └── full.md          ← 全书整文
+└── txt/
+    ├── 第001章-标题.txt
+    └── full.txt
+
+分卷:
+publish/
+├── md/
+│   ├── vol-001/                       ← 卷目录（顶层不再平铺分章，避免与卷内重复）
+│   │   ├── 第001章-标题.md
+│   │   └── full.md                    ← 本卷整文
+│   ├── vol-002/
 │   │   └── ...
-│   └── vol-002/
-│       └── ...
-├── txt/            ← 纯文本格式（结构同 md/）
-│   └── ...
-└── clean/          ← 正本（清理 SUMERU_STATUS 的原始版本）
-    ├── chapters/
-    ├── full.md
+│   └── full.md                        ← 全书整文（所有卷合并）
+└── txt/
     ├── vol-001/
-    └── ...
+    │   └── ...
+    └── full.txt
 ```
 
 #### 分章导出
 
-每章独立文件，输出到对应格式的 `chapters/` 目录：
+每章独立文件，直接写在格式目录下（分卷时写在 `vol-NNN/` 内）：
 
 | 格式 | 文件名 | 内容格式 |
 |------|--------|----------|
-| md | `publish/md/chapters/001.md` | 第一行 `第X章 标题`，正文紧随其后 |
-| txt | `publish/txt/chapters/001.txt` | 同上，纯文本 |
-| clean | `publish/clean/chapters/001.md` | 同上，已清理 SUMERU_STATUS 注释 |
+| md | `publish/md/第001章-标题.md` | 第一行 `第X章 标题`，正文紧随其后 |
+| txt | `publish/txt/第001章-标题.txt` | 同上，纯文本 |
 
-- 章节号固定 3 位前导零（001, 002, ...）
-- 文件名不含标题文字，避免特殊字符问题
+- 文件名格式：`第{三位章号}章-{标题}.{ext}`，如 `第001章-开端.md`
+- 章节号 3 位前导零（001, 002, ...）
+- 标题中的非法文件名字符（`<>:"/\|?*` 与控制符）自动替换为 `_`
+- 空标题退化为 `第XXX章.md`
 - 标题只出现在文件第一行，正文中不重复
 
 #### 整文导出
 
 所有章节合并为一个文件，章节之间空行分隔：
 
-| 格式 | 文件名 | 内容格式 |
-|------|--------|----------|
-| md | `publish/md/full.md` | 每章以 `第X章 标题` 开头，然后正文，空行分隔 |
-| txt | `publish/txt/full.txt` | 同上，纯文本 |
-| clean | `publish/clean/full.md` | 同上，已清理 SUMERU_STATUS 注释 |
+| 格式 | 文件名 |
+|------|--------|
+| md | `publish/md/full.md`（分卷时全书整文；卷整文在 `vol-NNN/full.md`）|
+| txt | `publish/txt/full.txt`（同上）|
 
 #### 按卷导出
 
-当项目包含卷信息时自动启用（需通过 `--project` 指定项目根目录）。卷信息从以下位置读取（优先级从高到低）：
+当项目包含卷信息时自动启用（需通过 `--project` 指定项目根目录）。卷信息读取优先级：
 
-1. **`outlines/chapters.json`**：每章的 `volume` 或 `vol` 字段定义了所属卷号
+1. **`outlines/chapters.json`**：每章的 `volume` 或 `vol` 字段
 2. **`.sumeru/outlines/chapters.json`**：同上，新路径
-3. **`outline.md`**：从 "第X卷" 和章节范围文本中正则提取（兜底方案）
+3. **`outline.md`**：从 "第X卷" 和章节范围文本中正则提取（兜底）
 
-按卷导出时，每卷独立目录：
-
-| 格式 | 目录 |
-|------|------|
-| md | `publish/md/vol-001/chapters/`, `publish/md/vol-001/full.md` |
-| txt | `publish/txt/vol-001/chapters/`, `publish/txt/vol-001/full.txt` |
-| clean | `publish/clean/vol-001/chapters/`, `publish/clean/vol-001/full.md` |
-
-- 卷目录名固定 `vol-NNN` 格式（3 位前导零，如 `vol-001`）
+分卷时：
+- 卷目录名固定 `vol-NNN`（3 位前导零，如 `vol-001`）
+- 顶层格式目录**只放全书整文**（`full.md`/`full.txt`），分章文件进各 `vol-NNN/` 子目录，避免顶层与卷内重复
+- 每卷含本卷分章文件 + 本卷整文 `vol-NNN/full.md`
 - 无卷信息的章节归入 `vol-000`（如有）
-- 按卷导出不影响分章和整文导出，是额外生成的
-
-#### 正本导出（clean）
-
-正本（clean 模式）是经过清理的原始版本，与 md/txt 导出的区别：
-
-| 对比项 | md/txt 导出 | clean 正本导出 |
-|--------|-------------|----------------|
-| 用途 | 发布/分享用 | 存档/备份/版本对照 |
-| SUMERU_STATUS | 已剥离 | 已剥离 |
-| 格式 | md 或 txt | 仅 md |
-| 输出位置 | `publish/md/` 或 `publish/txt/` | `publish/clean/` |
-| 内容 | 成品格式 | 原文保留，最小改动 |
-| 按卷导出 | 支持 | 支持 |
 
 #### 标题规则
 
-- 章节标题格式：`第X章 标题`（X为阿拉伯数字）
+- 章节标题格式：`第X章 标题`（X 为阿拉伯数字）
 - 标题统一写在章节内容第一行
 - 单章中只有第一行是标题，正文中不重复
 
-#### 修复导出
+#### 修复导出（repair）
 
-`repair` 模式用于按当前技能规则重新生成已有 publish/ 目录：
-- 从 `chapters/` 重新读取
-- 生成全新的 md + txt + clean 分章、整文和按卷导出
+`repair` 模式用于把**已有 publish/ 目录**规整成新结构——解决多本小说导出格式不一致的问题：
+- 先清理旧结构：删除 `clean/` 目录、删除 `chapters/` 子目录、删除纯数字旧命名文件（`001.md`/`002.txt`）
+- 再从 `chapters/` 重新读取，按新规则生成 md + txt（分章 + 整文 + 按卷）
 - 覆盖已有 `publish/` 内容
+
+> 旧小说的 publish/ 不一致（有人有 clean/、有人嵌套 chapters/、有人文件名纯数字）跑一次 `/wq-finalize 修复导出` 即可统一成新结构。
 
 ### 调用示例
 
@@ -274,17 +263,13 @@ publish/
 /wq-finalize 导出md格式
 /wq-finalize 导出md格式 自动分段
 
-# 导出 txt 格式（分章 + 整文 + 按卷）
+# 导出 txt 格式
 /wq-finalize 导出txt格式
 
-# 导出全部（md + txt + 正本）
+# 导出全部（md + txt）
 /wq-finalize 导出全部
 
-# 仅导出正本（clean，清理 SUMERU_STATUS 的原始版本）
-/wq-finalize 导出正本
-/wq-finalize 导出clean
-
-# 修复已有导出（按新规则重新生成 publish/）
+# 修复已有导出（清理旧结构 + 按新规则重新生成 publish/）
 /wq-finalize 修复导出
 
 # 批量替换后重新导出
@@ -333,15 +318,12 @@ publish/
 
 ### 数据持久化
 **用户可见输出**：
-- `publish/md/full.md`：整文 md 导出
-- `publish/md/chapters/`：分章 md 导出（001.md, 002.md, ...）
-- `publish/md/vol-NNN/`：按卷 md 导出（如有卷信息）
-- `publish/txt/full.txt`：整文 txt 导出
-- `publish/txt/chapters/`：分章 txt 导出
+- `publish/md/第001章-标题.md`：分章 md 导出（直接写格式目录，不再嵌套 chapters/）
+- `publish/md/full.md`：全书整文 md 导出
+- `publish/md/vol-NNN/`：按卷 md 导出（卷内分章 + 卷整文，如有卷信息）
+- `publish/txt/第001章-标题.txt`：分章 txt 导出
+- `publish/txt/full.txt`：全书整文 txt 导出
 - `publish/txt/vol-NNN/`：按卷 txt 导出（如有卷信息）
-- `publish/clean/full.md`：整文正本
-- `publish/clean/chapters/`：分章正本
-- `publish/clean/vol-NNN/`：按卷正本（如有卷信息）
 - `tests/release-check-report.md`：发布前检查报告
 
 **中间数据（`.sumeru/finalize/`）**：

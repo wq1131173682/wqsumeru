@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
 wq-finalize 通用格式导出脚本
-将章节内容导出为 md/txt/clean 格式（分章 + 整文 + 正本），支持按卷导出。
+将章节内容导出为 md / txt 格式（分章 + 整文 + 按卷），不再支持 clean。
 
 使用方法：
     python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>]
 
-格式: md, txt, clean (正本)
-repair: 按新规则重新导出 .sumeru/publish/
+格式: md, txt
+repair: 按新规则重新导出 publish/（先清理旧结构：clean/、chapters/ 子目录、纯数字旧命名）
+
+目录结构（v1.4.3）：
+    非分卷: publish/md/第001章-标题.md + full.md  （txt 同理）
+    分卷:   publish/md/vol-001/第001章-标题.md + vol-001/full.md + full.md（全书）
 
 按卷导出: 当 project 根目录下 outlines/chapters.json 包含 volume 字段时自动启用
 """
@@ -15,6 +19,7 @@ repair: 按新规则重新导出 .sumeru/publish/
 import json
 import os
 import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -193,17 +198,34 @@ def format_title(chapter: Dict) -> str:
     return f"第{chapter['num']}章"
 
 
+def sanitize_title(title: str) -> str:
+    """清洗章节标题为合法文件名片段。
+
+    Windows/通用非法字符（<>:"/\\|?* 与控制符）替换为 _，去首尾空白与点。
+    空标题返回空串（调用方退化为纯章号文件名）。
+    """
+    if not title:
+        return ""
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", str(title)).strip().strip(".").strip()
+    return cleaned
+
+
 # ── 导出核心 ──────────────────────────────────────────────
 
 def export_chapters(chapters: List[Dict], out_dir: Path, fmt: str, clean_md: bool = True) -> List[Path]:
-    """分章导出：每个章节独立文件，第一行仅标题"""
-    ch_dir = out_dir / "chapters"
-    ch_dir.mkdir(parents=True, exist_ok=True)
+    """分章导出：每个章节独立文件，第一行仅标题。
+
+    文件名：第{num:03d}章-{标题}.{fmt}，直接写入 out_dir（不再嵌套 chapters/ 子目录）。
+    标题中的非法文件名字符自动替换为 _；空标题退化为 第XXX章.{fmt}。
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     results = []
     for ch in chapters:
         padded = f"{ch['num']:03d}"
-        file_path = ch_dir / f"{padded}.{fmt}"
+        title_part = sanitize_title(ch.get("title", ""))
+        name = f"第{padded}章-{title_part}.{fmt}" if title_part else f"第{padded}章.{fmt}"
+        file_path = out_dir / name
 
         # 清理md语法（保留纯文本）
         body = clean_markdown_syntax(ch["body"]) if clean_md else ch["body"]
@@ -367,92 +389,86 @@ def export_all(
 
     has_volumes = volume_map is not None and len(volume_map) > 0
 
-    # ── clean 格式（正本）──
-    if fmt == "clean":
-        clean_dir = out_path / "clean"
-        clean_dir.mkdir(parents=True, exist_ok=True)
-        result["output_dir"] = str(clean_dir)
-
-        # 正本：将每章正文清理后直接写入
-        clean_chapters = []
-        for ch in chapters:
-            clean_body_text = clean_body(ch["body"])
-            clean_chapters.append({
-                "num": ch["num"],
-                "title": ch["title"],
-                "body": clean_body_text,
-            })
-
-        # 分章正本（clean格式不清理md语法，保留原始内容）
-        ch_files = export_chapters(clean_chapters, clean_dir, "md", clean_md=False)
-        # 整文正本
-        full_file = export_full(clean_chapters, clean_dir, "md", clean_md=False)
-
-        # 按卷正本
-        vol_results = None
-        if has_volumes:
-            vol_groups = group_chapters_by_volume(clean_chapters, volume_map)
-            vol_results = []
-            for vol_num in sorted(vol_groups.keys()):
-                vresult = export_volume(vol_num, vol_groups[vol_num], clean_dir, "md", clean_md=False)
-                vol_results.append(vresult)
-            result["volumes"] = vol_results
-
-        total_words = sum(
-            len(re.findall(r"[\u4e00-\u9fff]", ch["body"])) for ch in clean_chapters
-        )
-
-        result.update({
-            "total_words": total_words,
-            "chapter_files": [str(f) for f in ch_files],
-            "full_file": str(full_file),
-        })
-        return result
-
-    # ── md / txt 格式 ──
-    # 格式子目录: .sumeru/publish/md/ 或 .sumeru/publish/txt/
+    # ── md / txt 格式（clean 已废弃，正本清理逻辑并入 clean_md 参数）──
     fmt_dir = out_path / fmt
     fmt_dir.mkdir(parents=True, exist_ok=True)
     result["output_dir"] = str(fmt_dir)
 
-    # 分章导出（清理md语法，保留纯文本）
-    chapter_files = export_chapters(chapters, fmt_dir, fmt, clean_md=True)
+    total_words = sum(
+        len(re.findall(r"[\u4e00-\u9fff]", ch["body"])) for ch in chapters
+    )
 
-    # 整文导出
-    full_file = export_full(chapters, fmt_dir, fmt, clean_md=True)
-
-    # 按卷导出
-    vol_results = None
     if has_volumes:
+        # 分卷：顶层只放全书整文，分章进各 vol 子目录（避免顶层与卷内重复平铺）
+        full_file = export_full(chapters, fmt_dir, fmt, clean_md=True)
         vol_groups = group_chapters_by_volume(chapters, volume_map)
         vol_results = []
         for vol_num in sorted(vol_groups.keys()):
             vresult = export_volume(vol_num, vol_groups[vol_num], fmt_dir, fmt, clean_md=True)
             vol_results.append(vresult)
         result["volumes"] = vol_results
-
-    total_words = sum(
-        len(re.findall(r"[\u4e00-\u9fff]", ch["body"])) for ch in chapters
-    )
-
-    result.update({
-        "total_words": total_words,
-        "chapter_files": [str(f) for f in chapter_files],
-        "full_file": str(full_file),
-    })
+        result.update({
+            "total_words": total_words,
+            "chapter_files": [],
+            "full_file": str(full_file),
+        })
+    else:
+        # 非分卷：分章直接写进 fmt_dir + 全书整文
+        chapter_files = export_chapters(chapters, fmt_dir, fmt, clean_md=True)
+        full_file = export_full(chapters, fmt_dir, fmt, clean_md=True)
+        result.update({
+            "total_words": total_words,
+            "chapter_files": [str(f) for f in chapter_files],
+            "full_file": str(full_file),
+        })
 
     return result
 
 
 # ── 修复模式 ──────────────────────────────────────────────
 
+def _clean_old_publish(out_path: Path) -> None:
+    """清理旧版导出结构：clean/ 目录、chapters/ 子目录、纯数字 001.md 旧命名。
+
+    repair 前先调用，避免新旧结构混杂（用户反馈多本小说导出结构不一致即源于此）。
+    """
+    for fmt in ("md", "txt", "clean"):
+        fmt_dir = out_path / fmt
+        if not fmt_dir.exists():
+            continue
+        if fmt == "clean":
+            # clean 格式已废弃，整个目录删除
+            shutil.rmtree(fmt_dir, ignore_errors=True)
+            continue
+        # 删除 chapters/ 子目录（旧版把分章文件嵌套在此）
+        ch_sub = fmt_dir / "chapters"
+        if ch_sub.exists():
+            shutil.rmtree(ch_sub, ignore_errors=True)
+        # 删除旧命名纯数字文件（001.md / 002.txt，无标题）
+        for f in list(fmt_dir.iterdir()):
+            if f.is_file() and re.match(r"^\d+\.(md|txt)$", f.name):
+                f.unlink()
+        # 清理 vol-* 子目录内的 chapters/ 与旧命名纯数字文件
+        for v in list(fmt_dir.iterdir()):
+            if v.is_dir() and v.name.startswith("vol-"):
+                old_ch = v / "chapters"
+                if old_ch.exists():
+                    shutil.rmtree(old_ch, ignore_errors=True)
+                for f in list(v.iterdir()):
+                    if f.is_file() and re.match(r"^\d+\.(md|txt)$", f.name):
+                        f.unlink()
+
+
 def repair(chapters_dir: str, output_dir: str = None, project_root: str = None) -> Dict:
-    """修复已有导出：按新技能规则重新导出（md + txt + clean）"""
+    """修复已有导出：清理旧结构后按新规则重新导出（仅 md + txt）"""
     out_path = Path(output_dir) if output_dir else Path(".sumeru/publish")
     out_path.mkdir(parents=True, exist_ok=True)
 
+    # 先清理旧版结构（clean/、chapters/ 子目录、纯数字旧命名），避免新旧混杂
+    _clean_old_publish(out_path)
+
     results = {}
-    for fmt in ("md", "txt", "clean"):
+    for fmt in ("md", "txt"):
         result = export_all(chapters_dir, fmt, str(out_path), project_root)
         results[fmt] = result
 
@@ -478,7 +494,7 @@ def pretty_print_result(result: Dict):
     print(f"  章节数: {chapters}")
     print(f"  总字数: {words:,}")
     print(f"  整文文件: {full_file}")
-    print(f"  分章目录: {output_dir}\\chapters\\")
+    print(f"  分章目录: {output_dir}")
 
     volumes = result.get("volumes")
     if volumes:
@@ -494,19 +510,21 @@ def main():
     if len(sys.argv) < 3:
         print("用法: python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>] [--quiet]")
         print()
-        print("格式: md, txt, clean")
-        print("  md:    Markdown 格式导出（.sumeru/publish/md/）")
-        print("  txt:   纯文本格式导出（.sumeru/publish/txt/）")
-        print("  clean: 正本导出（.sumeru/publish/clean/，清理 SUMERU_STATUS 注释）")
-        print("  repair: 按新规则重新导出 md + txt + clean")
+        print("格式: md, txt（clean 已废弃）")
+        print("  md:     Markdown 格式导出（publish/md/）")
+        print("  txt:    纯文本格式导出（publish/txt/）")
+        print("  repair: 按新规则重新导出 md + txt（先清理旧结构 clean/、chapters/ 子目录、纯数字旧命名）")
+        print()
+        print("目录结构:")
+        print("  非分卷: publish/md/第001章-标题.md + full.md  （txt 同理）")
+        print("  分卷:   publish/md/vol-001/第001章-标题.md + vol-001/full.md + full.md（全书）")
         print()
         print("示例:")
-        print("  python platform-export.py .sumeru/chapters/ md")
-        print("  python platform-export.py .sumeru/chapters/ txt --output .sumeru/publish")
-        print("  python platform-export.py .sumeru/chapters/ md --project .")
-        print("  python platform-export.py .sumeru/chapters/ clean")
-        print("  python platform-export.py .sumeru/chapters/ repair")
-        print("  python platform-export.py .sumeru/chapters/ repair --project .")
+        print("  python platform-export.py chapters/ md")
+        print("  python platform-export.py chapters/ txt --output publish")
+        print("  python platform-export.py chapters/ md --project .")
+        print("  python platform-export.py chapters/ repair")
+        print("  python platform-export.py chapters/ repair --project .")
         sys.exit(1)
 
     chapters_dir = sys.argv[1]
@@ -543,6 +561,10 @@ def main():
                     parts.append(f"{f}({info['chapters']}章,{info['total_words']:,}字)")
             print(f"修复完成: {' | '.join(parts)}")
         return
+
+    if fmt not in ("md", "txt"):
+        print(f"错误: 不支持的格式 '{fmt}'。只支持 md / txt / repair（clean 已废弃，用 repair 清理旧结构）")
+        sys.exit(1)
 
     result = export_all(chapters_dir, fmt, output_dir, project_root)
 

@@ -111,7 +111,7 @@ type: skill
 | **wq-score** | 单维度评分 | context pack（本维度数据+评分标准+consistency/anti-ai 输出） | 维度评分 JSON（items+dimensionScore+强弱项） |
 | **wq-revise** | 按修稿任务卡改章节 | context pack（shared-revise.md + cards-rev-{章}.md，含 scope+allowedOps+forbiddenOps+protectedElements+scope段原文） | 修改后完整正文 + SUMERU_STATUS + REVISE_NOTE |
 | **wq-finalize** | 待定项判断 | 待定项列表（最多20个） | 待定项处理建议 |
-| **wq-finalize** | 格式导出（脚本） | chapters/ + outlines/chapters.json | md/txt/clean 分章 + 整文 + 按卷导出 |
+| **wq-finalize** | 格式导出（脚本） | chapters/ + outlines/chapters.json | md/txt 分章 + 整文 + 按卷导出（文件名 第001章-标题.md） |
 
 ---
 

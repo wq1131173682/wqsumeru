@@ -1030,11 +1030,11 @@ def build_report(
 
     # 阻断规则：以下任一出现即 critical，触发重写（write 阶段）
     # v1.4.4: 加入 word_count_shortage（字数低于目标 80%）
+    # v1.4.5: word_count_shortage 降级为警告，不进阻断（创意豁免）
     blocking_codes = {
         "narrative_high_description",
         "narrative_low_event_density",
         "water_text_cliche_density",
-        "word_count_shortage",
     }
     # v1.3.4: micro_arc / dialog_marker 留 medium，不进阻断（先观察一轮）
     has_blocking = any(i["code"] in blocking_codes and i["severity"] in ("high", "critical") for i in all_issues)
@@ -1153,19 +1153,20 @@ def main() -> int:
     # 全书跨章模板重复扫描（远距离，补窗口=2 的盲区）
     batch_issues.extend(detect_global_template_repeat(chapter_results))
 
-    # 字数门槛检查（v1.4.4 新增）：低于 target*0.8 标 critical 阻断
+    # 字数门槛检查（v1.4.4 新增，v1.4.5 降级为警告）：低于 target*0.8 标 high 警告，不阻断
     if word_range:
         min_target = int(word_range[0] * 0.8)
         for cr in chapter_results:
             wc = cr["metrics"].get("hanzi_count", 0)
             if wc > 0 and wc < min_target:
                 deficit_pct = (min_target - wc) / min_target
-                severity = "critical" if deficit_pct > 0.3 else "high"
+                # 严重欠字数（<60%）仍标 critical，其余标 high
+                severity = "critical" if deficit_pct > 0.4 else "high"
                 cr["issues"].append({
                     "code": "word_count_shortage",
                     "severity": severity,
                     "scope": f"chapter {cr['chapter']}",
-                    "detail": f"字数 {wc} 低于目标下限 {word_range[0]} 的 80%（缺口 {deficit_pct:.0%}）"
+                    "detail": f"字数 {wc} 低于目标下限 {word_range[0]} 的 80%（缺口 {deficit_pct:.0%}）—— 警告，不阻断写阶段"
                 })
 
     # 报告
@@ -1227,12 +1228,10 @@ def main() -> int:
                 print(f"  [{issue['severity'].upper()}] {issue['code']} @ {issue['scope']}")
                 print(f"      {issue['detail']}")
 
-    # 退出码：3=字数不足（需扩写） 2=anti-AI阻断（需重写） 1=warning 0=通过
-    if has_word_shortage:
-        return 3
+    # 退出码：2=anti-AI阻断（需重写） 1=warning（含字数不足等软警告） 0=通过
     if blocking:
         return 2
-    if high or crit:
+    if high or crit or has_word_shortage:
         return 1
     return 0
 

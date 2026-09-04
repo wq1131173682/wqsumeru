@@ -445,7 +445,7 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
    - `0` = 通过，继续下一步
    - `1` = warning，写入 fix-plan.json `type=anti_ai_warning`；可选触发 polish 轻量级
    - `2` = 含阻断（`narrative_high_description` / `narrative_low_event_density` / `water_text_cliche_density` 命中）→ **禁止更新状态文件**，必须将当前章节打回子 Agent 重写。父 Agent **不得**用"插入 2-4 段描写"方式补字数或绕过阻断。
-   - `3` = **字数未达标**（章节汉字数 < chapterWordRange[0] × 80%）→ **禁止更新状态文件**，必须将当前章节打回子 Agent 扩写。父 Agent 不得用"插入环境描写"方式凑字数，必须按任务卡 scope 在叙事段落内自然扩写。
+   - `3` = **字数未达标**（章节汉字数 < chapterWordRange[0] × 80%）→ **仅警告，不阻断**；写入 issues.md 标记为 soft-warning，父 Agent 记录到 `.sumeru/issues.md`，由作者在 revise 阶段处理；父 Agent **不得**强制回写本章或禁止状态推进
 5. **（可选）连续性冲突检查**：若 `consistency-rules.json` 已有累积状态，调用 `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --quiet`，把 critical 冲突立即报出；high/medium 写入 `.sumeru/issues.md`。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`；跨卷冲突写入 `.sumeru/cross-volume/dependency-table.md` 的「已发现冲突」section。
 
 校验通过后才允许更新 `chapters/` 和状态文件。

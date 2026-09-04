@@ -78,7 +78,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平可|
 | `outline` →`anchor` | `outline.md`、`chapters.json`、`.sumeru/intro.md` 存在 |
 | `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确认|
-| `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章，且字数达标率≥80%（anti-ai-scan exit 3=阻断，写阶段就拦住短板）|
+| `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章；字数不足仅警告不阻断（软阈值，由 revise 处理）|
 | `review` →`fix` | 问题写入 `issues.md`，重写项写入 `fix-plan.json` |
 | `fix` →`polish` | 反审验证通过，章节状态`fixed` |
 | `polish` →`finalize` | 章节状态`polished` |

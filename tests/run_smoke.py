@@ -90,22 +90,34 @@ def test_anti_ai_scan_runs():
     # 中文双引号样本不应触发 narrative_low_dialogue 误报（P1-1 守卫）
     # 此处只确保不崩；误报判定在文本断言里
 
-    # v1.4.4: 字数不足触发 exit 3
+    # v1.4.4+1.4.5: 字数不足触发 exit 1（警告，不阻断）
     short_dir = REPO / "tests" / "_tmp_short"
     short_dir.mkdir(exist_ok=True)
-    (short_dir / "001-短.md").write_text("第1章 短\n\n很小的内容。", encoding="utf-8")
-    # 创建临时 project.json 设定字数目标 2000
-    tmp_proj = REPO / "tests" / "_tmp_proj"
-    tmp_proj.mkdir(exist_ok=True)
-    (tmp_proj / "project.json").write_text('{"chapterWordRange": [2000, 3000]}', encoding="utf-8")
-    proc3 = subprocess.run(
-        [sys.executable, str(script), str(short_dir), "--project", str(tmp_proj), "--output", str(out), "--quiet"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
+    # 用简单但有"事件动词"的文本，避免 narrative_low_event_density 误触发
+    (short_dir / "001-短.md").write_text(
+        "第1章 短\n\n他站起来，走到窗边，推开窗户。外面在下雨。",
+        encoding="utf-8"
     )
-    check("anti-ai-scan exit 3 on word shortage", proc3.returncode == 3,
-          f"expected 3, got {proc3.returncode} stderr={proc3.stderr[:200]}")
+    # 临时注入 project.json（仓库根没有，需临时创建）
+    proj_json = REPO / ".sumeru" / "project.json"
+    backup = None
+    if proj_json.exists():
+        backup = proj_json.read_text(encoding="utf-8")
+    proj_json.parent.mkdir(parents=True, exist_ok=True)
+    proj_json.write_text('{"chapterWordRange": [2000, 3000]}', encoding="utf-8")
+    try:
+        proc3 = subprocess.run(
+            [sys.executable, str(script), str(short_dir), "--project", str(REPO), "--output", str(out), "--quiet"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
+        )
+        check("anti-ai-scan exit 1 on word shortage (warning, not blocking)", proc3.returncode == 1,
+              f"expected 1, got {proc3.returncode} stderr={proc3.stderr[:200]}")
+    finally:
+        if backup is not None:
+            proj_json.write_text(backup, encoding="utf-8")
+        elif proj_json.exists():
+            proj_json.unlink()
     shutil.rmtree(short_dir, ignore_errors=True)
-    shutil.rmtree(tmp_proj, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

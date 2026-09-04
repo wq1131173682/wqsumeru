@@ -292,6 +292,78 @@ requires: [wq-rules]
 - 根据 context pack 执行润色
 - 输出纯文本结果+ `<!-- SUMERU_STATUS -->` 状态标记
 - 不碰状态文件、不写项目文件
+
+## 八·五、执行协议（v1.4.6 新增）
+
+> **目的**：确保子Agent输出不丢失、父Agent正确收集写回、字数不足有明确处理策略。
+
+### 1. 子Agent 输出位置（强制）
+
+子Agent润色完成后，**必须将完整章节正文写入临时文件**，格式：
+
+```
+.sumeru/polish/temp/{三位章号}.md
+```
+
+示例：
+- 第37章 → `.sumeru/polish/temp/037.md`
+- 第126章 → `.sumeru/polish/temp/126.md`
+
+**子Agent契约**：
+```
+写完本章润色后，将完整正文（含标题行）写入 `.sumeru/polish/temp/{章号}.md`。
+文件第一行必须为：`<!-- SUMERU_STATUS: ... -->`（按 wq-rules 格式）
+然后是章节正文。
+不要只返回文本——必须写文件，父Agent 靠读文件收集输出。
+```
+
+### 2. 父Agent 收集机制（强制）
+
+父Agent 启动子Agent 后，**必须等待每个子Agent 完成并写入临时文件**，然后：
+
+1. **检查文件是否存在**：`ls .sumeru/polish/temp/{章号}.md`
+2. **读取文件内容**：提取 SUMERU_STATUS 和正文
+3. **字数验证**：用 `len(re.findall(r'[\u4e00-\u9fff]', body))` 计算汉字数
+4. **写回 chapters/**：将临时文件内容写入 `chapters/{章号}-标题.md`
+5. **清理临时文件**：`rm .sumeru/polish/temp/{章号}.md`
+
+**如果临时文件缺失**：
+- 检查子Agent 是否超时或失败
+- 重新派发该章节（最多重试1次）
+- 仍失败则标记 `polish_failed` 到 `.sumeru/issues.md`，记录到 `summary.json`
+
+### 3. 字数不足处理策略（强制）
+
+| 场景 | 处理方式 |
+|------|----------|
+| 润色后字数 ≥ 原稿 90% | 直接写回，正常流程 |
+| 润色后字数 < 原稿 90% 且 ≥ 原稿 70% | 写回，但在 `logic-notes.json` 标记 `word_count_decrease`，下一轮 revise 时重点关注 |
+| 润色后字数 < 原稿 70% | **禁止写回**，回退到原稿，记录 issue `polish_word_loss_severe`，该章跳过本轮润色，标记 `skipped` |
+
+> **原则**：润色是"优化表达"不是"删减内容"。如果子Agent 大幅删减导致字数损失，说明它过度"精炼"了，违反了"AI写得正确越要改"的原则，应该回退。
+
+### 4. 完整流程图
+
+```
+父Agent
+  ↓
+生成 context pack（含标杆）
+  ↓
+启动 N 个子Agent（并行，每子Agent ≤3 章）
+  ↓
+[等待子Agent完成]
+  ↓
+检查 .sumeru/polish/temp/*.md 是否存在
+  ↓
+读取每个临时文件 → 验证字数 → 写回 chapters/
+  ↓
+清理临时文件 → 更新 status.json → 刷新 cache
+  ↓
+跑 anti-ai-scan 回归门（exit 2 = 禁止写回，已在上一步完成）
+  ↓
+生成 summary.json
+```
+
 ---
 
 ## 九、具象标杆机制

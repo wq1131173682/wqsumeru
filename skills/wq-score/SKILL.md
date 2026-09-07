@@ -1,7 +1,7 @@
 ---
 name: wq-score
 description: 小说完稿评分系统——五维评分、分级输出、子Agent并行评审
-version: 1.0.0
+version: 1.1.0
 type: skill
 argument-hint: "[目标范围(全书/卷N/章节N-M)] [输出模式(score-card/report/data)] [维度筛选(completeness/narrative/creativity/technical/market_fit)]"
 disable-model-invocation: false
@@ -191,17 +191,66 @@ requires: [wq-rules]
 | 改进建议 | 输出排序后的改进建议（高→低优先级） |
 | **低分章节清单** | 按等级阈值筛选低于阈值的章节，写入 `score-snapshot.json.deficientChapters`，每章含维度/评分项/当前值/证据，供 `wq-revise` 消费 |
 
-### subAgent 并行评分规则
+### subAgent 并行评分规则（v1.5.0 优化：共享上下文）
 
 **并行策略**：按**维度**分发，5个子Agent各评一个维度，并行运行。
 
-| 子Agent | 输入 | 输出 |
-|---------|------|------|
-| 完整性评审 | chapters/、outline.md、chapters.json、continuity/foreshadowing | 结构、伏笔、章节完整性评分+评语 |
-| 叙事质量评审 | chapters/、characters/、creative-anchors.md | 情节、人物、节奏、对话、张力评分+评语 |
-| 创意性评审 | plan.md、outline.md、creative-anchors.md、chapters/ | 原创度、世界观、反转、套路突破评分+评语 |
-| 技术执行评审 | chapters/、continuity/consistency-rules.json、review/anti-ai-scan.py输出 | 文笔、语法、一致性、格式、反AI评分+评语 |
-| 市场契合评审 | plan.md（targetPlatform）、chapters/ | 类型、平台、留存、商业性评分+评语 |
+**核心优化**：父Agent **只读一次** chapters/，生成 `shared-score-context.md`（含各章摘要+统计），5个维度 Agent 各自只读 `shared-score-context.md` + 本维度评分标准，不再重复读取全章。预计节省 **60% 输入 tokens**。
+
+#### 父Agent：生成共享上下文
+
+父Agent 在分发子Agent 前执行：
+
+1. **读取 chapters/**：按章节号排序，对每章生成 100 字摘要（首段+结尾+核心事件）
+2. **聚合统计数据**：总字数、各维度指标（对话占比/独白占比/描写占比/核心事件数）
+3. **写入 `.sumeru/score/shared-score-context.md`**：
+
+```markdown
+# Shared Score Context (scope: {范围})
+
+## 项目概况
+- 总章节: {n} 章
+- 总字数: {total} 字
+- 平均字数: {avg} 字
+- 字数分布: <2000字 {a} 章, 2000-2500字 {b} 章, ≥2500字 {c} 章
+
+## 各章摘要（每章 ≤100 字）
+| 章节 | 标题 | 摘要 | 字数 | 对话% | 独白% | 描写% | 核心事件 |
+|------|------|------|------|------|------|------|---------|
+| 001 | 开端 | 主角觉醒系统，被宗门选拔... | 2450 | 18% | 8% | 15% | 觉醒、选拔 |
+| ... | ... | ... | ... | ... | ... | ... | ... |
+
+## 关键人物状态（来自 continuity）
+- 主角: {位置/伤势/战力/关系}
+- 重要配角: {状态摘要}
+
+## 伏笔状态（来自 continuity）
+- 活跃伏笔: {n} 条
+- 已回收: {m} 条
+- 逾期未收: {k} 条
+
+## 反AI扫描结果摘要（来自 anti-ai-scan）
+- 阻断问题: {n} 项
+- 警告问题: {m} 项
+- 字数不足: {k} 章
+```
+
+4. **拆分输出**：每个维度子Agent 的 context pack 包含：
+   - `shared-score-context.md` 全文（只读）
+   - 本维度评分标准（从 `config/scoring-criteria.json` 提取对应维度）
+   - 本维度专属数据（完整性看伏笔表、叙事看人物卡等）
+
+#### 5维度子Agent 输入
+
+| 子Agent | 共享上下文 | 专属输入 | 输出 |
+|---------|-----------|---------|------|
+| 完整性评审 | shared-score-context.md | chapters.json 任务卡 + foreshadowing 表 | 结构/伏笔/章节完整性评分+评语 |
+| 叙事质量评审 | shared-score-context.md | characters/ + creative-anchors.md | 情节/人物/节奏/对话/张力评分+评语 |
+| 创意性评审 | shared-score-context.md | plan.md + outline.md + creative-anchors.md | 原创度/世界观/反转/套路突破评分+评语 |
+| 技术执行评审 | shared-score-context.md | consistency-rules.json + anti-ai-scan 报告 | 文笔/语法/一致性/格式/反AI评分+评语 |
+| 市场契合评审 | shared-score-context.md | plan.md(targetPlatform) | 类型/平台/留存/商业性评分+评语 |
+
+> **子Agent 禁止读取 chapters/ 目录**——所有章节内容已通过 shared-score-context.md 提供。发现子Agent 自行读取 chapters/ 则记 issue。
 
 **子Agent输出格式**（每个子Agent返回JSON）：
 

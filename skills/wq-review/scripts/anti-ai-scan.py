@@ -35,6 +35,7 @@ if sys.platform == "win32":
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -594,6 +595,35 @@ def load_outline_meta(outlines_path: Optional[Path]) -> Dict[str, Dict[str, Any]
 # 字数目标读取
 # ---------------------------------------------------------------------------
 
+
+def _compute_chapter_hash(text: str) -> str:
+    """计算章节内容哈希（去除 SUMERU_STATUS 注释和标题行，纯正文用于比对变更）。"""
+    clean = re.sub(r"<!--\s*SUMERU_STATUS:.*?-->\s*\n?", "", text, flags=re.DOTALL)
+    clean = re.sub(r"^第\d+章[^\n]*\n", "", clean, count=1)
+    return hashlib.sha256(clean.encode("utf-8")).hexdigest()[:16]
+
+
+def _load_scan_cache(cache_path: Path) -> Dict[str, Dict]:
+    """加载 anti-ai-scan 缓存。格式: {chapter_no: {"hash": ..., "result": ...}}"""
+    if not cache_path.exists():
+        return {}
+    try:
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and "chapters" in data:
+            return data["chapters"]
+    except Exception:
+        pass
+    return {}
+
+
+def _save_scan_cache(cache_path: Path, chapters_cache: Dict[str, Dict]) -> None:
+    """保存 anti-ai-scan 缓存。"""
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text(
+        json.dumps({"version": "1.5.0", "chapters": chapters_cache}, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+
 def _load_word_range(chapters_dir: Path, project_root: Optional[str] = None) -> Optional[Tuple[int, int]]:
     """读取 project.json.chapterWordRange，返回 (min, max) 或 None。
 
@@ -1114,6 +1144,7 @@ def main() -> int:
     parser.add_argument("--strict", action="store_true", help="严格模式：medium 视作 high")
     parser.add_argument("--filter", default=None, help="只输出指定 chapter 范围，逗号分隔，如 001,002,005")
     parser.add_argument("--project", default=None, help="项目根目录（用于读取 project.json.chapterWordRange）")
+    parser.add_argument("--no-cache", action="store_true", help="禁用缓存，强制重新扫描所有章节")
     args = parser.parse_args()
 
     chapters_dir = Path(args.chapters_dir)
@@ -1141,12 +1172,44 @@ def main() -> int:
         wanted = {x.strip() for x in args.filter.split(",") if x.strip()}
         chapter_files = [p for p in chapter_files if extract_chapter_no(p) in wanted]
 
-    # 单章扫描
+    # 缓存管理（v1.5.0 新增）
+    cache_enabled = not args.no_cache
+    cache_path = Path(args.output).parent.parent / "cache" / "anti-ai-scan-cache.json" if args.output else None
+    chapters_cache: Dict[str, Dict] = {}
+    if cache_enabled and cache_path:
+        chapters_cache = _load_scan_cache(cache_path)
+    cache_hits = 0
+    cache_misses = 0
+
+    # 单章扫描（有缓存时跳过未变更章节）
     chapter_results: List[Dict[str, Any]] = []
     for fp in chapter_files:
         chap_no = extract_chapter_no(fp)
         card = outline_meta.get(chap_no)
-        chapter_results.append(scan_chapter(fp, card))
+        if cache_enabled and cache_path and chap_no in chapters_cache:
+            cached = chapters_cache[chap_no]
+            raw_text = fp.read_text(encoding="utf-8") if fp.exists() else ""
+            current_hash = _compute_chapter_hash(raw_text)
+            if cached.get("hash") == current_hash:
+                # 缓存命中，复用结果
+                result = cached["result"].copy()
+                result["chapter"] = chap_no
+                result["metrics"]["hanzi_count"] = len(re.findall(r"[\u4e00-\u9fa5]", result.get("_raw_text", "")))
+                chapter_results.append(result)
+                cache_hits += 1
+                continue
+        # 缓存未命中或缓存禁用：重新扫描
+        result = scan_chapter(fp, card)
+        # 存储原始文本供缓存比对
+        raw_text = fp.read_text(encoding="utf-8") if fp.exists() else ""
+        result["_raw_text"] = raw_text
+        result["hash"] = _compute_chapter_hash(raw_text)
+        chapter_results.append(result)
+        cache_misses += 1
+        # 更新缓存
+        if cache_enabled and cache_path:
+            chapters_cache[chap_no] = {"hash": result["hash"], "result": result.copy()}
+            chapters_cache[chap_no]["result"].pop("_raw_text", None)
 
     # 批次扫描（邻域窗口）
     batch_issues = scan_batch_relations(chapter_results)
@@ -1168,6 +1231,11 @@ def main() -> int:
                     "scope": f"chapter {cr['chapter']}",
                     "detail": f"字数 {wc} 低于目标下限 {word_range[0]} 的 80%（缺口 {deficit_pct:.0%}）—— 警告，不阻断写阶段"
                 })
+
+    # 保存缓存（v1.5.0 新增）
+    if cache_enabled and cache_path and chapters_cache:
+        _save_scan_cache(cache_path, chapters_cache)
+        print(f"💾 缓存已更新: {cache_hits} 命中, {cache_misses} 次重新扫描 → {cache_path}", file=sys.stderr)
 
     # 报告
     report = build_report(chapter_results, batch_issues)
@@ -1206,8 +1274,9 @@ def main() -> int:
     )
 
     if args.quiet:
+        cache_info = f", 缓存命中 {cache_hits}" if cache_enabled and cache_path else ""
         if total == 0:
-            print(f"✅ 反 AI 扫描通过 ({report['total_chapters']} 章无问题)")
+            print(f"✅ 反 AI 扫描通过 ({report['total_chapters']} 章无问题{cache_info})")
         else:
             print(f"⚠️ 反 AI 扫描发现 {total} 项问题 (critical={crit} high={high} medium={med} low={low})")
             if blocking:

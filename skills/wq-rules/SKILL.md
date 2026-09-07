@@ -250,7 +250,59 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ## 本章执行提醒 (≥材
 具体可执行的过程提醒、```
 
-## 三、各技能专用部则
+## 二·五、Context Pack 基准缓存（v1.5.0 新增）
+
+> **问题**：write/polish/revise/review 四个技能各自生成 context pack，但 Project Brief、Characters、World、Continuity 完全相同，每次都重新读取和写入，浪费 ~30% 读取时间。
+>
+> **解决**：生成一次共享基准文件 `shared-base.md`，各技能只追加自己特有的部分。
+
+### 基准文件
+
+**路径**：`.sumeru/cache/shared-base.md`
+
+**内容**（4 个技能共用）：
+```markdown
+# Shared Base Context
+> 由父Agent生成，所有技能 context pack 的基础层。各技能在此之上追加专用部分。
+> 生成时间：{timestamp} | 章节范围：{range}
+
+## Project Brief（≤50字）
+{题材、平台、字数范围、整体风格}
+
+## Relevant Characters（≤300字）
+{本批次涉及的 3-5 个角色状态}
+
+## Relevant World（≤200字）
+{本批次会用到的地点/组织/功法/道具}
+
+## Continuity State（≤200字）
+{上一章结尾、关键道具、未回收伏笔、时间线位置}
+
+## Batch Summary（≤450字）
+{最近 3 批摘要，每批 ≤150 字}
+```
+
+### 各技能追加部分
+
+| 技能 | 追加文件 | 追加内容 |
+|------|---------|---------|
+| `wq-write` | `shared-write.md` | 接 shared-base.md + 写作指南 + 反例警示 + 分卷信息 + Output Requirements |
+| `wq-polish` | `shared-polish.md` | 接 shared-base.md + 具象标杆 + 反例警示 |
+| `wq-revise` | `shared-revise.md` | 接 shared-base.md + 任务卡 + 模式标注 |
+| `wq-review` | `shared-review.md` | 接 shared-base.md + 审查标准 + consistency-rules |
+
+### 刷新规则
+
+- **同一技能连续批次**（如 write 第1-3章后写第4-6章）：**复用** shared-base.md，只更新 Batch Summary 和 Continuity State
+- **跨技能切换**（write → review → polish）：**不复用**，各自生成新的 shared-base.md
+- **章节范围变更 > 50%**：重新生成 shared-base.md
+
+### Token 节省估算
+
+| 场景 | 旧方式（各技能独立读取） | 新方式（共享基准） | 节省 |
+|------|----------------------|------------------|------|
+| 300章 write（100批） | 100 × 4种技能 × 5000字 | 100 × 2000字 + 4 × 1000字 | **~50%** |
+| polish 300章（100批） | 同上 | 同上 | **~50%** |
 各技能上下文格式已在对应 `SKILL.md` 中定义。父Agent生成 context pack 时按目标技能 `SKILL.md` 中的格式要求写入。
 
 ## 四、文件位置

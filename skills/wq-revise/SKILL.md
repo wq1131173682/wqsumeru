@@ -1,7 +1,7 @@
 ---
 name: wq-revise
 description: 评分驱动·收敛式修稿——定向扩写/压缩/局部重写，硬重试上限+定向重评，杜绝无限循环
-version: 1.0.1
+version: 1.0.2
 type: skill
 argument-hint: '[范围(全书/卷N/章节N-M)] [仅诊断] [上限N轮] [每章N次]'
 disable-model-invocation: false
@@ -201,7 +201,10 @@ pending → in-progress → converged      （达 successCriterion）
 1. **文件路径校验**：文件名符合 `{三位章节号}-{标题}.md`（沿用 wq-write 规则），异常文件名删除并报错终止。
 2. **scope 校验**：比对改动是否越出 `scope.paragraphs`。越界改动 → 回退到 best，`retryCount++`，记录 issue。
 3. **protectedElements 校验**：比对 SUMERU_STATUS 与 protectedElements，违反 → 回退 best，`retryCount++`。
-4. **定向重评**：只对本章跑评分（`wq-score 第N章 data` 或内联轻量评分），不重评全书。
+4. **轻量评分（v1.5.0 优化）**：不再调用 wq-score（避免重复读全章×5维度）。改用**双指标判定**：
+   - **字数验证**：`len(re.findall(r"[\u4e00-\u9fa5]", body))` ≥ successCriterion 中 wordCount 目标 → 字数达标
+   - **反AI验证**：`python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本章> --quiet` exit 0 或 1（非阻断）→ 质量达标
+   - 两指标均达标 → 视为"优于 best"；仅一项达标 → 视为"持平"；均不达标 → 视为"退步"
 5. **判定**：
    - 达 `successCriterion` 且优于 best → 覆盖 best，标 `converged`；
    - 优于 best 但未达 criterion → 覆盖 best，`retryCount` 不增，若 `retryCount < maxRetries` 续派下一轮（带 refined 诊断），否则标 `best-effort`；

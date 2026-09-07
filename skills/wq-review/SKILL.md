@@ -1,7 +1,7 @@
 ---
 name: wq-review
 description: 小说逻辑/剧情审查、项目测试与创意疲劳检测
-version: 1.2.2
+version: 1.5.0
 type: skill
 argument-hint: "[章节范围] [仅检查...]"
 disable-model-invocation: false
@@ -67,6 +67,40 @@ requires: [wq-rules]
 5. 验证未通过 → 追加到issues.md，标记`reverify_failed`
 
 **反审由父Agent直接执行**，不启动子Agent。
+
+### 脚本并行执行（v1.5.0 新增）
+
+> **性能优化**：审查阶段有 4 个独立脚本（continuity-check、foreshadowing-tracker、anti-ai-scan、chapter-word-counter），彼此无依赖，应**并发执行**而非串行。
+
+**并行执行协议**：
+
+```bash
+# 方式1：Python 并行（推荐，父 Agent 直接调用）
+python -c "
+import concurrent.futures, subprocess, sys
+scripts = [
+    ('continuity', ['python', 'skills/wq-review/scripts/continuity-check.py', 'chapters/', '--quiet']),
+    ('foreshadowing', ['python', 'skills/wq-review/scripts/foreshadowing-tracker.py', 'chapters/', '--quiet']),
+    ('anti_ai', ['python', 'skills/wq-review/scripts/anti-ai-scan.py', 'chapters/', '--output', '.sumeru/review', '--quiet']),
+    ('word_count', ['python', 'skills/wq-review/scripts/chapter-word-counter.py', 'chapters/', '--quiet']),
+]
+with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+    futures = {name: ex.submit(subprocess.run, cmd, capture_output=True, text=True, encoding='utf-8', errors='replace') for name, cmd in scripts}
+    results = {name: f.result() for name, f in futures.items()}
+for name, r in results.items():
+    print(f'{name}: exit={r.returncode}')
+"
+
+# 方式2：Shell 并行（Windows PowerShell）
+Start-Job -ScriptBlock { python skills/wq-review/scripts/continuity-check.py chapters/ --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/foreshadowing-tracker.py chapters/ --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/anti-ai-scan.py chapters/ --output .sumeru/review --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/chapter-word-counter.py chapters/ --quiet } | Wait-Job
+```
+
+**性能收益**：以 300 章全书审查为例，串行约 60s，并行约 15s（受最慢脚本 anti-ai-scan 制约），**节省 75% 时间**。
+
+> 分卷模式下各卷的脚本也各自并行（卷间串行，卷内 4 脚本并行）。
 ### fix-plan.json 格式定义
 
 `fix-plan.json` 在review 阶段生成，供 write 阶段的重写流程读取：

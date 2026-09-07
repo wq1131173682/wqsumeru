@@ -1,7 +1,7 @@
 ---
 name: wq-write
 description: 小说章节内容创作与创意落地
-version: 1.2.3
+version: 1.4.8
 type: skill
 argument-hint: '[章节号] ["章节概要"] [风格] [字数] [节奏] [视角] [续写/按细纲生成]'
 disable-model-invocation: false
@@ -428,6 +428,21 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 6. `outlines/chapter-XXX-YYY.md`（回退源）
 7. 已存在的 `chapters/` 内容
 
+### 批次反例注入格式
+
+`shared-write.md` 头部追加（有发现时）：
+
+```markdown
+## ⚠️ 本批次禁止项（基于前 10 章扫描）
+- **禁止重复模式「醒不了但能活」**：前 7 章已出现 4 次，本批次改用其他表达
+- **禁止结尾硬拔高**：近 3 章结尾都是"阳光/希望"式升华，本批次停在画面/动作
+- **禁止对话同质化**：近 5 章所有角色都用同一种语气，本批次加入性格区分
+```
+
+无前发现时不注入此节，行为与 v1.4.7 及以前完全兼容。
+
+---
+
 ### 剧情统一门禁与反AI扫描
 
 > **详见 `wq-rules/SKILL.md` 第十部分"剧情统一门禁与反AI扫描"**
@@ -436,8 +451,19 @@ acceptanceCriteria 无直接对应 → 从events + purpose 自动推导
 
 1. **伏笔活跃度预检**：调用 `python skills/wq-review/scripts/foreshadowing-tracker.py .sumeru/continuity <current_chapter> --quiet`，把输出的逾期伏笔与近期伏笔建议注入 `shared-write.md` 头部（父 Agent 决定是否提示用户）。**分卷模式**：脚本输入路径替换为 `.sumeru/volumes/vol-N/continuity/`，父 Agent 在调用前先 `export SUMERU_CURRENT_VOLUME=vol-N` 让脚本读取卷内 `consistency-rules.json` 与本卷伏笔表。
 2. **锚点临近检查**：读取 `.sumeru/creative-anchors.md`，找出 `targetChapter` 字段距当前章 ≤ 3 的「名场面种子」，在 `shared-write.md` 头部追加"⚠️ 锚点临近：本章或近 3 章需兑现 XX 锚点"
+ 3. **批次反例扫描（v1.4.8 新增）**：扫描前 10 章（或本卷最近 10 章），提取高频 AI 模式，注入 `shared-write.md` 头部的 `⚠️ 本批次禁止项`。检测规则：
 
-父Agent在子Agent写入**后**必须执行：
+    | 发现 | 注入警示 |
+    |------|---------|
+    | 同一句式/短语在前 10 章出现 ≥ 3 次 | `⚠️ 禁止重复模式「{句式}」：本批次不得再使用此表达` |
+    | 连续 ≥ 2 章结尾都是主题升华句 | `⚠️ 禁止结尾硬拔高：不得出现"希望/阳光/未来"等直白喊口号式结尾` |
+    | 连续 ≥ 2 章对话无角色区分 | `⚠️ 禁止对话同质化：本批次每个角色必须说不同的话，加入打断/停顿/跑题` |
+    | 连续 ≥ 3 段都是剧情推进无缓冲 | `⚠️ 禁止节奏单调：每 3 段推进后必须有环境/动作/无关对话缓冲` |
+    | 连续 ≥ 2 章有作者视角解说 | `⚠️ 禁止视角跳跃：不得出现"他是...""她是..."这类作者跳出来抒情解说` |
+
+    > 无前文可读时（第 1-3 章）跳过此步骤，仅依赖通用禁令。注入格式见上文「批次反例注入格式」。
+
+ 父Agent在子Agent写入**后**必须执行：
 
 1. **文件路径校验（必须通过才继续）**：扫描 `chapters/` 目录，检查每章文件名是否符合 `{三位章节号}-{章节标题}.md` 格式（正则：`^\d{3}-.+\.md$`）。发现异常文件名（如 `nul`、`null`、空字符串、缺少章节号等）→ **删除该文件，报错终止当前批次，记录 issue**：`⚠️ write: 发现异常文件名 {filename}，已删除，子Agent 需重新写入`。
 2. **剧情统一校验**：解析 SUMERU_STATUS，与 consistency-rules.json 对比。**分卷模式**：从 `.sumeru/volumes/vol-N/continuity/consistency-rules.json` 读取，父 Agent 调用前先 `export SUMERU_CURRENT_VOLUME=vol-N`。

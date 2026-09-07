@@ -1,6 +1,6 @@
 # QWEN.md — WQ 写作 (WQ Writing) 项目上下文
 
-> **版本**: v1.4.8 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
+> **版本**: v1.4.9 · **基础**: [xindoo/sumeru](https://github.com/xindoo/sumeru) 二次开发
 > **全局约束唯一来源**: `skills/wq-rules/SKILL.md`
 
 ## 项目概述

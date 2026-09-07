@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.9 (2026-09-06)
+
+### context pack 预算压缩 + 截断检测自动续写
+
+> **背景**：子 Agent 输出 token 受限（通常 4096-8192），写长章节（≥2500 字）时中途截断。根因是 context pack 过大挤占输出预算，且没有截断兜底机制。
+
+**改动**（4 个文件）：
+
+- **A. `skills/wq-rules/SKILL.md`**（v1.2.6→1.2.7）：
+  - 通用共享上下文格式补充各字段字数上限（Project Brief ≤50字 / Characters ≤300字 / World ≤200字 / Continuity ≤200字 / Creative Strategy ≤200字 / Batch Summary 最近 3 批每批 ≤150 字）
+  - 新增「七、子 Agent 输出截断检测与自动续写」：4 项截断检测规则（结尾无终止标点/引号未闭合/末段过短/总字数异常）、续写协议（最多 1 次，去重拼接）、与 context pack 预算的关系说明
+- **B. `skills/wq-write/SKILL.md`**（v1.4.8→1.4.9）：父 Agent 写入后步骤新增第 6 步「截断检测」
+- **C. `skills/wq-polish/SKILL.md`**（v1.4.7→1.4.9）：流程图新增截断检测步骤
+- **D. `skills/wq-revise/SKILL.md`**（v1.0.0→1.0.1）：轻量路径回收后新增截断检测步骤
+
+---
+
 ## 1.4.8 (2026-09-06)
 
 ### wq-write 批次反例扫描（写作前置拦截）

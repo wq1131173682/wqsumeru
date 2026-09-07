@@ -1,7 +1,7 @@
 ---
 name: wq-rules
 description: WQ 写作全局约束规则（唯一来源）
-version: 1.2.6
+version: 1.2.7
 type: skill
 argument-hint: ""
 disable-model-invocation: false
@@ -202,24 +202,24 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | 本组任务单| `cards-{范围}.md` | ~300-500 存| 每子Agent独有 |
 
 子Agent先读共享上下文，再读本组任务卡，两者合并作为完数context。
-## 一、通用共享上下文格式
+## 一、通用共享上下文格式（v1.4.9 补充预算约束）
 ```markdown
 # Shared Context: {task} (batch {N})
 
-## Project Brief (1-2行
+## Project Brief（≤50字）
 题材、平台、字数范围、整体风格。
-## Current Volume (1-2行
+## Current Volume（≤100字）
 本卷目标、当前冲突、卷级反转、阶段情绪。
-## Relevant Characters (仅本卷相关
-相关人物的当前状态、目标、关系、语言风格。
-## Relevant World & Glossary (仅本卷会用到的
-地点、组织、功法、道具、禁用变体。
-## Continuity State
+## Relevant Characters（≤300字）
+仅列本批次涉及的 3-5 个角色：当前状态、目标、关系、语言风格。
+## Relevant World & Glossary（≤200字）
+仅列本批次会用到的地点、组织、功法、道具、禁用变体。
+## Continuity State（≤200字）
 上一章结尾、关键道具状态、未回收伏笔、时间线位置。
-## Creative Strategy
+## Creative Strategy（≤200字）
 创意目标、要避开的套路、情绪节拍变化、读者记忆点。
-## Batch Summary (仅非第一执
-前N批实际摘要（≥00字）。
+## Batch Summary（预算硬限）
+最近 3 批摘要，每批 ≤150 字。超出的旧摘要不写入 context pack（卷切换 handoff 摘要保留 1 条）。
 ## Output Requirements
 **文件路径（必须明确写出，子Agent 按此路径写入）**：
 - 第X章 → `chapters/001-标题.md`
@@ -227,9 +227,14 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 - ...
 **状态更新**：由父Agent执行，子Agent 不碰状态文件。
 ## Opening & Style Diversity
-- 同一批次各章开场方式必须不同- 同一批次各章结尾钩子句式必须不同
-- 同一章内连续超过 5 句完整主谓宾结构 →必须插入破碎可口语短句
+- 同一批次各章开场方式必须不同
+- 同一批次各章结尾钩子句式必须不同
+- 同一章内连续超过 5 句完整主谓宾结构 → 必须插入破碎句/口语短句
+## ⚠️ 本批次禁止项（有发现时注入，v1.4.8）
+- 具体禁止项（来自批次反例扫描）
 ```
+
+> **预算原则**：context pack 总字符数应 ≤ 2000 字（约 2500 tokens），为子 Agent 留出充足输出预算。以上各字段字数上限为硬性约束，父 Agent 生成时必须遵守。长章节（目标 >2500 字）场景下，每子 Agent 最多分配 1-2 章，确保单章输出预算 ≥ 4000 tokens。
 
 ## 二、通用任务卡格式
 ```markdown
@@ -951,6 +956,45 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 | 65 章纯字数不足（轻量路径） | 65 | 5 | 13 | ~65 分钟 |
 | 65 章走收敛门（旧方式） | 65 | 2 | ~22 | ~220 分钟 |
 | **节省** | — | — | — | **70%** |
+
+---
+
+## 七、子 Agent 输出截断检测与自动续写（v1.4.9 新增）
+
+> **问题**：子 Agent 输出 token 受限（通常 4096-8192），写长章节（≥2500 字）时可能中途截断，导致章节不完整。
+
+### 截断检测规则（父 Agent 回收时执行）
+
+子 Agent 返回后，父 Agent 检查输出是否截断：
+
+| 检测项 | 判断标准 | 说明 |
+|--------|---------|------|
+| **结尾无终止标点** | 输出最后 50 字不含 `。！？` | 最可靠的截断信号 |
+| **引号未闭合** | 末尾有未匹配的 `""` 或 `「」` | 对话截断 |
+| **末段过短** | 最后一段 < 30 字且无前文段落对比 | 可能是半截段落 |
+| **总字数异常** | 输出字数 < 任务卡 acceptanceCriteria 下限的 60% | 整章严重不足 |
+
+> 满足任意一项即判定为「疑似截断」，触发续写。
+
+### 续写协议
+
+```
+第 1 次续写：
+  父 Agent 派子 Agent，context pack 附加：
+  "续写指令：上文在第X段末尾截断，请从「{截断前最后20字}」之后继续写，
+  直接接上，不要重复已写内容。输出末尾仍用完整句号结束。"
+  子 Agent 返回 Part 2。
+
+拼接：
+  Part 1 + Part 2（去除 Part 2 开头与 Part 1 结尾的重复片段，默认去重 1 段）
+  → 合并写入 chapters/{章号}-标题.md
+
+最多续写 1 次。第 2 次仍截断 → 标 truncated，记 issue，不进 finalize。
+```
+
+### 与 context pack 预算的关系
+
+截断的根本原因是 context pack 过大挤占了输出预算。v1.4.9 已压缩 context pack（各字段字数上限 + Batch Summary 限 3 批），正常情况下 2500 字章节不应截断。截断检测是兜底机制。
 
 > 轻量路径节省的核心原因：收敛门每章平均 1.5 轮 × 每轮 2 个子Agent（2 并发）× 3 分钟 = 9 分钟/章；轻量路径 1 轮 × 5 个子Agent（5 并发）× 3 分钟 = 0.6 分钟/章。
 

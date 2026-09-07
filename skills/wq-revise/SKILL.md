@@ -1,7 +1,7 @@
 ---
 name: wq-revise
 description: 评分驱动·收敛式修稿——定向扩写/压缩/局部重写，硬重试上限+定向重评，杜绝无限循环
-version: 1.0.0
+version: 1.0.1
 type: skill
 argument-hint: '[范围(全书/卷N/章节N-M)] [仅诊断] [上限N轮] [每章N次]'
 disable-model-invocation: false
@@ -230,7 +230,8 @@ pending → in-progress → converged      （达 successCriterion）
 2. 派发子 Agent：context pack 注入 `mode=lightweight`，指示"按缺口比例扩写 scope 段落"
 3. 回收后**跳过收敛门**（不跑定向重评、不回写 best-snapshot、不跑 anti-ai 回归）
 4. 只做单一验证：父Agent读 `chapters/{chapter}.md`，用 `len(re.findall(r"[\u4e00-\u9fa5]", body))` 计数汉字数，≥ target 即标 `converged`，否则标 `best-effort`
-5. 直接写回 chapters/，回写 revise-status.json
+5. **截断检测（v1.4.9 新增）**：回收子Agent输出后检查是否截断（详见 `wq-rules/SKILL.md` 第七部分）。疑似截断 → 触发续写协议（最多 1 次），合并后写回 chapters/
+6. 直接写回 chapters/，回写 revise-status.json
 
 **效果对比**：
 | 路径 | 单章往返 | 检查项 | 适用场景 |

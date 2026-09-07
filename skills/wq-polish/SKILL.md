@@ -1,7 +1,7 @@
 ---
 name: wq-polish
 description: 小说内容润色优化与创意强化
-version: 1.4.7
+version: 1.4.9
 type: skill
 argument-hint: "[章节范围] [轻度/中度/深度] [目标风格] [优化重点]"
 disable-model-invocation: false
@@ -358,7 +358,7 @@ requires: [wq-rules]
   ↓
 检查 .sumeru/polish/temp/*.md 是否存在
   ↓
-读取每个临时文件 → 验证字数 → 写回 chapters/
+读取每个临时文件 → 验证字数 → 检查截断（v1.4.9）→ 写回 chapters/
   ↓
 清理临时文件 → 更新 status.json → 刷新 cache
   ↓

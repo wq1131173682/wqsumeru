@@ -69,7 +69,7 @@ def _load_thresholds() -> dict:
             data = json.loads(cfg_file.read_text("utf-8"))
             # 版本兼容性检查：若配置文件 version 与脚本预期不匹配，发出警告
             cfg_version = data.get("version", "unknown")
-            expected_version = "1.3.0"
+            expected_version = "1.4.0"
             if cfg_version != expected_version:
                 print(
                     f"⚠️  配置版本不匹配: anti-ai-thresholds.json version={cfg_version} "

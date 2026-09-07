@@ -62,8 +62,9 @@ requires: [wq-rules]
 **反审流程**：
 1. 读取 fix-plan.json 中的修复记录
 2. 对每个已修复章节执行针对性验证（只检查原问题类型）
-3. 验证通过 → 章节状态更新为 `fixed`
-4. 验证未通过 → 追加到issues.md，标记`reverify_failed`
+3. **新增（v1.4.10）**：额外验证字数——调用 `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <修复章> --project . --quiet`，exit 3 仍标记为修复未通过（字数不足需 revise 处理）
+4. 验证通过 → 章节状态更新为 `fixed`
+5. 验证未通过 → 追加到issues.md，标记`reverify_failed`
 
 **反审由父Agent直接执行**，不启动子Agent。
 ### fix-plan.json 格式定义
@@ -171,7 +172,7 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 - `.sumeru/review/anti-ai-report.json`：结构化报告
 - `.sumeru/review/anti-ai-report.md`：人工可读报告
 
-#### 扫描项（共 17 项 + 9 维反 AI 句式，v1.3.4: 6→8 维，v1.2.4: 8→9 维，黑名单 40+ → 80+）
+#### 扫描项（共 19 项，v1.4.4 增字数检测，v1.4.5 字数降级为警告，v1.4.8 增全书跨章模板检测）
 
 | 类别 | 检查项 | 阈值 | 严重度 |
 |------|--------|------|--------|
@@ -191,7 +192,7 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 | 水文硬指标 | 时间/场景切换 | 0 | medium |
 | 水文硬指标 | **Cliché 套路短语**（v1.3.4 黑名单扩展：+ 战斗套路 + 转折模板 + 情绪标签）| ≥ 3 个不同短语 | **high（阻断）** |
 | 节奏拖沓 | 场景类型占比 | 日常/过渡 > 30% | medium |
-| 节奏拖沓 | 字数不足（不再自动修复） | < `chapterWordRange[0]` | medium（写 fix-plan） |
+| 字数门槛（v1.4.4 新增，v1.4.5 降级） | **字数不足 < 目标×80%** | 缺口 >40%→critical，缺口 10-40%→high | exit 1 警告（不阻断）；由 revise 轻量路径处理 |
 | 节奏拖沓 | 字数过多 | > `chapterWordRange[1]` | low |
 
 #### 阻断规则

@@ -1,4 +1,4 @@
-﻿# Sumeru project intermediate data
+# Sumeru project intermediate data
 .sumeru/
 
 # Editor / IDE config
@@ -15,3 +15,17 @@ opencode.json
 __pycache__/
 *.pyc
 .sumeru/cache/anti-ai-scan-cache.json
+
+# AI agent 本地数据（自动生成，不提交）
+.mnemon/
+.workbuddy/
+PROJECT_MEMORY.md
+
+# 本地缓存
+cache/
+
+# 打包产物
+wqskills.zip
+
+# 测试临时目录
+tests/_tmp_*

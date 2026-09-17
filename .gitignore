@@ -29,3 +29,4 @@ wqskills.zip
 
 # 测试临时目录
 tests/_tmp_*
+tests/_commit_msg.txt

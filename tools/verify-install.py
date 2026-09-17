@@ -20,7 +20,20 @@ SRC = REPO / "skills"
 TARGETS = [
     ("本机 user-agents", Path.home() / ".agents" / "skills"),
     ("DSH user-dsh", Path.home() / ".dsh" / "skills"),
+    ("Qwen", Path.home() / ".qwen" / "skills"),
+    ("WorkBuddy", Path.home() / ".workbuddy" / "skills"),
 ]
+
+
+def is_link_like(p: Path) -> bool:
+    if p.is_symlink():
+        return True
+    if hasattr(p, "is_junction"):
+        try:
+            return p.is_junction()
+        except OSError:
+            return False
+    return False
 
 EXCLUDE_DIRS = {"__pycache__", ".pytest_cache", ".mypy_cache", ".git"}
 EXCLUDE_SUFFIX = {".pyc", ".pyo", ".pyd"}
@@ -87,10 +100,11 @@ def main() -> int:
                 fm = m.group(1) if m else ""
                 has = bool(re.search(r"^name:\s*\S", fm, re.M)) and \
                       bool(re.search(r"^description:\s*\S", fm, re.M))
+                tag = " [软链]" if is_link_like(dst_dir) else ""
                 if has:
-                    print(f"  ✅ {sk.name:20s} {len(src_files)} 文件一致")
+                    print(f"  ✅ {sk.name:20s} {len(src_files)} 文件一致{tag}")
                 else:
-                    print(f"  ❌ {sk.name:20s} frontmatter 缺 name/description")
+                    print(f"  ❌ {sk.name:20s} frontmatter 缺 name/description{tag}")
                     all_ok = False
 
         # 检查不应存在的缓存

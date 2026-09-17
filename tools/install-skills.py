@@ -57,32 +57,75 @@ def sha16(p: Path) -> str:
     return hashlib.sha256(p.read_bytes()).hexdigest()[:16]
 
 
-def copy_skill(src_dir: Path, dst_root: Path, clean: bool, dry: bool) -> dict:
-    """把一个技能目录复制到目标根，返回统计信息。"""
+def is_link_like(p: Path) -> bool:
+    """判断是否为软链 / Junction（Windows）。"""
+    if p.is_symlink():
+        return True
+    if hasattr(p, "is_junction"):
+        try:
+            return p.is_junction()
+        except OSError:
+            return False
+    return False
+
+
+def remove_existing(dst_dir: Path) -> str:
+    """安全移除已存在的目标条目。
+
+    必须区分三种情形（Windows 上尤其重要）：
+      - 符号链接 / Junction：只删链接本身，**绝不递归删除**（否则会连带删掉真实源目录）
+      - 普通目录：递归删除
+      - 普通文件：直接删除
+    返回处理说明。
+    """
+    if is_link_like(dst_dir):
+        # 只删链接本身。用 rmdir 处理目录型链接，unlink 处理文件型链接。
+        try:
+            dst_dir.rmdir()
+        except OSError:
+            dst_dir.unlink()
+        return "删除软链"
+    if dst_dir.is_dir():
+        shutil.rmtree(dst_dir)
+        return "删除目录"
+    dst_dir.unlink()
+    return "删除文件"
+
+
+def copy_skill(src_dir: Path, dst_root: Path, clean: bool, dry: bool,
+               break_links: bool = False) -> dict:
+    """把一个技能目录复制到目标根，返回统计信息。
+
+    break_links=False（默认）：目标若是软链/Junction，**保留链接**并写入穿透
+    （内容落到链接指向的真实目录，与共享一份的部署方式兼容）。
+    break_links=True：把链接替换为独立副本。
+    """
     dst_dir = dst_root / src_dir.name
     src_files = [p for p in src_dir.rglob("*") if p.is_file() and not should_skip(p)]
 
-    existed = dst_dir.exists()
-    # 计算差异（用于报告"是否变化"）
+    link = is_link_like(dst_dir)
+    existed = dst_dir.exists() or link
+    cmp_dir = dst_dir.resolve() if link else dst_dir
+
     changed = []
-    if existed:
+    if existed and cmp_dir.exists():
         for p in src_files:
             rel = p.relative_to(src_dir)
-            d = dst_dir / rel
+            d = cmp_dir / rel
             if not d.exists() or not filecmp.cmp(p, d, shallow=False):
                 changed.append(rel.as_posix())
-        # 目标多余的受管文件
-        dst_files = [p for p in dst_dir.rglob("*")
+        dst_files = [p for p in cmp_dir.rglob("*")
                      if p.is_file() and not should_skip(p)]
-        extra = [p.relative_to(dst_dir).as_posix() for p in dst_files
-                 if not (src_dir / p.relative_to(dst_dir)).exists()]
+        extra = [p.relative_to(cmp_dir).as_posix() for p in dst_files
+                 if not (src_dir / p.relative_to(cmp_dir)).exists()]
     else:
         changed = [p.relative_to(src_dir).as_posix() for p in src_files]
         extra = []
 
+    action = ""
     if not dry:
-        if clean and dst_dir.exists():
-            shutil.rmtree(dst_dir)
+        if existed and clean and not (link and not break_links):
+            action = remove_existing(dst_dir)
         dst_dir.mkdir(parents=True, exist_ok=True)
         for p in src_files:
             rel = p.relative_to(src_dir)
@@ -96,6 +139,9 @@ def copy_skill(src_dir: Path, dst_root: Path, clean: bool, dry: bool) -> dict:
         "existed": existed,
         "changed": len(changed),
         "extra": extra,
+        "is_link": link,
+        "link_kept": link and not break_links,
+        "action": action,
         "skill_md": (src_dir / "SKILL.md").exists(),
     }
 
@@ -127,7 +173,11 @@ def main() -> int:
                     help="自定义目标根（可多次）；省略则用默认两个根")
     ap.add_argument("--dry-run", action="store_true", help="只预览不写入")
     ap.add_argument("--clean", action="store_true",
-                    help="先删除目标下同名技能目录再复制（清除陈旧文件）")
+                    help="先删除目标下同名技能目录再复制（清除陈旧文件）；"
+                         "软链/Junction 默认保留，见 --break-links")
+    ap.add_argument("--break-links", action="store_true",
+                    help="把目标中指向别处的软链/Junction 替换为独立副本"
+                         "（默认保留链接，写入穿透到链接指向处）")
     args = ap.parse_args()
 
     if not SRC.exists():
@@ -168,17 +218,33 @@ def main() -> int:
 
         total_files = total_changed = 0
         extras_all = []
+        links = 0
         for sk in skills:
-            info = copy_skill(sk, target, args.clean, args.dry_run)
+            info = copy_skill(sk, target, args.clean, args.dry_run,
+                              args.break_links)
             total_files += info["files"]
             total_changed += info["changed"]
             extras_all.extend(f"{info['skill']}/{e}" for e in info["extra"])
-            flag = "新装" if not info["existed"] else (
-                f"更新 {info['changed']}" if info["changed"] else "已最新")
+            if info["is_link"]:
+                links += 1
+            if not info["existed"]:
+                flag = "新装"
+            elif info["changed"]:
+                flag = f"更新 {info['changed']}"
+            else:
+                flag = "已最新"
+            if info["action"]:
+                flag += f"（{info['action']}）"
+            if info["link_kept"]:
+                flag += " [软链保留]"
             print(f"  {info['skill']:20s} files={info['files']:3d}  {flag}")
 
         print(f"  ── 合计 {len(skills)} 技能 / {total_files} 文件 / "
               f"{total_changed} 个文件有变化")
+        if links:
+            print(f"  ℹ️ {links} 个目标是指向别处的软链/Junction"
+                  + ("（已保留链接，内容写入穿透）" if not args.break_links
+                     else "（已按 --break-links 转为独立副本）"))
         if extras_all:
             print(f"  ⚠️ 目标中存在源里没有的文件（{len(extras_all)} 个，"
                   f"加 --clean 可清除）：")

@@ -148,9 +148,13 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 每批子Agent完成后，父Agent生成"实际摘要"（≤300字），作为下一批 context pack 的输入。context pack 中只保留最近3 批摘要，更早的合并为一行概述。
 **摘要格式**（纯事实列表）：
 ```
-## 批次摘要: 第-6章- 事件：主角觉醒系统001)、通过宗门考核(003)、击败外门弟子(005)
-- 人物：主角练气三层→五层，苏瑾轻伤恢复，赵无极首次出在- 道具：黑色残片归主角，回春丹消者构- 伏笔：v1黑衣人身从mentioned)，v2残片来历(active)
-- 情绪：压抑→突破→暗爆```
+## 批次摘要: 第1-6章
+- 事件：主角觉醒系统(001)、通过宗门考核(003)、击败外门弟子(005)
+- 人物：主角练气三层→五层，苏瑾轻伤恢复，赵无极首次出场
+- 道具：黑色残片归主角，回春丹消耗
+- 伏笔：v1黑衣人身份(mentioned)，v2残片来历(active)
+- 情绪：压抑→突破→暗爆
+```
 
 **存储位置（< 150 章）**：`.sumeru/continuity/batch-summaries/batch-001.md`、`batch-002.md`...
 **存储位置（≥ 150 章，分卷模式）**：`.sumeru/volumes/vol-N/continuity/batch-summaries/batch-001.md`...
@@ -198,8 +202,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 | 文件 | 命名规则 | 大小 | 是否共享 |
 |------|----------|------|----------|
-| 共享上下文| `shared-{task}.md` | ~1500-2000 存| 同批次所有子Agent共用 |
-| 本组任务单| `cards-{范围}.md` | ~300-500 存| 每子Agent独有 |
+| 共享上下文| `shared-{task}.md` | ~1500-2000 字 | 同批次所有子Agent共用 |
+| 本组任务单| `cards-{范围}.md` | ~300-500 字 | 每子Agent独有 |
 
 子Agent先读共享上下文，再读本组任务卡，两者合并作为完整context。
 ## 一、通用共享上下文格式（v1.4.9 补充预算约束）
@@ -244,12 +248,14 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ### 第{N}章「标题」
 - purpose: ...
 - events: ...（≥3个具体事件）
-- openingHook: 本章开场方式（可执行的场景描述）- acceptanceCriteria: ...
+- openingHook: 本章开场方式（可执行的场景描述）
+- acceptanceCriteria: ...
 - creativeGoal: ...
 - emotionalBeat: ...
 
 ## 本章执行提醒（≥3 条）
-具体可执行的过程提醒、```
+具体可执行的过程提醒
+```
 
 ## 二·五、Context Pack 基准缓存（v1.5.0 新增）
 
@@ -344,7 +350,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `status` | 章节状态| `drafted` / `polished` / `finalized` |
 | `state_diff` | 结构化状态变化| JSON 对象 |
 | `char_update` | 人物当前状态| JSON 对象 |
-| `plot_update` | 伏笔线推过| JSON 对象 |
+| `plot_update` | 伏笔线推进 | JSON 对象 |
 | `batch` | 所属批次号 | 字符串 |
 | `timestamp` | 生成时间 | ISO 8601 |
 
@@ -368,7 +374,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 1. 提取每章的`<!-- SUMERU_STATUS -->` 标记
 2. 解析 `state_diff` 更新 `.sumeru/continuity/consistency-rules.json`
-3. 解析 `char_update` 更新人物状态4. 就`status` 写入 `.sumeru/status.json`
+3. 解析 `char_update` 更新人物状态
+4. 依据 `status` 写入 `.sumeru/status.json`
 5. 重启后扫描 `chapters/*.md` 标记即可重建状态
 ---
 
@@ -412,10 +419,11 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | `docs/glossary.md` | 只读引用，映射到 `plan.md` 术语行| 用户手动整理 |
 | `docs/style-guide.md` | 只读引用，映射到 `.sumeru/cache/style-brief.md` | 用户手动整理 |
 
-**迁移规则**）1. 读取旧路径时，先检查canonical 路径是否存在
-2. canonical 路径存在 →直接使用 canonical 路径
-3. canonical 路径不存在+ 旧路径存在→读取旧路径，写入时使用canonical 路径
-4. 两者都不存在→按新协议创建
+**迁移规则**：
+1. 读取旧路径时，先检查 canonical 路径是否存在
+2. canonical 路径存在 → 直接使用 canonical 路径
+3. canonical 路径不存在 + 旧路径存在 → 读取旧路径，写入时使用 canonical 路径
+4. 两者都不存在 → 按新协议创建
 
 ## 独立调用原则
 
@@ -596,8 +604,15 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ```
 1. 提取 SUMERU_STATUS 中的 state_diff、char_update、plot_update
 2. 比对 consistency-rules.json、最近3 批摘要、上一章实际结尾对比检查：
-   - 人物位置冲突（unique_location）   - 道具状态冲突（destroyed_item_used）   - 时间线倒置（timeline_order）   - 战力无因跳跃（power_level_consistency）   - 伤势无因恢复（character_state_regression）   - 已回收伏笔重复激活（foreshadowing_recycled）4. 发现 critical/high 冲突 →暂停写入，生成 issue
-5. 校验通过 →更新 chapters/、status.json、continuity cache
+   - 人物位置冲突（unique_location）
+   - 道具状态冲突（destroyed_item_used）
+   - 时间线倒置（timeline_order）
+   - 战力无因跳跃（power_level_consistency）
+   - 伤势无因恢复（character_state_regression）
+   - 已回收伏笔重复激活（foreshadowing_recycled）
+3. 汇总冲突清单，标注严重程度
+4. 发现 critical/high 冲突 → 暂停写入，生成 issue
+5. 校验通过 → 更新 chapters/、status.json、continuity cache
 ```
 
 ## 三、反AI句式扫描

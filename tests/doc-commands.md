@@ -2,7 +2,7 @@
 
 夹具：`tests\_tmp_doccmd`（含 chapters/、outlines/chapters.json、.sumeru/continuity/consistency-rules.json、project.json）
 
-共执行 **16** 条命令，失败 **0** 条。
+共执行 **15** 条命令，失败 **0** 条。
 
 | 退出码 | 来源 | 命令 |
 |---|---|---|
@@ -18,7 +18,6 @@
 | 3 | `skills/wq-review/SKILL.md:422` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/foreshadowing-tracker.py .sumeru/volumes/vol-N/continuity` |
 | 1 | `skills/wq-revise/SKILL.md:206` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/anti-ai-scan.py chapters --chapters 001 --quiet` |
 | 1 | `skills/wq-revise/SKILL.md:214` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/anti-ai-scan.py chapters --chapters 001 --output .sumeru/revise --quiet` |
-| 0 | `skills/wq-revise/SKILL.md:215` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/continuity-check.py .sumeru/continuity --chapters 001 --quiet` |
 | 0 | `skills/wq-write/SKILL.md:452` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/foreshadowing-tracker.py .sumeru/continuity 1 --quiet` |
 | 1 | `skills/wq-write/SKILL.md:471` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/anti-ai-scan.py chapters --outlines outlines/chapters.json --output .sumeru/review --quiet` |
 | 3 | `skills/wq-write/SKILL.md:594` | `D:/openclaw/workspace/wqsumeru/skills/wq-review/scripts/foreshadowing-tracker.py    .sumeru/volumes/vol-N/continuity 1 --quiet` |

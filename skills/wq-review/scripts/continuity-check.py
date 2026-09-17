@@ -473,10 +473,6 @@ def main() -> int:
     parser.add_argument(
         "--continuity-dir", dest="continuity_dir_opt", default=None,
         help="同上（别名，供分卷模式显式指定；若给出则优先于位置参数）")
-    parser.add_argument(
-        "--chapters", default=None,
-        help="（兼容参数）本次修订涉及的章节号，逗号分隔；仅用于报告标注，"
-             "一致性校验始终覆盖全量 consistency-rules.json")
     parser.add_argument("--output", default=None, help="报告输出文件（JSON）")
     parser.add_argument("--quiet", action="store_true", help="静默模式：只输出问题摘要")
     args = parser.parse_args()

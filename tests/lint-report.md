@@ -8,7 +8,7 @@
 |---|---|
 | P0 | 0 |
 | P1 | 0 |
-| P2 | 24 |
+| P2 | 23 |
 
 ## 明细
 
@@ -41,15 +41,15 @@
 - **问题**：括号不配对 （）（1 vs 0）
 - **证据**：`- **前置**：无（可直接调用：- **后续**：迁移完成后可继续使生`wq-worldbuilder` 恢复创作，或使用其他 Skill`
 
-### [P2] wq-outline · L340
+### [P2] wq-outline · L351
 - **问题**：括号不配对 （）（0 vs 1）
 - **证据**：`**自检输出格式**）`
 
-### [P2] wq-outline · L369
+### [P2] wq-outline · L380
 - **问题**：括号不配对 （）（1 vs 2）
 - **证据**：`**细纲输出格式（写入`outlines/chapter-XXX-YYY.md`）*）`
 
-### [P2] wq-outline · L88
+### [P2] wq-outline · L93
 - **问题**：括号不配对 （）（0 vs 1）
 - **证据**：`**字段说明**）`
 
@@ -76,10 +76,6 @@
 
 ### [P2] wq-review · scripts/consistency-rules-template.json
 - **问题**：该资源文件未被任何 SKILL.md 引用（疑似死资源）
-
-### [P2] wq-rules · L415
-- **问题**：括号不配对 （）（0 vs 1）
-- **证据**：`**迁移规则**）1. 读取旧路径时，先检查canonical 路径是否存在`
 
 ### [P2] wq-rules · scripts/text_utils.py
 - **问题**：该资源文件未被任何 SKILL.md 引用（疑似死资源）

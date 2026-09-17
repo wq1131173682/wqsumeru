@@ -212,7 +212,8 @@ pending → in-progress → converged      （达 successCriterion）
    - `retryCount >= maxRetries` → 标 `best-effort`，记 `stopReason`。
 6. **回归扫描（修订后强制）**：对改过的章节跑轻量回归，防止 polish/revise 改稿重新引入 AI 句式/标点/一致性问题：
    - `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本章> --output .sumeru/revise --quiet`；退出码 2（阻断）→ 回退 best，`retryCount++`，记 issue；退出码 1（warning）→ 写入 `.sumeru/issues.md`，不阻断；
-   - `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --chapters <本章> --quiet`（分卷模式改为 `.sumeru/volumes/vol-N/continuity`）；退出码 3（输入错误/规则崩溃）或 2（critical/high 冲突）→ 回退 best，`retryCount++`；
+   - `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --quiet`（分卷模式改为 `.sumeru/volumes/vol-N/continuity`）；退出码 3（输入错误/规则崩溃）或 2（critical/high 冲突）→ 回退 best，`retryCount++`；
+     > 注：该脚本做的是**全量一致性校验**，不支持按章过滤（无 `--chapters` 参数）。
    - 回归扫描与定向重评（第 4 步）可合并为一次子Agent回收后的双校验：先回归扫描通过，再跑定向重评。
 7. **写回**：converged/best-effort 才把 best 版本写回 `chapters/`；写前备份原稿到 `.sumeru/revise/original/`。
 

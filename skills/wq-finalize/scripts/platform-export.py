@@ -506,26 +506,35 @@ def pretty_print_result(result: Dict):
             print(f"    vol-{vol['volume']:03d}: {vol_ch} 章, {vol_words:,} 字 -> {vol_dir}")
 
 
+def _print_usage():
+    print("用法: python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>] [--quiet]")
+    print()
+    print("格式: md, txt（clean 已废弃）")
+    print("  md:     Markdown 格式导出（publish/md/）")
+    print("  txt:    纯文本格式导出（publish/txt/）")
+    print("  repair: 按新规则重新导出 md + txt（先清理旧结构 clean/、chapters/ 子目录、纯数字旧命名）")
+    print()
+    print("目录结构:")
+    print("  非分卷: publish/md/第001章-标题.md + full.md  （txt 同理）")
+    print("  分卷:   publish/md/vol-001/第001章-标题.md + vol-001/full.md + full.md（全书）")
+    print()
+    print("示例:")
+    print("  python platform-export.py chapters/ md")
+    print("  python platform-export.py chapters/ txt --output publish")
+    print("  python platform-export.py chapters/ md --project .")
+    print("  python platform-export.py chapters/ repair")
+    print("  python platform-export.py chapters/ repair --project .")
+
+
 def main():
+    # --help 必须成功退出（此前落入参数不足分支，以退出码 1 结束，Agent 会误判为失败）
+    if "-h" in sys.argv or "--help" in sys.argv:
+        _print_usage()
+        return 0
+
     if len(sys.argv) < 3:
-        print("用法: python platform-export.py <章节目录> <格式|repair> [--output <输出目录>] [--project <项目根目录>] [--quiet]")
-        print()
-        print("格式: md, txt（clean 已废弃）")
-        print("  md:     Markdown 格式导出（publish/md/）")
-        print("  txt:    纯文本格式导出（publish/txt/）")
-        print("  repair: 按新规则重新导出 md + txt（先清理旧结构 clean/、chapters/ 子目录、纯数字旧命名）")
-        print()
-        print("目录结构:")
-        print("  非分卷: publish/md/第001章-标题.md + full.md  （txt 同理）")
-        print("  分卷:   publish/md/vol-001/第001章-标题.md + vol-001/full.md + full.md（全书）")
-        print()
-        print("示例:")
-        print("  python platform-export.py chapters/ md")
-        print("  python platform-export.py chapters/ txt --output publish")
-        print("  python platform-export.py chapters/ md --project .")
-        print("  python platform-export.py chapters/ repair")
-        print("  python platform-export.py chapters/ repair --project .")
-        sys.exit(1)
+        _print_usage()
+        return 2
 
     chapters_dir = sys.argv[1]
     fmt = sys.argv[2]
@@ -560,17 +569,20 @@ def main():
                 if "error" not in info:
                     parts.append(f"{f}({info['chapters']}章,{info['total_words']:,}字)")
             print(f"修复完成: {' | '.join(parts)}")
-        return
+        # repair 分支：任一格式出错即视为失败
+        if any("error" in info for info in result.values()):
+            return 1
+        return 0
 
     if fmt not in ("md", "txt"):
         print(f"错误: 不支持的格式 '{fmt}'。只支持 md / txt / repair（clean 已废弃，用 repair 清理旧结构）")
-        sys.exit(1)
+        return 2
 
     result = export_all(chapters_dir, fmt, output_dir, project_root)
 
     if "error" in result:
         print(f"错误: {result['error']}")
-        sys.exit(1)
+        return 1
 
     if not quiet:
         pretty_print_result(result)
@@ -579,6 +591,8 @@ def main():
         vol_info = f", {len(vols)} 卷" if vols else ""
         print(f"已导出 {result['chapters']} 章{vol_info} ({result['format'].upper()}, {result['total_words']:,}字)")
 
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

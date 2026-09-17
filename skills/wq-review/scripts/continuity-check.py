@@ -10,6 +10,7 @@ wq-review 剧情一致性检查脚本
     生成 continuity-report.json 包含所有发现的冲突
 """
 
+import argparse
 import json
 import os
 import re
@@ -352,6 +353,90 @@ def run_all_checks(data: Dict) -> Dict:
     }
 
 
+def normalize_rules(data: Dict) -> Dict:
+    """把两套并存的 consistency-rules.json 结构归一化。
+
+    背景：仓库里存在两种互不兼容的写法，且都有文档依据——
+      A. wq-rules/SKILL.md §consistency-rules.json 格式（对象式）：
+         characters{name:{status,location}} / items{} / foreshadowing{} / timeline{...}
+      B. scripts/consistency-rules-template.json（数组式）：
+         character_locations[] / weapons[] / key_items[] / character_state[] /
+         foreshadowing[] / timeline[]
+
+    此前脚本只认 B，导致按 A 书写的数据：
+      - timeline 是 dict，被 sorted() 遍历出字符串键 → 'str' object has no attribute 'get' 崩溃
+      - characters 是 dict，而检查器读 character_locations 数组 → 真正的 critical 冲突全部漏检
+    这里统一转成 B 的内部形态，使两种写法都能被正确检查。
+    """
+    if not isinstance(data, dict):
+        return data
+    out = dict(data)
+
+    # --- characters(对象) → character_locations(数组) ---
+    chars = out.get("characters")
+    if isinstance(chars, dict) and not out.get("character_locations"):
+        locs = []
+        for name, info in chars.items():
+            if not isinstance(info, dict):
+                continue
+            loc = info.get("location")
+            if loc:
+                locs.append({
+                    "name": name,
+                    "current_location": loc,
+                    "since_chapter": info.get("since_chapter"),
+                    "previous_locations": info.get("previous_locations", []),
+                })
+        if locs:
+            out["character_locations"] = locs
+
+    # --- items(对象) → weapons/key_items(数组) ---
+    items = out.get("items")
+    if isinstance(items, dict):
+        weapons = list(out.get("weapons") or [])
+        key_items = list(out.get("key_items") or [])
+        destroyed_marks = ("destroyed", "已毁", "broken", "lost", "丢失")
+        for name, status in items.items():
+            entry = {"item": name, "status": status, "current_chapter": None, "holder": None}
+            if isinstance(status, str) and status in destroyed_marks:
+                entry["destroyed_detail"] = status
+            weapons.append(entry)
+            key_items.append(entry)
+        if not out.get("weapons"):
+            out["weapons"] = weapons
+        if not out.get("key_items"):
+            out["key_items"] = key_items
+
+    # --- foreshadowing(对象) → 数组 ---
+    fs = out.get("foreshadowing")
+    if isinstance(fs, dict):
+        arr = []
+        for fid, info in fs.items():
+            if isinstance(info, dict):
+                item = {"id": fid}
+                item.update(info)
+                item.setdefault("status", "active")
+                item.setdefault("payoff_status", "pending")
+                arr.append(item)
+            else:
+                arr.append({"id": fid, "status": str(info), "payoff_status": "pending"})
+        out["foreshadowing"] = arr
+
+    # --- timeline(对象) → 数组 ---
+    tl = out.get("timeline")
+    if isinstance(tl, dict):
+        # 对象式 timeline 只承载"当前位置/当前章"，没有事件序列；
+        # 转成单元素数组，避免 sorted(dict) 遍历出字符串键导致崩溃。
+        out["timeline"] = [{
+            "chapter": tl.get("current_chapter", 0),
+            "event": tl.get("current_location", ""),
+            "location": tl.get("current_location", ""),
+            "characters": [],
+        }]
+
+    return out
+
+
 def scan_continuity(continuity_dir: str) -> Dict:
     """扫描continuity目录中的规则文件"""
     continuity_path = Path(continuity_dir)
@@ -371,80 +456,99 @@ def scan_continuity(continuity_dir: str) -> Dict:
     except Exception as e:
         return {"error": f"读取文件失败: {str(e)}"}
     
-    # 运行检查
-    result = run_all_checks(data)
+    # 运行检查（先归一化，兼容对象式/数组式两套 schema）
+    result = run_all_checks(normalize_rules(data))
     result["rules_file"] = str(rules_file)
     
     return result
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("用法: python continuity-check.py <.sumeru/continuity目录> [--output <输出文件>] [--quiet]")
-        print("\n示例:")
-        print("  python continuity-check.py .sumeru/continuity")
-        print("  python continuity-check.py .sumeru/continuity --quiet")
-        print("  python continuity-check.py .sumeru/continuity --output continuity-report.json")
-        sys.exit(1)
-    
-    continuity_dir = sys.argv[1]
-    output_file = None
-    quiet = "--quiet" in sys.argv
-    
-    # 解析参数
-    if "--output" in sys.argv:
-        idx = sys.argv.index("--output")
-        if idx + 1 < len(sys.argv):
-            output_file = sys.argv[idx + 1]
+def main() -> int:
+    """退出码：0=无冲突 1=有 medium/low 2=有 critical/high 3=输入错误或规则执行失败。"""
+    parser = argparse.ArgumentParser(
+        description="wq-review 剧情一致性检查（读取 consistency-rules.json）")
+    parser.add_argument(
+        "continuity_dir", nargs="?", default=None,
+        help=".sumeru/continuity 目录（分卷模式传 .sumeru/volumes/vol-N/continuity）")
+    parser.add_argument(
+        "--continuity-dir", dest="continuity_dir_opt", default=None,
+        help="同上（别名，供分卷模式显式指定；若给出则优先于位置参数）")
+    parser.add_argument(
+        "--chapters", default=None,
+        help="（兼容参数）本次修订涉及的章节号，逗号分隔；仅用于报告标注，"
+             "一致性校验始终覆盖全量 consistency-rules.json")
+    parser.add_argument("--output", default=None, help="报告输出文件（JSON）")
+    parser.add_argument("--quiet", action="store_true", help="静默模式：只输出问题摘要")
+    args = parser.parse_args()
+
+    # 兼容两种写法：位置参数 或 --continuity-dir（后者优先）
+    continuity_dir = args.continuity_dir_opt or args.continuity_dir
+    if not continuity_dir:
+        parser.error("必须给出 continuity 目录（位置参数或 --continuity-dir）")
+    output_file = args.output
+    quiet = args.quiet
     
     # 扫描
     if not quiet:
         print(f"正在检查剧情一致性: {continuity_dir}")
     result = scan_continuity(continuity_dir)
     
+    # 输入错误必须显式失败：此前静默返回 0，父Agent会误判为"检查通过"
+    if "error" in result:
+        print(f"❌ 错误: {result['error']}")
+        return 3
+
+    counts = result.get("severity_counts", {})
+    critical = counts.get("critical", 0)
+    high = counts.get("high", 0)
+    medium = counts.get("medium", 0)
+    low = counts.get("low", 0)
+    # 规则自身崩溃（多为 consistency-rules.json 结构与脚本不符）也视为失败
+    rule_errors = counts.get("error", 0)
+
     # 输出
     if output_file:
+        out_path = Path(output_file)
+        if out_path.parent and not out_path.parent.exists():
+            out_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as f:
             json.dump(result, f, ensure_ascii=False, indent=2)
         if not quiet:
             print(f"一致性报告已保存到: {output_file}")
-    elif not quiet:
+
+    if not quiet:
         print("\n" + "="*60)
         print("剧情一致性检查结果")
         print("="*60)
-        
-        if "error" in result:
-            print(f"错误: {result['error']}")
-            return
-        
         print(f"检查规则数: {len(result.get('rules_checked', []))}")
         print(f"发现冲突总数: {result.get('total_conflicts', 0)}")
-        
-        if 'severity_counts' in result:
-            counts = result['severity_counts']
+
+        if counts:
             print(f"\n冲突严重程度统计:")
-            for severity in ['critical', 'high', 'medium', 'low']:
+            for severity in ['critical', 'high', 'medium', 'low', 'error']:
                 if severity in counts:
                     print(f"  {severity}: {counts[severity]}")
-        
+
         if result.get('conflicts'):
             print("\n冲突详情:")
             for i, conflict in enumerate(result['conflicts'][:10]):
                 print(f"\n  [{i+1}] [{conflict.get('severity', 'unknown').upper()}] {conflict.get('rule_id')}")
                 print(f"      {conflict.get('message', '')}")
-    
-    # 静默模式：只返回有问题的摘要
-    elif quiet and result.get('total_conflicts', 0) > 0:
-        counts = result.get('severity_counts', {})
-        critical = counts.get('critical', 0)
-        high = counts.get('high', 0)
+    elif result.get('total_conflicts', 0) > 0:
         if critical > 0:
             print(f"🚨 发现 {critical} 个严重冲突，需立即处理")
         if high > 0:
             print(f"⚠️ 发现 {high} 个高优先级问题")
-    
-    return result
+
+    if rule_errors > 0:
+        print(f"❌ {rule_errors} 个检查规则执行失败（consistency-rules.json 结构可能不符）")
+        return 3
+    if critical or high:
+        return 2
+    if medium or low:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

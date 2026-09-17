@@ -79,7 +79,7 @@ requires: [wq-rules]
 
 ### ⑥ 父Agent独占调度权
 
-子Agent绝不自决下一步。父Agent持有有序队列，派发 → 回收 → 定向验证 → 更新状态 → 派下一张卡。子Agent只返回修改后的文本 + 改动说明 + SUMERU_STATUS，**没有"我觉得还要改"的发言权**，**禁止再调度子Agent**（沿用 `subagent-rules.md` 第十部分）。
+子Agent绝不自决下一步。父Agent持有有序队列，派发 → 回收 → 定向验证 → 更新状态 → 派下一张卡。子Agent**直接写入 `chapters/{三位章号}-{标题}.md`**，只返回 SUMERU_STATUS + 改动说明（`REVISE_NOTE`），**没有"我觉得还要改"的发言权**，**禁止再调度子Agent**（沿用 `subagent-rules.md` 第十部分）。
 
 ## 修稿任务卡 Schema
 
@@ -201,7 +201,7 @@ pending → in-progress → converged      （达 successCriterion）
 1. **文件路径校验**：文件名符合 `{三位章节号}-{标题}.md`（沿用 wq-write 规则），异常文件名删除并报错终止。
 2. **scope 校验**：比对改动是否越出 `scope.paragraphs`。越界改动 → 回退到 best，`retryCount++`，记录 issue。
 3. **protectedElements 校验**：比对 SUMERU_STATUS 与 protectedElements，违反 → 回退 best，`retryCount++`。
-4. **轻量评分（v1.5.0 优化）**：不再调用 wq-score（避免重复读全章×5维度）。改用**双指标判定**：
+4. **轻量评分（v1.5.0 优化）**：不再调用 wq-score（避免重复读全章 × 5 维度）。改用**双指标判定**：
    - **字数验证**：`len(re.findall(r"[\u4e00-\u9fa5]", body))` ≥ successCriterion 中 wordCount 目标 → 字数达标
    - **反AI验证**：`python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本章> --quiet` exit 0 或 1（非阻断）→ 质量达标
    - 两指标均达标 → 视为"优于 best"；仅一项达标 → 视为"持平"；均不达标 → 视为"退步"
@@ -212,7 +212,7 @@ pending → in-progress → converged      （达 successCriterion）
    - `retryCount >= maxRetries` → 标 `best-effort`，记 `stopReason`。
 6. **回归扫描（修订后强制）**：对改过的章节跑轻量回归，防止 polish/revise 改稿重新引入 AI 句式/标点/一致性问题：
    - `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <本章> --output .sumeru/revise --quiet`；退出码 2（阻断）→ 回退 best，`retryCount++`，记 issue；退出码 1（warning）→ 写入 `.sumeru/issues.md`，不阻断；
-   - `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --chapters <本章> --quiet`（分卷模式先 `export SUMERU_CURRENT_VOLUME=vol-N`，输入 `.sumeru/volumes/vol-N/continuity`）；critical 冲突 → 回退 best，`retryCount++`；
+   - `python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --chapters <本章> --quiet`（分卷模式改为 `.sumeru/volumes/vol-N/continuity`）；退出码 3（输入错误/规则崩溃）或 2（critical/high 冲突）→ 回退 best，`retryCount++`；
    - 回归扫描与定向重评（第 4 步）可合并为一次子Agent回收后的双校验：先回归扫描通过，再跑定向重评。
 7. **写回**：converged/best-effort 才把 best 版本写回 `chapters/`；写前备份原稿到 `.sumeru/revise/original/`。
 
@@ -276,10 +276,16 @@ pending → in-progress → converged      （达 successCriterion）
 
 ### 子Agent契约
 
-子Agent读取 `shared-revise.md` + `cards-rev-{chapter}.md`，**只读这两个文件 + 不许 Glob/Grep/Read 搜索项目目录**（沿用 `subagent-rules.md`）。输出：
+子Agent读取 `shared-revise.md` + `cards-rev-{chapter}.md`，**只读这两个文件 + 不许 Glob/Grep/Read 搜索项目目录**（沿用 `subagent-rules.md`）。
 
-- 修改后的**完整章节正文**（首行含 `<!-- SUMERU_STATUS: ... -->`，state_diff 只含本次 scope 内变更）；
-- 末尾附 `## REVISE_NOTE`：用 2-4 行说明改了哪几段、用了什么 op、为什么这样改。
+**产出（必须写入文件，不得只返回文本）**：
+
+1. **将修改后的完整章节正文写入 `chapters/{三位章号}-{标题}.md`**（首行含 `<!-- SUMERU_STATUS: ... -->`，state_diff 只含本次 scope 内变更）。路径以 context pack 的 `Output Requirements` 为准，禁止自行推断。
+2. **返回给父Agent**的内容仅含：
+   - `<!-- SUMERU_STATUS: ... -->` 标记（不含正文）；
+   - 末尾附 `## REVISE_NOTE`：用 2-4 行说明改了哪几段、用了什么 op、为什么这样改。
+
+> 父Agent收敛门第 1 步会做**文件路径校验**——文件名不符将删除该文件并终止该任务，因此路径必须严格一致。
 
 子Agent**禁止**：
 - 改 `scope` 外段落；

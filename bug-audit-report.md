@@ -306,12 +306,16 @@ wordlib[level]["categories"]["custom"] = custom_words
 
 ### X-4: `platform-export.py` 卷信息读取路径与 CLAUDE.md Canonical 路径不一致
 
+> ⚠️ **本条结论已于 2026-09 复核并驳回**。复核依据：`wq-rules/SKILL.md`（唯一全局约束源）第三部分 Canonical 路径规定章节任务卡为 **`outlines/chapters.json`**（仓库内 57 处 / 11 个文件如此书写），`.sumeru/outlines/chapters.json` 仅出现在 `CLAUDE.md` 与 `wq-finalize/SKILL.md` 的旧表述中，且已在本次修复中统一。
+> 若照原建议「移除第一个路径候选，只保留 `.sumeru/outlines/chapters.json`」，反而会让按卷导出失效。
+> 正确做法：**保留两个候选**（脚本现有实现正确），并把 `CLAUDE.md:43`、`README.md:165`、`wq-finalize/SKILL.md:236` 统一为 `outlines/chapters.json`（已完成）。
+
 **文件**: `skills/wq-finalize/scripts/platform-export.py` 行 28-31 vs `CLAUDE.md`  
 **问题**: 脚本尝试从 `project_root / "outlines" / "chapters.json"` 和 `project_root / ".sumeru" / "outlines" / "chapters.json"` 读取卷信息。但根据 CLAUDE.md 的 Canonical 路径定义，章节任务卡路径应为 `.sumeru/outlines/chapters.json`，用户可见的 `outlines/` 目录不在 Canonical 路径中。
 
 **影响**: 第一个路径 `project_root / "outlines" / "chapters.json"` 是冗余的，不会匹配到任何文件。
 
-**修复建议**: 移除第一个路径候选，只保留 `.sumeru/outlines/chapters.json`。
+**修复建议**（~~已驳回~~，见上方复核说明）: 移除第一个路径候选，只保留 `.sumeru/outlines/chapters.json`。
 
 ---
 

@@ -40,7 +40,7 @@ skills/
 - `.sumeru/status.json`：阶段和章节状态
 - `.sumeru/intro.md`：小说简介
 - `.sumeru/issues.md`：问题清单
-- `.sumeru/outlines/chapters.json`：章节任务卡
+- `outlines/chapters.json`：章节任务卡
 - `.sumeru/cache/`：摘要缓存
 - `.sumeru/context-packs/`：子Agent上下文包
 - `.sumeru/continuity/`：剧情一致性数据
@@ -54,6 +54,6 @@ skills/
 - 正文写作、审查修复、润色默认直接产出最终版本，修改前保留最小备份。
 - 剧情统一优先：人物位置、道具状态、时间线、伏笔和战力必须与 continuity 一致。
 - 发布导出必须剥离 `SUMERU_STATUS` 注释。
-- 子Agent只读 context pack，只返回文本结果，不写项目文件。
+- 子Agent只读 context pack，直接写入指定的正文章节文件（polish 先写 `.sumeru/polish/temp/`），返回精简状态标记，不碰状态类文件。
 
 详细规则见 `skills/wq-rules/SKILL.md`。

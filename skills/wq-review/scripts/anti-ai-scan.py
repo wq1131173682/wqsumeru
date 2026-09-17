@@ -59,7 +59,7 @@ def _load_thresholds() -> dict:
         "MICRO_ARC_MIN_PARAGRAPHS": 8,
         "DIALOG_MARKER_DOMINANCE": 0.80, "DIALOG_MARKER_MIN_TOTAL": 5,
         "DIALOG_EMOTION_COMMENTARY_MIN_HITS": 3,
-        "CLICHE_HIT_THRESHOLD": 3, "DESCRIPTION_PARAGRAPH_MIN_LEN": 80,
+        "CLICHE_HIT_THRESHOLD": 3, "DESCRIPTION_PARAGRAPH_MIN_LEN": 30,
         "EM_DASH_DENSITY_PER_1K": 5, "EM_DASH_SIMPLE_CONTINUATION_MIN": 3,
         "ELLIPSIS_FORMAT_MISMATCH_MIN": 2,
         "EXCLAMATION_STACK_MIN": 2, "EXCLAMATION_DENSITY_PER_1K": 3,
@@ -166,12 +166,13 @@ MONOLOGUE_PATTERNS: List[str] = [
     r"心中暗暗?[思忖揣度盘算想]+",
 ]
 
-# 纯描写段落识别（无对话/无动作/无角色提及 + 长度≥80 字 + 句末无引号）
+# 纯描写段落识别（无对话/无人物施动 + 长度达标 + 含描写关键词）
 DESCRIPTION_NARRATIVE_KEYWORDS = [
-    "天空", "云", "风", "阳光", "月光", "夜色", "星辰",
-    "山", "水", "河", "湖", "海", "林", "树", "草",
-    "城", "镇", "街道", "屋", "殿", "塔", "门", "墙",
-    "气氛", "空气中", "弥漫", "笼罩", "寂静", "安静",
+    "天空", "云", "风", "阳光", "月光", "夜色", "星辰", "暮色", "晨光", "雾气",
+    "山", "水", "河", "湖", "海", "林", "树", "草", "花", "叶", "雪", "雨",
+    "城", "镇", "街道", "屋", "殿", "塔", "门", "墙", "窗", "梁", "柱", "阶",
+    "气氛", "空气中", "弥漫", "笼罩", "寂静", "安静", "苔", "石", "尘", "烟",
+    "远处", "四周", "周围", "眼前", "天际", "山谷", "崖", "溪", "谷底", "角落",
 ]
 
 # 核心事件识别：含以下动词且非对话/非心理
@@ -182,6 +183,23 @@ EVENT_VERBS = [
     "见", "看", "听", "望", "望见", "发现", "察觉", "意识到",
     "取", "拿", "交", "递", "收", "藏", "放", "丢", "丢下",
     "死", "伤", "昏", "醒", "倒", "起", "立", "跪", "坐",
+]
+
+# ── 人物施动判据（专供"纯描写"识别，与 EVENT_VERBS 分开维护）──────────
+# 不能复用 EVENT_VERBS 的裸单字：其中的「打」会命中描写用语「打转」，
+# 「看/立/起/放/出」在写景中也极常见，导致 80 字以上的纯描写段落
+# 永远无法被识别，narrative_high_description（high 阻断）形同虚设。
+AGENCY_PRONOUNS = [
+    "他", "她", "它", "他们", "她们", "两人", "三人", "众人",
+    "自己", "对方", "主角", "那人", "此人",
+]
+AGENCY_ACTION_CHARS = "走跑冲退夺杀斩砍抓拿放抬转站坐跪卧躺扑挥踢跃翻滚爬喊喝问说"
+ACTION_PHRASES = [
+    "转身", "抬手", "抬头", "低头", "回头", "点头", "摇头", "皱眉", "冷笑", "大笑",
+    "开口", "说话", "问道", "答道", "沉声", "低声", "出声",
+    "走进", "走出", "走向", "冲向", "跑向", "看向", "望向", "望向",
+    "拿起", "放下", "抓住", "松开", "拔出", "挥出", "出手", "迈步",
+    "起身", "坐下", "站起", "跪下", "倒在", "扑向", "抓住",
 ]
 
 
@@ -279,16 +297,34 @@ def is_transition_paragraph(paragraph: str) -> bool:
     return False
 
 
+def has_character_agency(paragraph: str) -> bool:
+    """判断段落是否存在"人物在动"（施动），用于区分描写与叙事。
+
+    不复用 EVENT_VERBS 的裸单字（「打」会命中「打转」这类描写用语），
+    改用三类证据：人称代词 + 动作字、双字动作短语。
+    """
+    if not paragraph:
+        return False
+    # 1) 动作短语（最强信号）
+    for phrase in ACTION_PHRASES:
+        if phrase in paragraph:
+            return True
+    # 2) 人称代词 + 动作字同现（如"他转过身"）
+    if any(p in paragraph for p in AGENCY_PRONOUNS):
+        if any(c in paragraph for c in AGENCY_ACTION_CHARS):
+            return True
+    return False
+
+
 def is_description_paragraph(paragraph: str) -> bool:
-    """判断段落是否纯描写（无对话/无角色动作）。"""
+    """判断段落是否纯描写（无对话、无人物施动、含描写关键词）。"""
     if len(paragraph) < DESCRIPTION_PARAGRAPH_MIN_LEN:
         return False
     if extract_dialogue_chars(paragraph) > 0:
         return False
-    # 含人物行为动词 → 非纯描写
-    for verb in EVENT_VERBS:
-        if verb in paragraph:
-            return False
+    # 有人物施动 → 非纯描写（这是叙事，不是描写）
+    if has_character_agency(paragraph):
+        return False
     # 至少出现一个描写关键词
     return any(kw in paragraph for kw in DESCRIPTION_NARRATIVE_KEYWORDS)
 
@@ -703,7 +739,9 @@ def scan_chapter(
     # 4) 纯描写占比
     paras = split_paragraphs(text)
     desc_paras = [p for p in paras if is_description_paragraph(p)]
-    desc_chars = sum(len(p) for p in desc_paras)
+    # 分子与分母口径必须一致：都只数汉字。
+    # 此前分子用 len(p)（含标点/空格），分母是汉字数，占比可超过 100%。
+    desc_chars = sum(len(re.findall(r"[\u4e00-\u9fa5]", p)) for p in desc_paras)
     desc_ratio = desc_chars / max(1, hanzi)
     metrics["description_paragraph_count"] = len(desc_paras)
     metrics["description_ratio"] = desc_ratio
@@ -1142,7 +1180,9 @@ def main() -> int:
     parser.add_argument("--output", default=".sumeru/review", help="报告输出目录")
     parser.add_argument("--quiet", action="store_true", help="静默模式：只在有问题时输出摘要")
     parser.add_argument("--strict", action="store_true", help="严格模式：medium 视作 high")
-    parser.add_argument("--filter", default=None, help="只输出指定 chapter 范围，逗号分隔，如 001,002,005")
+    parser.add_argument("--filter", "--chapters", dest="filter", default=None,
+                        help="只输出指定 chapter 范围，逗号分隔，如 001,002,005"
+                             "（--chapters 为等价别名，供 wq-write/wq-review/wq-revise 的分卷/单章调用）")
     parser.add_argument("--project", default=None, help="项目根目录（用于读取 project.json.chapterWordRange）")
     parser.add_argument("--no-cache", action="store_true", help="禁用缓存，强制重新扫描所有章节")
     args = parser.parse_args()

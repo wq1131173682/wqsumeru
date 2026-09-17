@@ -43,7 +43,7 @@ requires: [wq-rules]
 - 用户要求"全书审查/完整报告"时，才加载全局大纲并生成完整报告
 **第二阶段：章节细节审查（子Agent并行）**
 
-> **并行规则**详见 `wq-rules/SKILL.md` 第二部分"子Agent并行处理规则"）
+> **并行规则**详见 `wq-rules/SKILL.md` 第二部分"子Agent并行处理规则"：
 - 每个子Agent最多3 章，使用 `review-<range>.md` context pack
 - 子Agent输出审查结论+状态标记
 - 父Agent汇总所有子Agent输出
@@ -63,6 +63,7 @@ requires: [wq-rules]
 1. 读取 fix-plan.json 中的修复记录
 2. 对每个已修复章节执行针对性验证（只检查原问题类型）
 3. **新增（v1.4.10）**：额外验证字数——调用 `python skills/wq-review/scripts/anti-ai-scan.py chapters --chapters <修复章> --project . --quiet`，exit 3 仍标记为修复未通过（字数不足需 revise 处理）
+   > 参数说明：`--chapters` 与 `--filter` 等价（逗号分隔章号，如 `--chapters 001,002`），脚本两者都接受。
 4. 验证通过 → 章节状态更新为 `fixed`
 5. 验证未通过 → 追加到issues.md，标记`reverify_failed`
 
@@ -79,10 +80,10 @@ requires: [wq-rules]
 python -c "
 import concurrent.futures, subprocess, sys
 scripts = [
-    ('continuity', ['python', 'skills/wq-review/scripts/continuity-check.py', 'chapters/', '--quiet']),
-    ('foreshadowing', ['python', 'skills/wq-review/scripts/foreshadowing-tracker.py', 'chapters/', '--quiet']),
+    ('continuity', ['python', 'skills/wq-review/scripts/continuity-check.py', '.sumeru/continuity', '--quiet']),
+    ('foreshadowing', ['python', 'skills/wq-review/scripts/foreshadowing-tracker.py', '.sumeru/continuity', '--quiet']),
     ('anti_ai', ['python', 'skills/wq-review/scripts/anti-ai-scan.py', 'chapters/', '--output', '.sumeru/review', '--quiet']),
-    ('word_count', ['python', 'skills/wq-review/scripts/chapter-word-counter.py', 'chapters/', '--quiet']),
+    ('word_count', ['python', 'skills/wq-review/scripts/chapter-word-counter.py', '--dir', 'chapters/', '--quiet']),
 ]
 with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
     futures = {name: ex.submit(subprocess.run, cmd, capture_output=True, text=True, encoding='utf-8', errors='replace') for name, cmd in scripts}
@@ -92,11 +93,22 @@ for name, r in results.items():
 "
 
 # 方式2：Shell 并行（Windows PowerShell）
-Start-Job -ScriptBlock { python skills/wq-review/scripts/continuity-check.py chapters/ --quiet } | Wait-Job
-Start-Job -ScriptBlock { python skills/wq-review/scripts/foreshadowing-tracker.py chapters/ --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/continuity-check.py .sumeru/continuity --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/foreshadowing-tracker.py .sumeru/continuity --quiet } | Wait-Job
 Start-Job -ScriptBlock { python skills/wq-review/scripts/anti-ai-scan.py chapters/ --output .sumeru/review --quiet } | Wait-Job
-Start-Job -ScriptBlock { python skills/wq-review/scripts/chapter-word-counter.py chapters/ --quiet } | Wait-Job
+Start-Job -ScriptBlock { python skills/wq-review/scripts/chapter-word-counter.py --dir chapters/ --quiet } | Wait-Job
 ```
+
+> **参数易错点**（4 个脚本的输入各不相同，写错会静默失败或直接报错）：
+>
+> | 脚本 | 输入 | 说明 |
+> |------|------|------|
+> | `continuity-check.py` | `.sumeru/continuity` | 读 continuity 目录，**不是 chapters/** |
+> | `foreshadowing-tracker.py` | `.sumeru/continuity` | 同上 |
+> | `anti-ai-scan.py` | `chapters/` | 读章节目录 |
+> | `chapter-word-counter.py` | `--dir chapters/` | **必须用 `--dir`**，没有位置参数 |
+>
+> 分卷模式：前两个改为 `.sumeru/volumes/vol-N/continuity`。
 
 **性能收益**：以 300 章全书审查为例，串行约 60s，并行约 15s（受最慢脚本 anti-ai-scan 制约），**节省 75% 时间**。
 
@@ -206,28 +218,32 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 - `.sumeru/review/anti-ai-report.json`：结构化报告
 - `.sumeru/review/anti-ai-report.md`：人工可读报告
 
-#### 扫描项（共 19 项，v1.4.4 增字数检测，v1.4.5 字数降级为警告，v1.4.8 增全书跨章模板检测）
+#### 扫描项（共 22 个检查码）
 
-| 类别 | 检查项 | 阈值 | 严重度 |
-|------|--------|------|--------|
-| 9 维反 AI | 句式重复 | 连续 ≥ 6 句主谓宾完整 | medium |
-| 9 维反 AI | 段内开场重复 | 同一段连续 3 句同主语 | low |
-| 9 维反 AI | 连续推进无缓冲 | 连续 ≥ 3 段都在推进剧情 | low |
-| 9 维反 AI | 批内开场雷同 | 相邻章首 8 字重复 | medium |
-| 9 维反 AI | 批内钩子雷同 | 相邻章末 8 字重复 | medium |
-| 9 维反 AI | 字数波动 | 偏离批均值 ±50% | low |
-| 9 维反 AI | **段间 micro-arc 模板**（v1.3.4 新增）| 4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次（章节 ≥ 8 段）| medium |
-| 9 维反 AI | **对话标记词集中**（v1.3.4 新增）| 单一标记词占全部 ≥ 80%（总标记 ≥ 5）| medium |
-| 9 维反 AI | **对话后旁白解说**（v1.2.4 新增）| 对话引号后 50 字内情绪解说词 ≥ 3 处 | medium |
-| 水文硬指标 | 对话占比 | < 5% | medium |
-| 水文硬指标 | 内心独白占比 | > 10% | medium |
-| 水文硬指标 | 纯描写段落占比 | > 35% | **high（阻断）** |
-| 水文硬指标 | 核心事件数 | < 1 | **high（阻断）** |
-| 水文硬指标 | 时间/场景切换 | 0 | medium |
-| 水文硬指标 | **Cliché 套路短语**（v1.3.4 黑名单扩展：+ 战斗套路 + 转折模板 + 情绪标签）| ≥ 3 个不同短语 | **high（阻断）** |
-| 节奏拖沓 | 场景类型占比 | 日常/过渡 > 30% | medium |
-| 字数门槛（v1.4.4 新增，v1.4.5 降级） | **字数不足 < 目标×80%** | 缺口 >40%→critical，缺口 10-40%→high | exit 1 警告（不阻断）；由 revise 轻量路径处理 |
-| 节奏拖沓 | 字数过多 | > `chapterWordRange[1]` | low |
+> 反 AI 句式 B-1~B-11、水文硬指标 C-1~C-7、标点规范 3 项、字数门槛 1 项；编号与 `wq-rules/SKILL.md` 第十部分一致。
+
+| 编号 | 类别 | 检查项 | 阈值 | 严重度 |
+|------|------|--------|------|--------|
+| B-1 | 反 AI 句式 | 句式重复 | 连续 ≥ 6 句主谓宾完整 | medium |
+| B-4 | 反 AI 句式 | 段内开场重复 | 同一段连续 3 句同主语 | low |
+| B-3 | 反 AI 句式 | 连续推进无缓冲 | 连续 ≥ 3 段都在推进剧情 | low |
+| B-2 | 反 AI 句式 | 批内开场雷同 | 相邻章首 8 字重复 | medium |
+| B-5 | 反 AI 句式 | 批内钩子雷同 | 相邻章末 8 字重复 | medium |
+| B-6 | 反 AI 句式 | 字数波动 | 偏离批均值 ±50% | low |
+| B-7 | 反 AI 句式 | **段间 micro-arc 模板**（v1.3.4 新增）| 4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次（章节 ≥ 8 段）| medium |
+| B-8 | 反 AI 句式 | **对话标记词集中**（v1.3.4 新增）| 单一标记词占全部 ≥ 80%（总标记 ≥ 5）| medium |
+| B-9 | 反 AI 句式 | **对话后旁白解说**（v1.2.4 新增）| 对话引号后 50 字内情绪解说词 ≥ 3 处 | medium |
+| B-10 | 反 AI 句式 | **全书开场模板化**（v1.4.8 新增）| 8 字开场前缀全书 ≥ 3 章重复 | medium |
+| B-11 | 反 AI 句式 | **全书钩子模板化**（v1.4.8 新增）| 8 字结尾前缀全书 ≥ 3 章重复 | medium |
+| C-1 | 水文硬指标 | 对话占比 | < 5% | medium |
+| C-2 | 水文硬指标 | 内心独白占比 | > 10% | medium |
+| C-3 | 水文硬指标 | 纯描写段落占比 | > 35% | **high（阻断）** |
+| C-4 | 水文硬指标 | 核心事件数 | < 1 | **high（阻断）** |
+| C-5 | 水文硬指标 | 时间/场景切换 | 0 | medium |
+| C-6 | 水文硬指标 | **Cliché 套路短语**（v1.3.4 黑名单扩展：+ 战斗套路 + 转折模板 + 情绪标签）| ≥ 3 个不同短语 | **high（阻断）** |
+| C-7 | 水文硬指标 | 场景类型占比 | 日常/过渡 > 30% | medium |
+| — | 字数门槛（v1.4.4 新增，v1.4.5 降级） | **字数不足 < 目标×80%** | 缺口 >40%→critical，缺口 10-40%→high | exit 1 警告（不阻断）；由 revise 轻量路径处理 |
+| — | 字数门槛 | 字数过多 | > `chapterWordRange[1]` | low |
 
 #### 阻断规则
 
@@ -394,19 +410,20 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 
 ### 2. 脚本路径（Volume Mode Script Args）
 
-当 volumes 存在时，父Agent调用检查脚本必须**追加 `--continuity-dir` 参数**，指向当前卷的 continuity 目录：
+当 volumes 存在时，父Agent调用检查脚本必须**指向当前卷的 continuity 目录**（可用位置参数，或用 `--continuity-dir` 显式指定，两者等价）：
 
 ```bash
 # 扁平模式（默认）
-python skills/wq-review/scripts/continuity-check.py <chapters_dir>
+python skills/wq-review/scripts/continuity-check.py .sumeru/continuity
 
-# 分卷模式（追加参数）
-python skills/wq-review/scripts/continuity-check.py <chapters_dir> \
-    --continuity-dir .sumeru/volumes/vol-N/continuity
+# 分卷模式（指向卷内 continuity）
+python skills/wq-review/scripts/continuity-check.py .sumeru/volumes/vol-N/continuity
 
-python skills/wq-review/scripts/foreshadowing-tracker.py <chapters_dir> \
-    --continuity-dir .sumeru/volumes/vol-N/continuity
+python skills/wq-review/scripts/foreshadowing-tracker.py .sumeru/volumes/vol-N/continuity
 ```
+
+> ⚠️ 这两个脚本读的是 **continuity 目录**（内含 `consistency-rules.json`），**不是 `chapters/`**。
+> 传 `chapters/` 会因找不到 `consistency-rules.json` 而报错（退出码 3）。
 
 `currentVolume` 由父Agent从 `project.json.currentVolume` 字段读取后透传给脚本，不得让脚本自行推断（避免跨卷误判）。
 

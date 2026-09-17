@@ -232,8 +232,8 @@ publish/
 
 当项目包含卷信息时自动启用（需通过 `--project` 指定项目根目录）。卷信息读取优先级：
 
-1. **`outlines/chapters.json`**：每章的 `volume` 或 `vol` 字段
-2. **`.sumeru/outlines/chapters.json`**：同上，新路径
+1. **`outlines/chapters.json`**（canonical 路径）：每章的 `volume` 或 `vol` 字段
+2. **`.sumeru/outlines/chapters.json`**：旧路径兼容（只读）
 3. **`outline.md`**：从 "第X卷" 和章节范围文本中正则提取（兜底）
 
 分卷时：

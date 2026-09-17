@@ -162,7 +162,7 @@ short-story/
 - `tests/`：检查报告
 - `.sumeru/project.json`：项目配置，所有 Skill 优先读取
 - `.sumeru/status.json`：阶段状态和章节状态，支持断点恢复
-- `.sumeru/outlines/chapters.json`：章节任务卡
+- `outlines/chapters.json`：章节任务卡（canonical 路径；旧路径 `.sumeru/outlines/chapters.json` 只读兼容）
 - `.sumeru/cache/`：稳定摘要缓存
 - `.sumeru/context-packs/`：子Agent任务上下文包
 - `.sumeru/continuity/`：剧情一致性数据

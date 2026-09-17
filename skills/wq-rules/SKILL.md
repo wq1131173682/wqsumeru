@@ -75,7 +75,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |-------------|------|
 | `init` →`scan`(可选) | 用户触发扫榜，生成 `.sumeru/research/` 目录和报告 |
 | `scan` →`topic` | 趋势报告已生成（可选，无scan也可直接进入topic） |
-| `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平可|
+| `topic` →`outline` | `plan.md` 已写入，含选题方向和目标平台|
 | `outline` →`anchor` | `outline.md`、`chapters.json`、`.sumeru/intro.md` 存在 |
 | `anchor` →`write` | `.sumeru/creative-anchors.md` 存在，≥3 个锚点确认|
 | `write` →`review` | 目标章节文件存在，状态`drafted`，无缺章；字数不足仅警告不阻断（软阈值，由 revise 处理）|
@@ -137,7 +137,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |------|------|
 | **适用范围** | 章节写作、章节重写、剧情审查、轻量修复、内容润色、完稿校验、平台导出、章节细纲生成 |
 | **核心原则** | 写正文必须走子agent，单章续写也必须走子agent，父agent绝不写正文|
-| **并行上限** | 最多3 个子agent同时运行（硬性上限，不可突破） |
+| **并行上限** | 默认最多 **3** 个子agent同时运行；**例外**：轻量字数路径（revise mode=lightweight）与 wq-score 维度评分可到 **5**（详见第十五部分·六「并行度推荐」） |
 | **禁止嵌套** | 子agent 绝对不允许再调度任何子agent；子agent 内的所有工作必须由该子agent 自身完成，不得通过 task/Bash/子agent 工具发起二次调度 |
 | **分片约束** | 每个子Agent最多负责3 个连续章节|
 | **计算公式** | 所需Agent数= `min(ceil(总章节数 / 3), 3)` |
@@ -148,7 +148,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 每批子Agent完成后，父Agent生成"实际摘要"（≤300字），作为下一批 context pack 的输入。context pack 中只保留最近3 批摘要，更早的合并为一行概述。
 **摘要格式**（纯事实列表）：
 ```
-## 批次摘要: 第-6章- 事件：主角觉醒系统001)、通过宗门考核(003)、击败外门弟存005)
+## 批次摘要: 第-6章- 事件：主角觉醒系统001)、通过宗门考核(003)、击败外门弟子(005)
 - 人物：主角练气三层→五层，苏瑾轻伤恢复，赵无极首次出在- 道具：黑色残片归主角，回春丹消者构- 伏笔：v1黑衣人身从mentioned)，v2残片来历(active)
 - 情绪：压抑→突破→暗爆```
 
@@ -186,7 +186,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 |------|------|
 | 只读 context pack | 不读取 context pack 外的任何文件（已有章节文件除外） |
 | 执行核心任务 | 根据 context pack 完成任务单审查/润色要求 |
-| 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写入 `outlines/chapters.json`，无需经父Agent透传 |
+| 直接写入正文章节文件 | 正文写入 `chapters/*.md`，细纲写入 `outlines/chapters.json`，无需经父Agent透传；polish 例外：先写 `.sumeru/polish/temp/{章号}.md`，父Agent校验字数后写回 `chapters/` |
 | 返回状态标记 | 只返回 `<!-- SUMERU_STATUS: ... -->`（不含正文），父Agent据此更新状态 |
 | 不碰状态文件 | 不更新 status.json、changelog、cache、issues |
 | **禁止再调度** | **绝对不允许调用 subagent/ralph/workflow/task 等工具启动新的子Agent；所有工作必须在本Agent内独立完成** |
@@ -201,7 +201,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 | 共享上下文| `shared-{task}.md` | ~1500-2000 存| 同批次所有子Agent共用 |
 | 本组任务单| `cards-{范围}.md` | ~300-500 存| 每子Agent独有 |
 
-子Agent先读共享上下文，再读本组任务卡，两者合并作为完数context。
+子Agent先读共享上下文，再读本组任务卡，两者合并作为完整context。
 ## 一、通用共享上下文格式（v1.4.9 补充预算约束）
 ```markdown
 # Shared Context: {task} (batch {N})
@@ -241,13 +241,14 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 # Task Cards: {范围}
 
 ## Chapter Cards
-### 第{N}章「标题。- purpose: ...
+### 第{N}章「标题」
+- purpose: ...
 - events: ...（≥3个具体事件）
 - openingHook: 本章开场方式（可执行的场景描述）- acceptanceCriteria: ...
 - creativeGoal: ...
 - emotionalBeat: ...
 
-## 本章执行提醒 (≥材
+## 本章执行提醒（≥3 条）
 具体可执行的过程提醒、```
 
 ## 二·五、Context Pack 基准缓存（v1.5.0 新增）
@@ -332,43 +333,43 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ## 格式
 
 ```markdown
-<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff={"location_change":{"苏瑾":"北域冰原"},"state_change":{"苏瑾":"minor_injury"},"item_change":{"黑色残片":"acquired"}}, char_update={"苏瑾":{"status":"minor_injury","location":"北域冰原"},"主角":{"status":"healthy","buff":"龙血狂暴","remaining":"3大}}, plot_update={"foreshadowing":{"v3":"黑衣人身份暗示推过}}, batch=002, timestamp=2026-05-18T10:30:00Z -->
+<!-- SUMERU_STATUS: chapter=037, status=drafted, state_diff={"location_change":{"苏瑾":"北域冰原"},"state_change":{"苏瑾":"minor_injury"},"item_change":{"黑色残片":"acquired"}}, char_update={"苏瑾":{"status":"minor_injury","location":"北域冰原"},"主角":{"status":"healthy","buff":"龙血狂暴","remaining":"3天"}}, plot_update={"foreshadowing":{"v3":"黑衣人身份暗示推进"}}, batch=002, timestamp=2026-05-18T10:30:00Z -->
 ```
 
 ## 字段说明
 
 | 字段 | 含义 | 格式 |
 |------|------|------|
-| `chapter` | 章节可| 字符为|
+| `chapter` | 章节号 | 字符串 |
 | `status` | 章节状态| `drafted` / `polished` / `finalized` |
 | `state_diff` | 结构化状态变化| JSON 对象 |
 | `char_update` | 人物当前状态| JSON 对象 |
 | `plot_update` | 伏笔线推过| JSON 对象 |
-| `batch` | 所属批次号 | 字符为|
+| `batch` | 所属批次号 | 字符串 |
 | `timestamp` | 生成时间 | ISO 8601 |
 
 ## state_diff 分类
 
-| 分类锁| 含义 | 示例 |
+| 分类键 | 含义 | 示例 |
 |--------|------|------|
 | `location_change` | 人物位置变化 | `{"苏瑾":"北域冰原"}` |
 | `state_change` | 人物健康状态变化| `{"苏瑾":"minor_injury"}` |
 | `power_change` | 战力等级变化 | `{"主角":"练气五层"}` |
 | `item_change` | 道具状态变化| `{"黑色残片":"acquired"}` |
 | `foreshadow_change` | 伏笔状态变化| `{"v3":"mentioned"}` |
-| `buff_change` | Buff状态变化| `{"主角":"龙血狂暴|3大}` |
+| `buff_change` | Buff状态变化| `{"主角":"龙血狂暴|3天"}` |
 
 各分类键可选，只包含本章有变化的分类。`state_diff` 必须是合法JSON 单行。
 ## 关键约束
 
 - 状态标记必须在输出**第一行**
-- 标记缺失、JSON 不合法、章节号不匹配时，不得更新状态文从
+- 标记缺失、JSON 不合法、章节号不匹配时，不得更新状态文件
 ## 父Agent处理流程
 
 1. 提取每章的`<!-- SUMERU_STATUS -->` 标记
 2. 解析 `state_diff` 更新 `.sumeru/continuity/consistency-rules.json`
 3. 解析 `char_update` 更新人物状态4. 就`status` 写入 `.sumeru/status.json`
-5. 重启后扫提`chapters/*.md` 标记即可重建状态
+5. 重启后扫描 `chapters/*.md` 标记即可重建状态
 ---
 
 # 第六部分：独立调用自举协议
@@ -420,7 +421,8 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 - 不要求先运行 worldbuilder
 - 能从现有文件推断的信息不重复询问
-- 缺信息但不阻塞任务时用合理默认值- 不因缓存/context pack 缺失而失责
+- 缺信息但不阻塞任务时用合理默认值
+- 不因缓存/context pack 缺失而失责
 
 ---
 
@@ -505,14 +507,14 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 ```json
 {
   "schemaVersion": 1,
-  "title": "未命名作品,
+  "title": "未命名作品",
   "genre": "玄幻",
   "targetPlatform": "番茄",
   "audience": "男频",
   "plannedWords": 800000,
   "plannedChapters": 300,
   "chapterWordRange": [2000, 3000],
-  "style": "快节奏爽文,
+  "style": "快节奏爽文",
   "tone": "热血",
   "currentStage": "outline",
   "outputLevel": "quiet",
@@ -535,7 +537,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 修复后经反审验证通过进入 `fixed`；润色发现逻辑硬伤时触发反审验证。
 ## consistency-rules.json 格式
 
-由父Agent从每章的 SUMERU_STATUS 解析合并生成，位人`.sumeru/continuity/consistency-rules.json`）
+由父Agent从每章的 SUMERU_STATUS 解析合并生成，写入 `.sumeru/continuity/consistency-rules.json`：
 ```json
 {
   "characters": {
@@ -590,7 +592,7 @@ planned →drafted →reviewed →fixed →polished →finalized →exported
 
 ## 二、父Agent校验流程
 
-写作/润色完成后，父Agent必须执行以下校验）
+写作/润色完成后，父Agent必须执行以下校验：
 ```
 1. 提取 SUMERU_STATUS 中的 state_diff、char_update、plot_update
 2. 比对 consistency-rules.json、最近3 批摘要、上一章实际结尾对比检查：
@@ -612,45 +614,58 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
     [--quiet]
 ```
 
-脚本实现 wq-review/SKILL.md §反 AI / 反水文扫描 中定义的 16 项检查 + 9 维反 AI 句式扫描（v1.2.3 新增 2 维：micro_arc + dialog_marker；v1.2.4 新增 1 维：dialog_emotion_commentary）。标点规范（破折号/省略号/感叹号）为附加检查，共 19 项。
+脚本实现 wq-review/SKILL.md §反 AI / 反水文扫描 中定义的检查项。共 **22 个检查码**，分四类：
 
-### B. 9 维反 AI 句式扫描（v1.2.4 扩展，8→9 维；与脚本阈值同步）
+| 类别 | 数量 | 编号 |
+|------|------|------|
+| A. 反 AI 句式扫描（本章 B 表） | 11 | B-1 ~ B-11 |
+| B. 水文硬指标（本章 C 表） | 7 | C-1 ~ C-7 |
+| C. 标点规范（破折号/省略号/感叹号） | 3 | 附加检查 |
+| D. 字数门槛（`word_count_shortage`） | 1 | 独立通道，需 `--project` 读取 `chapterWordRange` |
+
+> **编号说明**：B 表与 C 表各自独立编号（B-1…B-11 / C-1…C-7），避免此前两表共用序号导致的 10、11 号重复。
+> 其中 B-10 / B-11 由 `detect_global_template_repeat()` 以动态 code 传入（`anti_ai_global_opening_template` / `anti_ai_global_hook_template`），
+> 静态扫描 `"code":` 字面量只能数到 20 个，实际运行共 22 个检查码。
+
+### B. 反 AI 句式扫描（11 项，v1.2.4 扩展至 9 维 + v1.4.1 增 2 项全书级；与脚本阈值同步）
 
 | # | 扫描项| 阈值| 严重度 | 处理方式 |
 |---|--------|------|--------|----------|
-| 1 | **句式重复**：同一章内连续超过 5 句全部是完整主谓宾结构| 6+ 句| medium | polish 轻量级 + 标记 |
-| 2 | **开场雷同**：本批相邻两章以相同/相似模式开场 | 8 字重复 | medium | 触发子Agent重写开场 |
-| 3 | **结构重复**：连续 3 段都在推进剧情（无缓冲段）| 3 段| low | polish 轻量级 |
-| 4 | **句子开头重复**：同一段内连续 3 句以同一主语开头 | 3 句| low | polish 轻量级 |
-| 5 | **章间钩子雷同**：本批相邻章节结尾钩子使用了相同句式 | 8 字重复 | medium | 触发子Agent重写结尾 |
-| 6 | **字数波动**：本批各章字数偏差超过±50% | 超出 | low | 标记补充 |
-| 7 | **段间 micro-arc 模板**（v1.2.3 新增）：4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次| 8+ 段章节 | medium | polish 中度 + 重排段落 |
-| 8 | **对话标记词集中**（v1.2.3 新增）：单一标记词（"说"/"道"/"问道"等）占全部对话标记 ≥ 80% | 总标记 ≥ 5 | medium | polish 中度 + 替换标记词 |
-| 9 | **对话后旁白解说**（v1.2.4 新增）：对话已表达情绪（愤怒/悲伤/冷漠等），紧接的叙述又用散文"翻译"同一情绪——如"你给我滚！"他愤怒地说 / "我不知道怎么办……"她的话语里满是无奈 | ≥ 3 处 | medium | polish 中度：删除情绪旁白解说，保留对话本身；若情绪暗示不足则改为动作细节 |
-| 10 | **全书开场模板化**（v1.4.1 新增）：任意 8 字开场前缀在全书 ≥ 3 章重复出现（补邻域窗口=2 的盲区，查"第1章与第50章都以'被X叫醒'开头"这类远距离模板复用） | ≥ 3 章 | medium | polish 中度 + 重写开场 |
-| 11 | **全书钩子模板化**（v1.4.1 新增）：任意 8 字结尾前缀在全书 ≥ 3 章重复出现 | ≥ 3 章 | medium | polish 中度 + 重写结尾 |
+| B-1 | **句式重复**：同一章内连续超过 5 句全部是完整主谓宾结构| 6+ 句| medium | polish 轻量级 + 标记 |
+| B-2 | **开场雷同**：本批相邻两章以相同/相似模式开场 | 8 字重复 | medium | 触发子Agent重写开场 |
+| B-3 | **结构重复**：连续 3 段都在推进剧情（无缓冲段）| 3 段| low | polish 轻量级 |
+| B-4 | **句子开头重复**：同一段内连续 3 句以同一主语开头 | 3 句| low | polish 轻量级 |
+| B-5 | **章间钩子雷同**：本批相邻章节结尾钩子使用了相同句式 | 8 字重复 | medium | 触发子Agent重写结尾 |
+| B-6 | **字数波动**：本批各章字数偏差超过±50% | 超出 | low | 标记补充 |
+| B-7 | **段间 micro-arc 模板**（v1.2.3 新增）：4 段结构指纹（A=推进/B=心理/C=描写/D=对话）出现 ≥ 2 次| 8+ 段章节 | medium | polish 中度 + 重排段落 |
+| B-8 | **对话标记词集中**（v1.2.3 新增）：单一标记词（"说"/"道"/"问道"等）占全部对话标记 ≥ 80% | 总标记 ≥ 5 | medium | polish 中度 + 替换标记词 |
+| B-9 | **对话后旁白解说**（v1.2.4 新增）：对话已表达情绪（愤怒/悲伤/冷漠等），紧接的叙述又用散文"翻译"同一情绪——如"你给我滚！"他愤怒地说 / "我不知道怎么办……"她的话语里满是无奈 | ≥ 3 处 | medium | polish 中度：删除情绪旁白解说，保留对话本身；若情绪暗示不足则改为动作细节 |
+| B-10 | **全书开场模板化**（v1.4.1 新增）：任意 8 字开场前缀在全书 ≥ 3 章重复出现（补邻域窗口=2 的盲区，查"第1章与第50章都以'被X叫醒'开头"这类远距离模板复用） | ≥ 3 章 | medium | polish 中度 + 重写开场 |
+| B-11 | **全书钩子模板化**（v1.4.1 新增）：任意 8 字结尾前缀在全书 ≥ 3 章重复出现 | ≥ 3 章 | medium | polish 中度 + 重写结尾 |
 
-### C. 水文硬指标（v1.2.2 新增，v1.2.3 扩展黑名单，v1.2.4 编号顺延；与脚本同步）
+### C. 水文硬指标（7 项；v1.2.2 新增，v1.2.3 扩展黑名单，v1.2.4 增项；与脚本同步）
 
 | # | 扫描项 | 阈值 | 严重度 | 处理方式 |
 |---|--------|------|--------|----------|
-| 10 | 对话占比 | < 5% | medium | polish 中度 + 补对话 |
-| 11 | 内心独白占比 | > 10% | medium | polish 中度 + 改动作暗示 |
-| 12 | **纯描写段落占比** | > 35% | **high 阻断** | 触发子Agent重写，**禁止自动注入描写** |
-| 13 | **核心事件数** | < 1 | **high 阻断** | 触发子Agent重写 |
-| 14 | 时间/场景切换 | 0 | medium | polish 中度 |
-| 15 | **Cliché 套路短语**（v1.2.3 黑名单 40+ → 80+ 词条：增"战斗套路"+"转折模板"+"情绪标签"三类）| ≥ 3 个不同短语 | **high 阻断** | 触发子Agent重写 |
-| 16 | 场景类型占比 | 日常/过渡 > 30% | medium | 调整 rhythm 规划 |
+| C-1 | 对话占比 | < 5% | medium | polish 中度 + 补对话 |
+| C-2 | 内心独白占比 | > 10% | medium | polish 中度 + 改动作暗示 |
+| C-3 | **纯描写段落占比** | > 35% | **high 阻断** | 触发子Agent重写，**禁止自动注入描写** |
+| C-4 | **核心事件数** | < 1 | **high 阻断** | 触发子Agent重写 |
+| C-5 | 时间/场景切换 | 0 | medium | polish 中度 |
+| C-6 | **Cliché 套路短语**（v1.2.3 黑名单 40+ → 80+ 词条：增"战斗套路"+"转折模板"+"情绪标签"三类）| ≥ 3 个不同短语 | **high 阻断** | 触发子Agent重写 |
+| C-7 | 场景类型占比 | 日常/过渡 > 30% | medium | 调整 rhythm 规划 |
 
-> **编号说明**：v1.2.2 → v1.2.3 编号顺延 2（新增项占 7/8 位），原 7-13 号顺延为 9-15；v1.2.3 → v1.2.4 新增第 9 项（dialog_emotion_commentary），原 9-15 号不变。
+> **编号说明**：B 表与 C 表**各自独立编号**（B-1…B-11 / C-1…C-7），
+> 修复了此前两表共用数字序号导致 10、11 号在两表中重复、且正文「共 19 项」与表内 18 行对不上的问题。
+> 下文「扫描结果处理」中的编号一律指本表编号。
 
 ### D. 扫描结果处理（v1.2.3 修订）
 
 - **critical 命中**（无 —— 当前规则无 critical 级，保留扩展位）→ 立即暂停批次
-- **high 阻断命中**（12/13/15 任一）→ **写 fix-plan.json `type=anti_ai_blocked`**，触发 write 重写流程；父 Agent 不得用"插入 2-4 段描写"方式补字数
-- **medium 命中**（1/2/5/7/8/9/10/11/14/16 任一）→ **自动触发 polish 轻量级**（不再仅写 changelog 提醒用户）；连续 2 批同章节同问题升级为 high
-- **low 命中**（3/4/6 任一）→ 写 changelog，留待 polish 中度时处理
-- **7/8/9 号新检查说明**：micro_arc / dialog_marker / dialog_emotion_commentary 留 medium 不进阻断，先观察一轮后视情况升级（v1.2.3/v1.2.4 灰度策略）
+- **high 阻断命中**（C-3 / C-4 / C-6 任一）→ **写 fix-plan.json `type=anti_ai_blocked`**，触发 write 重写流程；父 Agent 不得用"插入 2-4 段描写"方式补字数
+- **medium 命中**（B-1 / B-2 / B-5 / B-7 / B-8 / B-9 / B-10 / B-11 / C-1 / C-2 / C-5 / C-7 任一）→ **自动触发 polish 轻量级**（不再仅写 changelog 提醒用户）；连续 2 批同章节同问题升级为 high
+- **low 命中**（B-3 / B-4 / B-6 任一）→ 写 changelog，留待 polish 中度时处理
+- **B-7 / B-8 / B-9 新检查说明**：micro_arc / dialog_marker / dialog_emotion_commentary 留 medium 不进阻断，先观察一轮后视情况升级（v1.2.3/v1.2.4 灰度策略）
 
 **历史兼容性**：v1.2.1 及之前的"`anti-ai-flagged` 章节 → 记录到 changelog，不阻塞"已废弃。新行为：从 passive 提醒升级为 active 联动。
 
@@ -661,8 +676,8 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 | `destroyed_item_used` | 已毁道具不能再次使用 | critical |
 | `foreshadowing_recycled` | 已回收伏笔不能再次active | high |
 | `character_state_regression` | 人物状态不能无原因回退 | high |
-| `power_level_consistency` | 战力等级不能无原因跳跟| medium |
-| `timeline_order` | 事件时间线必须有库| high |
+| `power_level_consistency` | 战力等级不能无原因跳跃 | medium |
+| `timeline_order` | 事件时间线必须有序 | high |
 
 ## 五、伏笔管理
 ### 伏笔状态流转
@@ -688,7 +703,7 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 ### 管理建议
 
 - **过期提醒**：期望回收章节已过时提醒
-- **数量控制**：活跃超过0个时建议回收低优先级
+- **数量控制**：活跃伏笔超过 20 个时建议回收低优先级
 - **新伏笔规则**：近期设置多个新伏笔时规划回收时间
 ---
 
@@ -752,30 +767,30 @@ python skills/wq-review/scripts/anti-ai-scan.py <chapters_dir> \
 ---
 
 # 第十二部分：子Agent精简版规则
-> **子Agent专用规则**规`subagent-rules.md`。子Agent只读 context pack + 该文件，不读取本全局规则。
+> **子Agent专用规则**见 `subagent-rules.md`。子Agent只读 context pack + 该文件，不读取本全局规则。
 ---
 
 # 第十三部分：平台适配规则索引
 
-平台适配规则按阶段拆分，各阶段职责不重叠）
+平台适配规则按阶段拆分，各阶段职责不重叠：
 | 阶段 | 负责 Skill | 检查内容| 输出 |
 |------|-----------|----------|------|
 | **选题阶段** | `wq-topic` | 风格-平台兼容性矩阵、章节字数平台匹配 | 警告 + `platform-fit.json` |
-| **审查阶段** | `wq-review` | 开篇钩子强度、叙事效率（对话/独白/描写占比）、信息密库| 审查报告 + fix-plan |
+| **审查阶段** | `wq-review` | 开篇钩子强度、叙事效率（对话/独白/描写占比）、信息密度 | 审查报告 + fix-plan |
 | **构建阶段** | `wq-finalize` | Build 前质量门禁（同review 指标，但不修改章节） | `build-quality-report.md` + 平台适配建议 |
 
 ## 核心指标定义
 
 | 指标 | 阈值| 适用范围 |
 |------|------|----------|
-| 前00字冲突启加| ≥00存| 第章|
-| 前00字无设定铺陈 | 0存| 第章|
-| 结尾钩子 | 每章必须本| 第-3章强制，其余建议 |
+| 前300字冲突叠加 | ≥100字 | 第1章 |
+| 前300字无设定铺陈 | 0字 | 第1章 |
+| 结尾钩子 | 每章必须有 | 第1-3章强制，其余建议 |
 | 对话占比 | ≥5% | 全部章节 |
-| 内心独白占比 | ≥0% | 全部章节 |
-| 纯描写占比| ≥5% | 全部章节 |
-| 核心事件数| ≥为章| 全部章节 |
-| 连续低密库| ≥章| 全部章节 |
+| 内心独白占比 | ≤10% | 全部章节 |
+| 纯描写占比 | ≤35% | 全部章节 |
+| 核心事件数 | ≥1/章 | 全部章节 |
+| 连续低密度 | ≥3章 | 全部章节 |
 
 ---
 

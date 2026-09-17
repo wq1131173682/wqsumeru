@@ -1,7 +1,8 @@
 ---
 name: subagent-rules
 description: 子Agent精简版约束规则。子Agent只读此文件+context pack，不读取全局规则。
-type: skill
+version: 1.2.7
+type: reference
 ---
 
 # 子Agent精简版约束规则
@@ -14,11 +15,12 @@ type: skill
 
 | 原则 | 说明 |
 |------|------|
-| **读 2 个文件：共享上下文 + 本组任务卡** | 先读共享上下文 `shared-{task}.md`，再读本组任务卡 `cards-{范围}.md`。除此之外不读任何文件。 |
+| **读 2 个文件：共享上下文 + 本组任务卡** | 先读共享上下文 `shared-{task}.md`，再读本组任务卡 `cards-{范围}.md`。除此之外不读任何文件（已在项目中的本章节文件除外）。 |
 | **执行单一核心任务** | 根据 context pack 中的任务卡/审查标准/润色要求，完成唯一核心任务 |
-| **输出纯结果** | 输出纯文本结果（正文、审查结论、润色后文本、细纲），不包含状态更新指令 |
+| **正文/细纲必须写入文件** | **产出不得只返回文本，必须写入 context pack 明确给出的路径**：write → `chapters/{三位章号}-{标题}.md`；polish → `.sumeru/polish/temp/{章号}.md`；revise → `chapters/{章号}-{标题}.md`；outline → `outlines/chapter-XXX-YYY.md`。路径由父Agent在 context pack 中给出，**禁止自行推断**。 |
+| **分析类结果返回文本** | 审查结论、评分、拆解卡片等非正文产出，以纯文本/JSON 返回父Agent，不写文件 |
 | **不碰状态** | 不更新 status.json、不写 changelog、不刷 cache、不写 issues |
-| **输出状态标记** | 正文/细纲首行必须包含 `<!-- SUMERU_STATUS: ... -->` 注释 |
+| **返回状态标记** | 写入文件时首行必须为 `<!-- SUMERU_STATUS: ... -->`；返回父Agent的内容仅含该标记（及技能要求的附注），**不含正文** |
 
 ---
 
@@ -64,9 +66,31 @@ type: skill
 3. 两个文件的内容合并作为完整的 context
 
 **规则：**
-- 不读取这两个文件之外的任何信息
+- 不读取这两个文件之外的任何信息（本项目已存在的本章节文件除外）
 - context pack 中嵌入的"可用缓存的键"列表，如需更多信息可在输出中标记
 - 不主动搜索项目目录（Glob/Grep/Read 搜索项目目录视为违规）
+- **写入路径以 context pack 中的 `Output Requirements` 为准，禁止自行推断或改动文件名**
+
+---
+
+## 三·五、产出契约（正文必须写文件）
+
+> **核心**：正文与细纲**必须写入文件**，不能只把文本返回给父Agent。父Agent靠读文件收集产出。
+
+| 技能 | 写入路径 | 返回给父Agent |
+|------|----------|--------------|
+| `wq-write` | `chapters/{三位章号}-{标题}.md` | 仅 `<!-- SUMERU_STATUS: ... -->` |
+| `wq-polish` | `.sumeru/polish/temp/{三位章号}.md`（父Agent校验后写回 `chapters/`） | 仅 `<!-- SUMERU_STATUS: ... -->` |
+| `wq-revise` | `chapters/{三位章号}-{标题}.md` | `<!-- SUMERU_STATUS: ... -->` + `## REVISE_NOTE`（2-4 行） |
+| `wq-outline` | `outlines/chapter-XXX-YYY.md` | 仅 `<!-- SUMERU_STATUS: ... -->` |
+
+**硬性要求：**
+1. 文件**第一行**必须是 `<!-- SUMERU_STATUS: ... -->`，不能有任何前置文字
+2. 返回给父Agent的内容**不含正文**——正文已在文件里
+3. 文件名与路径**必须与 context pack 给出的一致**，父Agent会做路径校验，不符将删除该文件并终止
+4. 文件写入失败（权限/路径不存在）时，在返回内容首行显式报告，**不得静默改用其它路径**
+
+> **分析类技能不写文件**：`wq-review`（审查结论）、`wq-score`（维度评分）、`wq-scan`（拆解卡片）、`wq-finalize`（待定项建议）以纯文本/JSON 返回父Agent。
 
 ---
 
@@ -101,17 +125,17 @@ type: skill
 
 ## 六、各 Skill 子Agent核心任务
 
-| Skill | 核心任务 | 输入 | 输出 |
+| Skill | 核心任务 | 输入 | 输出（写入路径 / 返回内容） |
 |-------|----------|------|------|
-| **wq-scan** | 深度拆解单本书 | context pack（书籍文本/URL+拆解维度+输出格式） | 标杆拆解卡片（Markdown） |
-| **wq-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾+剧情事实基准+人物/道具/伏笔状态） | 纯正文文本 + 状态标记 |
-| **wq-review** | 按任务卡审查章节 | context pack（任务卡+正文+审查标准+consistency-rules） | 审查结论（问题列表+严重程度+证据+建议） |
-| **wq-polish** | 按标准润色章节 | context pack（正文+style-brief+creative-brief+审查问题+具象标杆） | 润色后正文 + 状态标记 |
-| **wq-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | 章节细纲 JSON/Markdown + 状态标记 |
-| **wq-score** | 单维度评分 | context pack（本维度数据+评分标准+consistency/anti-ai 输出） | 维度评分 JSON（items+dimensionScore+强弱项） |
-| **wq-revise** | 按修稿任务卡改章节 | context pack（shared-revise.md + cards-rev-{章}.md，含 scope+allowedOps+forbiddenOps+protectedElements+scope段原文） | 修改后完整正文 + SUMERU_STATUS + REVISE_NOTE |
-| **wq-finalize** | 待定项判断 | 待定项列表（最多20个） | 待定项处理建议 |
-| **wq-finalize** | 格式导出（脚本） | chapters/ + outlines/chapters.json | md/txt 分章 + 整文 + 按卷导出（文件名 第001章-标题.md） |
+| **wq-scan** | 深度拆解单本书 | context pack（书籍文本/URL+拆解维度+输出格式） | 返回：标杆拆解卡片（Markdown，不写文件） |
+| **wq-write** | 按任务卡写正文 | context pack（任务卡+上一章结尾+剧情事实基准+人物/道具/伏笔状态） | **写入** `chapters/{三位章号}-{标题}.md`；返回 SUMERU_STATUS 标记 |
+| **wq-review** | 按任务卡审查章节 | context pack（任务卡+正文+审查标准+consistency-rules） | 返回：审查结论（问题列表+严重程度+证据+建议），不写文件 |
+| **wq-polish** | 按标准润色章节 | context pack（正文+style-brief+creative-brief+审查问题+具象标杆） | **写入** `.sumeru/polish/temp/{章号}.md`（父Agent校验后写回 `chapters/`）；返回 SUMERU_STATUS 标记 |
+| **wq-outline** | 生成章节细纲 | context pack（世界观+人物+分卷大纲+上下文关联） | **写入** `outlines/chapter-XXX-YYY.md`；返回 SUMERU_STATUS 标记 |
+| **wq-score** | 单维度评分 | context pack（本维度数据+评分标准+consistency/anti-ai 输出） | 返回：维度评分 JSON（items+dimensionScore+强弱项），不写文件 |
+| **wq-revise** | 按修稿任务卡改章节 | context pack（shared-revise.md + cards-rev-{章}.md，含 scope+allowedOps+forbiddenOps+protectedElements+scope段原文） | **写入** `chapters/{三位章号}-{标题}.md`；返回 SUMERU_STATUS 标记 + `## REVISE_NOTE` |
+| **wq-finalize** | 待定项判断 | 待定项列表（最多20个） | 返回：待定项处理建议，不写文件 |
+| **wq-finalize** | 格式导出（脚本） | chapters/ + outlines/chapters.json | 脚本产出：md/txt 分章 + 整文 + 按卷导出（文件名 第001章-标题.md） |
 
 ---
 
@@ -205,10 +229,10 @@ context pack 中嵌入了用户风格特征时，主动模仿其用词、句式�
 
 ## 十、禁止行为
 
-- ❌ 不读取 `shared-{task}.md` 和 `cards-{范围}.md` 以外的任何文件
-- ❌ 不写入任何项目文件（chapters/、outlines/、reviews/ 等）
+- ❌ 不读取 `shared-{task}.md`、`cards-{范围}.md` 以及**本项目已存在的本章节文件**之外的任何文件
+- ❌ 不写入 context pack 指定路径以外的任何文件（不新建、不修改 `reviews/`、`tests/`、`.sumeru/` 下的状态类文件）
 - ❌ 不更新 status.json、changelog、cache、issues
 - ❌ 不使用 Glob/Grep/Read 搜索项目目录
-- ❌ 不在输出中包含状态更新指令
+- ❌ 不在输出中要求父Agent更新状态（状态同步由父Agent依据 SUMERU_STATUS 自行完成）
 - ❌ 不输出中间报告和技术细节
 - **🚫 绝对禁止再调度子Agent**：不得使用 subagent、ralph、workflow、task 或任何方式启动新的子Agent；所有任务必须在本Agent内独立完成
